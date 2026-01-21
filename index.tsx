@@ -1,581 +1,311 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
-*/
-
-//Vibe coded by ammaar@google.com
-
-import { GoogleGenAI } from '@google/genai';
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-import { Artifact, Session, ComponentVariation, LayoutOption } from './types';
-import { INITIAL_PLACEHOLDERS } from './constants';
-import { generateId } from './utils';
+// --- Types ---
+type GameStatus = 'START' | 'PLAYING' | 'WON' | 'LOST_ENERGY' | 'LOST_TIME';
 
-import DottedGlowBackground from './components/DottedGlowBackground';
-import ArtifactCard from './components/ArtifactCard';
-import SideDrawer from './components/SideDrawer';
-import { 
-    ThinkingIcon, 
-    CodeIcon, 
-    SparklesIcon, 
-    ArrowLeftIcon, 
-    ArrowRightIcon, 
-    ArrowUpIcon, 
-    GridIcon 
-} from './components/Icons';
+// --- Constants ---
+const INITIAL_TIME = 60;
+const INITIAL_ENERGY = 100;
+const PASS_READINESS = 100;
 
-function App() {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [currentSessionIndex, setCurrentSessionIndex] = useState<number>(-1);
-  const [focusedArtifactIndex, setFocusedArtifactIndex] = useState<number | null>(null);
-  
-  const [inputValue, setInputValue] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-  const [placeholders, setPlaceholders] = useState<string[]>(INITIAL_PLACEHOLDERS);
-  
-  const [drawerState, setDrawerState] = useState<{
-      isOpen: boolean;
-      mode: 'code' | 'variations' | null;
-      title: string;
-      data: any; 
-  }>({ isOpen: false, mode: null, title: '', data: null });
-
-  const [componentVariations, setComponentVariations] = useState<ComponentVariation[]>([]);
-
-  const inputRef = useRef<HTMLInputElement>(null);
-  const gridScrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-      inputRef.current?.focus();
-  }, []);
-
-  // Fix for mobile: reset scroll when focusing an item to prevent "overscroll" state
-  useEffect(() => {
-    if (focusedArtifactIndex !== null && window.innerWidth <= 1024) {
-        if (gridScrollRef.current) {
-            gridScrollRef.current.scrollTop = 0;
-        }
-        window.scrollTo(0, 0);
-    }
-  }, [focusedArtifactIndex]);
-
-  // Cycle placeholders
-  useEffect(() => {
-      const interval = setInterval(() => {
-          setPlaceholderIndex(prev => (prev + 1) % placeholders.length);
-      }, 3000);
-      return () => clearInterval(interval);
-  }, [placeholders.length]);
-
-  // Dynamic placeholder generation on load
-  useEffect(() => {
-      const fetchDynamicPlaceholders = async () => {
-          try {
-              const apiKey = process.env.API_KEY;
-              if (!apiKey) return;
-              const ai = new GoogleGenAI({ apiKey });
-              const response = await ai.models.generateContent({
-                  model: 'gemini-3-flash-preview',
-                  contents: { 
-                      role: 'user', 
-                      parts: [{ 
-                          text: 'Generate 20 creative, short, diverse UI component prompts (e.g. "bioluminescent task list"). Return ONLY a raw JSON array of strings. IP SAFEGUARD: Avoid referencing specific famous artists, movies, or brands.' 
-                      }] 
-                  }
-              });
-              const text = response.text || '[]';
-              const jsonMatch = text.match(/\[[\s\S]*\]/);
-              if (jsonMatch) {
-                  const newPlaceholders = JSON.parse(jsonMatch[0]);
-                  if (Array.isArray(newPlaceholders) && newPlaceholders.length > 0) {
-                      const shuffled = newPlaceholders.sort(() => 0.5 - Math.random()).slice(0, 10);
-                      setPlaceholders(prev => [...prev, ...shuffled]);
-                  }
-              }
-          } catch (e) {
-              console.warn("Silently failed to fetch dynamic placeholders", e);
-          }
-      };
-      setTimeout(fetchDynamicPlaceholders, 1000);
-  }, []);
-
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(event.target.value);
-  };
-
-  const parseJsonStream = async function* (responseStream: AsyncGenerator<{ text: string }>) {
-      let buffer = '';
-      for await (const chunk of responseStream) {
-          const text = chunk.text;
-          if (typeof text !== 'string') continue;
-          buffer += text;
-          let braceCount = 0;
-          let start = buffer.indexOf('{');
-          while (start !== -1) {
-              braceCount = 0;
-              let end = -1;
-              for (let i = start; i < buffer.length; i++) {
-                  if (buffer[i] === '{') braceCount++;
-                  else if (buffer[i] === '}') braceCount--;
-                  if (braceCount === 0 && i > start) {
-                      end = i;
-                      break;
-                  }
-              }
-              if (end !== -1) {
-                  const jsonString = buffer.substring(start, end + 1);
-                  try {
-                      yield JSON.parse(jsonString);
-                      buffer = buffer.substring(end + 1);
-                      start = buffer.indexOf('{');
-                  } catch (e) {
-                      start = buffer.indexOf('{', start + 1);
-                  }
-              } else {
-                  break; 
-              }
-          }
-      }
-  };
-
-  const handleGenerateVariations = useCallback(async () => {
-    const currentSession = sessions[currentSessionIndex];
-    if (!currentSession || focusedArtifactIndex === null) return;
-    const currentArtifact = currentSession.artifacts[focusedArtifactIndex];
-
-    setIsLoading(true);
-    setComponentVariations([]);
-    setDrawerState({ isOpen: true, mode: 'variations', title: 'Variations', data: currentArtifact.id });
-
-    try {
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) throw new Error("API_KEY is not configured.");
-        const ai = new GoogleGenAI({ apiKey });
-
-        const prompt = `
-You are a master UI/UX designer. Generate 3 RADICAL CONCEPTUAL VARIATIONS of: "${currentSession.prompt}".
-
-**STRICT IP SAFEGUARD:**
-No names of artists. 
-Instead, describe the *Physicality* and *Material Logic* of the UI.
-
-**CREATIVE GUIDANCE (Use these as EXAMPLES of how to describe style, but INVENT YOUR OWN):**
-1. Example: "Asymmetrical Primary Grid" (Heavy black strokes, rectilinear structure, flat primary pigments, high-contrast white space).
-2. Example: "Suspended Kinetic Mobile" (Delicate wire-thin connections, floating organic primary shapes, slow-motion balance, white-void background).
-3. Example: "Grainy Risograph Press" (Overprinted translucent inks, dithered grain textures, monochromatic color depth, raw paper substrate).
-4. Example: "Volumetric Spectral Fluid" (Generative morphing gradients, soft-focus diffusion, bioluminescent light sources, spectral chromatic aberration).
-
-**YOUR TASK:**
-For EACH variation:
-- Invent a unique design persona name based on a NEW physical metaphor.
-- Rewrite the prompt to fully adopt that metaphor's visual language.
-- Generate high-fidelity HTML/CSS.
-
-Required JSON Output Format (stream ONE object per line):
-\`{ "name": "Persona Name", "html": "..." }\`
-        `.trim();
-
-        const responseStream = await ai.models.generateContentStream({
-            model: 'gemini-3-flash-preview',
-             contents: [{ parts: [{ text: prompt }], role: 'user' }],
-             config: { temperature: 1.2 }
-        });
-
-        for await (const variation of parseJsonStream(responseStream)) {
-            if (variation.name && variation.html) {
-                setComponentVariations(prev => [...prev, variation]);
-            }
-        }
-    } catch (e: any) {
-        console.error("Error generating variations:", e);
-    } finally {
-        setIsLoading(false);
-    }
-  }, [sessions, currentSessionIndex, focusedArtifactIndex]);
-
-  const applyVariation = (html: string) => {
-      if (focusedArtifactIndex === null) return;
-      setSessions(prev => prev.map((sess, i) => 
-          i === currentSessionIndex ? {
-              ...sess,
-              artifacts: sess.artifacts.map((art, j) => 
-                j === focusedArtifactIndex ? { ...art, html, status: 'complete' } : art
-              )
-          } : sess
-      ));
-      setDrawerState(s => ({ ...s, isOpen: false }));
-  };
-
-  const handleShowCode = () => {
-      const currentSession = sessions[currentSessionIndex];
-      if (currentSession && focusedArtifactIndex !== null) {
-          const artifact = currentSession.artifacts[focusedArtifactIndex];
-          setDrawerState({ isOpen: true, mode: 'code', title: 'Source Code', data: artifact.html });
-      }
-  };
-
-  const handleSendMessage = useCallback(async (manualPrompt?: string) => {
-    const promptToUse = manualPrompt || inputValue;
-    const trimmedInput = promptToUse.trim();
+const App: React.FC = () => {
+    // Game State
+    const [status, setStatus] = useState<GameStatus>('START');
+    const [readiness, setReadiness] = useState(0);
+    const [energy, setEnergy] = useState(INITIAL_ENERGY);
+    const [timeLeft, setTimeLeft] = useState(INITIAL_TIME);
+    const [isLightOn, setIsLightOn] = useState(true);
     
-    if (!trimmedInput || isLoading) return;
-    if (!manualPrompt) setInputValue('');
+    // Three.js Refs
+    const mountRef = useRef<HTMLDivElement>(null);
+    const sceneRef = useRef<THREE.Scene | null>(null);
+    const lampLightRef = useRef<THREE.PointLight | null>(null);
+    const laptopScreenRef = useRef<THREE.Mesh | null>(null);
 
-    setIsLoading(true);
-    const baseTime = Date.now();
-    const sessionId = generateId();
+    // --- Three.js Initialization ---
+    useEffect(() => {
+        if (!mountRef.current) return;
 
-    const placeholderArtifacts: Artifact[] = Array(3).fill(null).map((_, i) => ({
-        id: `${sessionId}_${i}`,
-        styleName: 'Designing...',
-        html: '',
-        status: 'streaming',
-    }));
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050508);
+        scene.fog = new THREE.FogExp2(0x050508, 0.08);
+        sceneRef.current = scene;
 
-    const newSession: Session = {
-        id: sessionId,
-        prompt: trimmedInput,
-        timestamp: baseTime,
-        artifacts: placeholderArtifacts
-    };
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(5, 5, 5);
 
-    setSessions(prev => [...prev, newSession]);
-    setCurrentSessionIndex(sessions.length); 
-    setFocusedArtifactIndex(null); 
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        mountRef.current.appendChild(renderer.domElement);
 
-    try {
-        const apiKey = process.env.API_KEY;
-        if (!apiKey) throw new Error("API_KEY is not configured.");
-        const ai = new GoogleGenAI({ apiKey });
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.maxPolarAngle = Math.PI / 2.1;
+        controls.minDistance = 3;
+        controls.maxDistance = 12;
 
-        const stylePrompt = `
-Generate 3 distinct, highly evocative design directions for: "${trimmedInput}".
+        // Lighting
+        const ambient = new THREE.AmbientLight(0xffffff, 0.15);
+        scene.add(ambient);
 
-**STRICT IP SAFEGUARD:**
-Never use artist or brand names. Use physical and material metaphors.
+        const moonlight = new THREE.DirectionalLight(0x4444ff, 0.3);
+        moonlight.position.set(-5, 10, -5);
+        scene.add(moonlight);
 
-**CREATIVE EXAMPLES (Do not simply copy these, use them as a guide for tone):**
-- Example A: "Asymmetrical Rectilinear Blockwork" (Grid-heavy, primary pigments, thick structural strokes, Bauhaus-functionalism vibe).
-- Example B: "Grainy Risograph Layering" (Tactile paper texture, overprinted translucent inks, dithered gradients).
-- Example C: "Kinetic Wireframe Suspension" (Floating silhouettes, thin balancing lines, organic primary shapes).
-- Example D: "Spectral Prismatic Diffusion" (Glassmorphism, caustic refraction, soft-focus morphing gradients).
+        const lampLight = new THREE.PointLight(0xffaa00, 2, 8);
+        lampLight.position.set(2, 0.8, -1.5);
+        lampLight.castShadow = true;
+        scene.add(lampLight);
+        lampLightRef.current = lampLight;
 
-**GOAL:**
-Return ONLY a raw JSON array of 3 *NEW*, creative names for these directions (e.g. ["Tactile Risograph Press", "Kinetic Silhouette Balance", "Primary Pigment Gridwork"]).
-        `.trim();
-
-        const styleResponse = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: { role: 'user', parts: [{ text: stylePrompt }] }
-        });
-
-        let generatedStyles: string[] = [];
-        const styleText = styleResponse.text || '[]';
-        const jsonMatch = styleText.match(/\[[\s\S]*\]/);
-        
-        if (jsonMatch) {
-            try {
-                generatedStyles = JSON.parse(jsonMatch[0]);
-            } catch (e) {
-                console.warn("Failed to parse styles, using fallbacks");
-            }
-        }
-
-        if (!generatedStyles || generatedStyles.length < 3) {
-            generatedStyles = [
-                "Primary Pigment Gridwork",
-                "Tactile Risograph Layering",
-                "Kinetic Silhouette Balance"
-            ];
-        }
-        
-        generatedStyles = generatedStyles.slice(0, 3);
-
-        setSessions(prev => prev.map(s => {
-            if (s.id !== sessionId) return s;
-            return {
-                ...s,
-                artifacts: s.artifacts.map((art, i) => ({
-                    ...art,
-                    styleName: generatedStyles[i]
-                }))
-            };
-        }));
-
-        const generateArtifact = async (artifact: Artifact, styleInstruction: string) => {
-            try {
-                const prompt = `
-You are Flash UI. Create a stunning, high-fidelity UI component for: "${trimmedInput}".
-
-**CONCEPTUAL DIRECTION: ${styleInstruction}**
-
-**VISUAL EXECUTION RULES:**
-1. **Materiality**: Use the specified metaphor to drive every CSS choice. (e.g. if Risograph, use \`feTurbulence\` for grain and \`mix-blend-mode: multiply\` for ink layering).
-2. **Typography**: Use high-quality web fonts. Pair a bold sans-serif with a refined monospace for data.
-3. **Motion**: Include subtle, high-performance CSS/JS animations (hover transitions, entry reveals).
-4. **IP SAFEGUARD**: No artist names or trademarks. 
-5. **Layout**: Be bold with negative space and hierarchy. Avoid generic cards.
-
-Return ONLY RAW HTML. No markdown fences.
-          `.trim();
-          
-                const responseStream = await ai.models.generateContentStream({
-                    model: 'gemini-3-flash-preview',
-                    contents: [{ parts: [{ text: prompt }], role: "user" }],
-                });
-
-                let accumulatedHtml = '';
-                for await (const chunk of responseStream) {
-                    const text = chunk.text;
-                    if (typeof text === 'string') {
-                        accumulatedHtml += text;
-                        setSessions(prev => prev.map(sess => 
-                            sess.id === sessionId ? {
-                                ...sess,
-                                artifacts: sess.artifacts.map(art => 
-                                    art.id === artifact.id ? { ...art, html: accumulatedHtml } : art
-                                )
-                            } : sess
-                        ));
-                    }
-                }
-                
-                let finalHtml = accumulatedHtml.trim();
-                if (finalHtml.startsWith('```html')) finalHtml = finalHtml.substring(7).trimStart();
-                if (finalHtml.startsWith('```')) finalHtml = finalHtml.substring(3).trimStart();
-                if (finalHtml.endsWith('```')) finalHtml = finalHtml.substring(0, finalHtml.length - 3).trimEnd();
-
-                setSessions(prev => prev.map(sess => 
-                    sess.id === sessionId ? {
-                        ...sess,
-                        artifacts: sess.artifacts.map(art => 
-                            art.id === artifact.id ? { ...art, html: finalHtml, status: finalHtml ? 'complete' : 'error' } : art
-                        )
-                    } : sess
-                ));
-
-            } catch (e: any) {
-                console.error('Error generating artifact:', e);
-                setSessions(prev => prev.map(sess => 
-                    sess.id === sessionId ? {
-                        ...sess,
-                        artifacts: sess.artifacts.map(art => 
-                            art.id === artifact.id ? { ...art, html: `<div style="color: #ff6b6b; padding: 20px;">Error: ${e.message}</div>`, status: 'error' } : art
-                        )
-                    } : sess
-                ));
-            }
+        // Room Geometry
+        const mats = {
+            floor: new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 }),
+            wall: new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 1 }),
+            wood: new THREE.MeshStandardMaterial({ color: 0x3d2b1f, roughness: 0.7 }),
+            fabric: new THREE.MeshStandardMaterial({ color: 0x1e293b }),
+            screenOff: new THREE.MeshStandardMaterial({ color: 0x111111 }),
+            screenOn: new THREE.MeshBasicMaterial({ color: 0x60a5fa }),
+            gold: new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2 })
         };
 
-        await Promise.all(placeholderArtifacts.map((art, i) => generateArtifact(art, generatedStyles[i])));
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), mats.floor);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -1;
+        floor.receiveShadow = true;
+        scene.add(floor);
 
-    } catch (e) {
-        console.error("Fatal error in generation process", e);
-    } finally {
-        setIsLoading(false);
-        setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [inputValue, isLoading, sessions.length]);
+        const wallB = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 0.2), mats.wall);
+        wallB.position.set(0, 2, -5);
+        wallB.receiveShadow = true;
+        scene.add(wallB);
 
-  const handleSurpriseMe = () => {
-      const currentPrompt = placeholders[placeholderIndex];
-      setInputValue(currentPrompt);
-      handleSendMessage(currentPrompt);
-  };
+        const wallL = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 0.2), mats.wall);
+        wallL.rotation.y = Math.PI / 2;
+        wallL.position.set(-5, 2, 0);
+        wallL.receiveShadow = true;
+        scene.add(wallL);
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter' && !isLoading) {
-      event.preventDefault();
-      handleSendMessage();
-    } else if (event.key === 'Tab' && !inputValue && !isLoading) {
-        event.preventDefault();
-        setInputValue(placeholders[placeholderIndex]);
-    }
-  };
+        // Desk
+        const desk = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 1.5), mats.wood);
+        desk.position.set(1.5, -0.1, -1.5);
+        desk.castShadow = true;
+        desk.receiveShadow = true;
+        scene.add(desk);
 
-  const nextItem = useCallback(() => {
-      if (focusedArtifactIndex !== null) {
-          if (focusedArtifactIndex < 2) setFocusedArtifactIndex(focusedArtifactIndex + 1);
-      } else {
-          if (currentSessionIndex < sessions.length - 1) setCurrentSessionIndex(currentSessionIndex + 1);
-      }
-  }, [currentSessionIndex, sessions.length, focusedArtifactIndex]);
+        const legGeo = new THREE.BoxGeometry(0.1, 0.9, 0.1);
+        const l1 = new THREE.Mesh(legGeo, mats.wood); l1.position.set(0.1, -0.55, -0.8);
+        const l2 = new THREE.Mesh(legGeo, mats.wood); l2.position.set(2.9, -0.55, -0.8);
+        const l3 = new THREE.Mesh(legGeo, mats.wood); l3.position.set(0.1, -0.55, -2.2);
+        const l4 = new THREE.Mesh(legGeo, mats.wood); l4.position.set(2.9, -0.55, -2.2);
+        scene.add(l1, l2, l3, l4);
 
-  const prevItem = useCallback(() => {
-      if (focusedArtifactIndex !== null) {
-          if (focusedArtifactIndex > 0) setFocusedArtifactIndex(focusedArtifactIndex - 1);
-      } else {
-           if (currentSessionIndex > 0) setCurrentSessionIndex(currentSessionIndex - 1);
-      }
-  }, [currentSessionIndex, focusedArtifactIndex]);
+        // Bed
+        const bedFrame = new THREE.Mesh(new THREE.BoxGeometry(3, 0.5, 5), mats.wood);
+        bedFrame.position.set(-3, -0.75, 0);
+        scene.add(bedFrame);
+        const mattress = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.4, 4.8), mats.fabric);
+        mattress.position.set(-3, -0.4, 0);
+        scene.add(mattress);
 
-  const isLoadingDrawer = isLoading && drawerState.mode === 'variations' && componentVariations.length === 0;
+        // Laptop
+        const laptopBase = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.05, 0.6), new THREE.MeshStandardMaterial({color: 0x333333}));
+        laptopBase.position.set(1.5, 0, -1.5);
+        scene.add(laptopBase);
+        const laptopScreen = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.05), mats.screenOn);
+        laptopScreen.position.set(1.5, 0.25, -1.8);
+        laptopScreen.rotation.x = 0.15;
+        scene.add(laptopScreen);
+        laptopScreenRef.current = laptopScreen;
 
-  const hasStarted = sessions.length > 0 || isLoading;
-  const currentSession = sessions[currentSessionIndex];
+        // Lamp
+        const lampPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.8), mats.gold);
+        lampPole.position.set(2.5, 0.35, -2);
+        scene.add(lampPole);
+        const lampShade = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.4, 16), mats.fabric);
+        lampShade.position.set(2.5, 0.8, -2);
+        scene.add(lampShade);
 
-  let canGoBack = false;
-  let canGoForward = false;
+        // Particles
+        const pointsGeo = new THREE.BufferGeometry();
+        const coords = [];
+        for(let i=0; i<500; i++) {
+            coords.push((Math.random()-0.5)*20, (Math.random()-0.5)*20, (Math.random()-0.5)*20);
+        }
+        pointsGeo.setAttribute('position', new THREE.Float32BufferAttribute(coords, 3));
+        const pointsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05, transparent: true, opacity: 0.3 });
+        const points = new THREE.Points(pointsGeo, pointsMat);
+        scene.add(points);
 
-  if (hasStarted) {
-      if (focusedArtifactIndex !== null) {
-          canGoBack = focusedArtifactIndex > 0;
-          canGoForward = focusedArtifactIndex < (currentSession?.artifacts.length || 0) - 1;
-      } else {
-          canGoBack = currentSessionIndex > 0;
-          canGoForward = currentSessionIndex < sessions.length - 1;
-      }
-  }
+        const animate = () => {
+            requestAnimationFrame(animate);
+            controls.update();
+            points.rotation.y += 0.001;
+            renderer.render(scene, camera);
+        };
+        animate();
 
-  return (
-    <>
-        <a href="https://x.com/ammaar" target="_blank" rel="noreferrer" className={`creator-credit ${hasStarted ? 'hide-on-mobile' : ''}`}>
-            created by @ammaar
-        </a>
+        const handleResize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+        window.addEventListener('resize', handleResize);
 
-        <SideDrawer 
-            isOpen={drawerState.isOpen} 
-            onClose={() => setDrawerState(s => ({...s, isOpen: false}))} 
-            title={drawerState.title}
-        >
-            {isLoadingDrawer && (
-                 <div className="loading-state">
-                     <ThinkingIcon /> 
-                     Designing variations...
-                 </div>
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            mountRef.current?.removeChild(renderer.domElement);
+        };
+    }, []);
+
+    // Update 3D components based on state
+    useEffect(() => {
+        if (lampLightRef.current) lampLightRef.current.intensity = isLightOn ? 2 : 0;
+        if (laptopScreenRef.current) {
+            laptopScreenRef.current.material = isLightOn ? 
+                new THREE.MeshBasicMaterial({ color: 0x60a5fa }) : 
+                new THREE.MeshStandardMaterial({ color: 0x111111 });
+        }
+    }, [isLightOn]);
+
+    // Game Loop
+    useEffect(() => {
+        let timer: number;
+        if (status === 'PLAYING') {
+            timer = window.setInterval(() => {
+                setTimeLeft(prev => {
+                    if (prev <= 1) {
+                        setStatus('LOST_TIME');
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+                setEnergy(prev => {
+                    const decay = 0.4;
+                    if (prev <= decay) {
+                        setStatus('LOST_ENERGY');
+                        return 0;
+                    }
+                    return prev - decay;
+                });
+            }, 1000);
+        }
+        return () => clearInterval(timer);
+    }, [status]);
+
+    // Interactions
+    const handleStudy = useCallback(() => {
+        if (status !== 'PLAYING') return;
+        if (!isLightOn) return;
+        
+        setReadiness(prev => {
+            const next = prev + 5;
+            if (next >= PASS_READINESS) setStatus('WON');
+            return Math.min(next, PASS_READINESS);
+        });
+        setEnergy(prev => Math.max(0, prev - 10));
+    }, [status, isLightOn]);
+
+    const handleSleep = useCallback(() => {
+        if (status !== 'PLAYING') return;
+        setEnergy(prev => Math.min(INITIAL_ENERGY, prev + 25));
+    }, [status]);
+
+    const toggleLight = useCallback(() => {
+        if (status !== 'PLAYING') return;
+        setIsLightOn(!isLightOn);
+    }, [isLightOn, status]);
+
+    const startGame = () => {
+        setReadiness(0);
+        setEnergy(INITIAL_ENERGY);
+        setTimeLeft(INITIAL_TIME);
+        setIsLightOn(true);
+        setStatus('PLAYING');
+    };
+
+    return (
+        <div className="game-container">
+            <div ref={mountRef} className="three-mount" />
+
+            {/* HUD */}
+            {status === 'PLAYING' && (
+                <div className="hud">
+                    <div className="hud-header">
+                        <div className="title">EDINBURGH CRUNCH</div>
+                        <div className="timer">{timeLeft}s</div>
+                    </div>
+                    
+                    <div className="stats">
+                        <div className="stat-group">
+                            <div className="stat-label">READINESS <span>{readiness}%</span></div>
+                            <div className="bar-bg"><div className="bar-fill readiness" style={{width: `${readiness}%`}} /></div>
+                        </div>
+                        <div className="stat-group">
+                            <div className="stat-label">ENERGY <span>{Math.floor(energy)}%</span></div>
+                            <div className="bar-bg"><div className="bar-fill energy" style={{width: `${energy}%`}} /></div>
+                        </div>
+                    </div>
+
+                    <div className="actions">
+                        <button className={`action-btn ${!isLightOn ? 'disabled' : ''}`} onClick={handleStudy}>
+                            <span className="icon">📚</span> Study
+                        </button>
+                        <button className="action-btn" onClick={handleSleep}>
+                            <span className="icon">💤</span> Sleep
+                        </button>
+                        <button className="action-btn" onClick={toggleLight}>
+                            <span className="icon">💡</span> {isLightOn ? 'Off' : 'On'}
+                        </button>
+                    </div>
+                </div>
             )}
 
-            {drawerState.mode === 'code' && (
-                <pre className="code-block"><code>{drawerState.data}</code></pre>
+            {/* Modals */}
+            {(status === 'START' || status === 'WON' || status.startsWith('LOST')) && (
+                <div className="modal-overlay">
+                    <div className="modal">
+                        {status === 'START' && (
+                            <>
+                                <h1>EXAM CRUNCH</h1>
+                                <p>You have 60 seconds to reach 100% readiness. Don't pass out from exhaustion.</p>
+                                <button className="start-btn" onClick={startGame}>BEGIN SESSION</button>
+                            </>
+                        )}
+                        {status === 'WON' && (
+                            <>
+                                <h1 className="success">PASSED!</h1>
+                                <p>Congratulations! You survived finals week at Edinburgh.</p>
+                                <button className="start-btn" onClick={startGame}>RETRY</button>
+                            </>
+                        )}
+                        {status === 'LOST_ENERGY' && (
+                            <>
+                                <h1 className="fail">COLLAPSED</h1>
+                                <p>You neglected your sleep. Balance is vital for an engineer.</p>
+                                <button className="start-btn" onClick={startGame}>TRY AGAIN</button>
+                            </>
+                        )}
+                        {status === 'LOST_TIME' && (
+                            <>
+                                <h1 className="fail">FAILED</h1>
+                                <p>The clock hit zero. The exam was harder than expected.</p>
+                                <button className="start-btn" onClick={startGame}>TRY AGAIN</button>
+                            </>
+                        )}
+                    </div>
+                </div>
             )}
             
-            {drawerState.mode === 'variations' && (
-                <div className="sexy-grid">
-                    {componentVariations.map((v, i) => (
-                         <div key={i} className="sexy-card" onClick={() => applyVariation(v.html)}>
-                             <div className="sexy-preview">
-                                 <iframe srcDoc={v.html} title={v.name} sandbox="allow-scripts allow-same-origin" />
-                             </div>
-                             <div className="sexy-label">{v.name}</div>
-                         </div>
-                    ))}
-                </div>
-            )}
-        </SideDrawer>
-
-        <div className="immersive-app">
-            <DottedGlowBackground 
-                gap={24} 
-                radius={1.5} 
-                color="rgba(255, 255, 255, 0.02)" 
-                glowColor="rgba(255, 255, 255, 0.15)" 
-                speedScale={0.5} 
-            />
-
-            <div className={`stage-container ${focusedArtifactIndex !== null ? 'mode-focus' : 'mode-split'}`}>
-                 <div className={`empty-state ${hasStarted ? 'fade-out' : ''}`}>
-                     <div className="empty-content">
-                         <h1>Flash UI</h1>
-                         <p>Creative UI generation in a flash</p>
-                         <button className="surprise-button" onClick={handleSurpriseMe} disabled={isLoading}>
-                             <SparklesIcon /> Surprise Me
-                         </button>
-                     </div>
-                 </div>
-
-                {sessions.map((session, sIndex) => {
-                    let positionClass = 'hidden';
-                    if (sIndex === currentSessionIndex) positionClass = 'active-session';
-                    else if (sIndex < currentSessionIndex) positionClass = 'past-session';
-                    else if (sIndex > currentSessionIndex) positionClass = 'future-session';
-                    
-                    return (
-                        <div key={session.id} className={`session-group ${positionClass}`}>
-                            <div className="artifact-grid" ref={sIndex === currentSessionIndex ? gridScrollRef : null}>
-                                {session.artifacts.map((artifact, aIndex) => {
-                                    const isFocused = focusedArtifactIndex === aIndex;
-                                    
-                                    return (
-                                        <ArtifactCard 
-                                            key={artifact.id}
-                                            artifact={artifact}
-                                            isFocused={isFocused}
-                                            onClick={() => setFocusedArtifactIndex(aIndex)}
-                                        />
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-             {canGoBack && (
-                <button className="nav-handle left" onClick={prevItem} aria-label="Previous">
-                    <ArrowLeftIcon />
-                </button>
-             )}
-             {canGoForward && (
-                <button className="nav-handle right" onClick={nextItem} aria-label="Next">
-                    <ArrowRightIcon />
-                </button>
-             )}
-
-            <div className={`action-bar ${focusedArtifactIndex !== null ? 'visible' : ''}`}>
-                 <div className="active-prompt-label">
-                    {currentSession?.prompt}
-                 </div>
-                 <div className="action-buttons">
-                    <button onClick={() => setFocusedArtifactIndex(null)}>
-                        <GridIcon /> Grid View
-                    </button>
-                    <button onClick={handleGenerateVariations} disabled={isLoading}>
-                        <SparklesIcon /> Variations
-                    </button>
-                    <button onClick={handleShowCode}>
-                        <CodeIcon /> Source
-                    </button>
-                 </div>
-            </div>
-
-            <div className="floating-input-container">
-                <div className={`input-wrapper ${isLoading ? 'loading' : ''}`}>
-                    {(!inputValue && !isLoading) && (
-                        <div className="animated-placeholder" key={placeholderIndex}>
-                            <span className="placeholder-text">{placeholders[placeholderIndex]}</span>
-                            <span className="tab-hint">Tab</span>
-                        </div>
-                    )}
-                    {!isLoading ? (
-                        <input 
-                            ref={inputRef}
-                            type="text" 
-                            value={inputValue} 
-                            onChange={handleInputChange} 
-                            onKeyDown={handleKeyDown} 
-                            disabled={isLoading} 
-                        />
-                    ) : (
-                        <div className="input-generating-label">
-                            <span className="generating-prompt-text">{currentSession?.prompt}</span>
-                            <ThinkingIcon />
-                        </div>
-                    )}
-                    <button className="send-button" onClick={() => handleSendMessage()} disabled={isLoading || !inputValue.trim()}>
-                        <ArrowUpIcon />
-                    </button>
-                </div>
-            </div>
+            <div className="watermark">Project: Edinburgh Sim v2.0</div>
         </div>
-    </>
-  );
-}
+    );
+};
 
-const rootElement = document.getElementById('root');
-if (rootElement) {
-  const root = ReactDOM.createRoot(rootElement);
-  root.render(<React.StrictMode><App /></React.StrictMode>);
-}
+const root = ReactDOM.createRoot(document.getElementById('root')!);
+root.render(<App />);

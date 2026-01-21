@@ -1,6 +1,6 @@
 {
-  "name": "Copy of Flash UI",
-  "description": "Put Gemini 3 Flash's creativity and coding abilities to the test. Rapidly generate UI, explore variations, and export code.",
+  "name": "Edinburgh Exam Crunch",
+  "description": "A 3D simulation of an Edinburgh student's final week. Balance study time, energy levels, and room atmosphere to pass your exams.",
   "requestFramePermissions": [],
   "prompt": ""
 }

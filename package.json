@@ -1,5 +1,5 @@
 {
-  "name": "copy-of-flash-ui",
+  "name": "edinburgh-exam-crunch",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,8 +10,9 @@
   },
   "dependencies": {
     "@google/genai": "^0.7.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "three": "^0.182.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
