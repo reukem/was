@@ -48,6 +48,17 @@ const LabUI: React.FC<LabUIProps> = ({ apiKey, setApiKey, lastReaction, containe
                 <div className="bg-slate-900/90 border-r border-slate-700 w-64 p-4 overflow-y-auto backdrop-blur-sm">
                      <h2 className="text-slate-300 font-bold mb-4 uppercase text-sm tracking-wider">Extra Supplies</h2>
                      <div className="space-y-2">
+                        <button
+                            onClick={() => onSpawn('BEAKER')}
+                            className="w-full text-left p-3 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-blue-500 transition-all group mb-2"
+                        >
+                             <div className="flex items-center justify-between mb-1">
+                                    <span className="font-semibold text-slate-200">Empty Beaker</span>
+                                    <div className="w-3 h-3 rounded-full border border-slate-500 bg-transparent"></div>
+                                </div>
+                                <div className="text-xs text-slate-500 group-hover:text-slate-400">Glass Container</div>
+                        </button>
+
                         {Object.values(CHEMICALS).map(chem => (
                             <button
                                 key={chem.id}

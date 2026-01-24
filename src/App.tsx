@@ -121,8 +121,37 @@ const ChemistryLab: React.FC = () => {
   }, [containers]);
 
   const handleSpawn = (chemId: string) => {
-     // Optional: User might still want to spawn extra beakers
-     // ...
+      // Random position
+      const x = (Math.random() - 0.5) * 4;
+      const z = (Math.random() - 0.5) * 2;
+
+      if (chemId === 'BEAKER') {
+          const newId = `c_${Date.now()}`;
+          setContainers(prev => [
+              ...prev,
+              {
+                  id: newId,
+                  position: [x, 2, z],
+                  rotation: [0, 0, 0],
+                  contents: { chemicalId: 'H2O', volume: 0, color: '#ffffff' }
+              }
+          ]);
+      } else {
+          // Spawn Source Item
+          const chem = CHEMICALS[chemId];
+          if (chem) {
+              const newId = `source_${chemId}_${Date.now()}`;
+              setContainers(prev => [
+                  ...prev,
+                  {
+                      id: newId,
+                      position: [x, 2, z],
+                      rotation: [0, 0, 0],
+                      contents: { chemicalId: chemId, volume: 1.0, color: chem.color }
+                  }
+              ]);
+          }
+      }
   };
 
   const handleReset = () => {

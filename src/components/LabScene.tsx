@@ -11,7 +11,8 @@ import {
     createRockMesh,
     createBottleMesh,
     createSoapBottleMesh,
-    createTesterMesh
+    createTesterMesh,
+    createLabel
 } from '../utils/GeometryFactory';
 import { getChemical } from '../systems/ChemicalDatabase';
 import { ContainerState } from '../types/ChemistryTypes';
@@ -393,6 +394,13 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
                         default: mesh = createBottleMesh(0xcccccc);
                     }
                     group.add(mesh);
+
+                    const chem = getChemical(chemId);
+                    if (chem) {
+                        const label = createLabel(chem.name);
+                        label.position.y = 1.5;
+                        group.add(label);
+                    }
                 } else {
                     const beakerGeo = createBeakerGeometry(0.5, 1.2);
                     const glassMat = createGlassMaterial();
@@ -408,6 +416,10 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
                     liquidMesh.scale.set(1, 0.01, 1);
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
+
+                    const label = createLabel("Beaker");
+                    label.position.y = 1.5;
+                    group.add(label);
                 }
 
                 sceneRef.current?.add(group);
