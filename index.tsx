@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
-import ChemistryLab from './src/ChemistryLab';
+import App from './src/App';
 import './index.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 root.render(
   <React.StrictMode>
-    <ChemistryLab />
+    <App />
   </React.StrictMode>
 );
