@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { ContainerState } from '../types/ChemistryTypes';
 import { CHEMICALS } from '../systems/ChemicalDatabase';
+import TeacherInterface from './TeacherInterface';
+import { AIService } from '../systems/AIService';
 
 interface LabUIProps {
     apiKey: string;
     setApiKey: (key: string) => void;
     lastReaction: string | null;
     containers: ContainerState[];
-    aiFeedback: string;
-    isAiLoading: boolean;
     onSpawn: (chemId: string) => void;
     onReset: () => void;
+    aiService: AIService;
 }
 
-const LabUI: React.FC<LabUIProps> = ({ apiKey, setApiKey, lastReaction, containers, aiFeedback, isAiLoading, onSpawn, onReset }) => {
+const LabUI: React.FC<LabUIProps> = ({ apiKey, setApiKey, lastReaction, containers, onSpawn, onReset, aiService }) => {
     const [sidebarOpen, setSidebarOpen] = useState(true);
 
     return (
@@ -84,25 +85,17 @@ const LabUI: React.FC<LabUIProps> = ({ apiKey, setApiKey, lastReaction, containe
 
             {/* Reaction Alert */}
             {lastReaction && (
-                <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-slate-800/90 p-4 rounded-lg border border-yellow-500 text-white shadow-lg transition-all animate-bounce-short z-10">
+                <div className="absolute top-24 left-1/2 transform -translate-x-1/2 bg-slate-800/90 p-4 rounded-lg border border-yellow-500 text-white shadow-lg transition-all animate-bounce-short z-10 pointer-events-auto">
                     <span className="text-yellow-400 font-bold">REACTION:</span> {lastReaction}
                 </div>
             )}
 
-            {/* AI Teacher Bubble */}
-            <div className="absolute bottom-8 right-8 w-96 pointer-events-auto z-20">
-                <div className="bg-slate-900/95 border border-indigo-500 rounded-lg p-5 shadow-2xl relative">
-                    <div className="absolute -top-3 -left-3 bg-indigo-600 rounded-full p-2 shadow-lg border-2 border-slate-900">
-                        <div className="text-2xl">✨</div>
-                    </div>
-                    <div className="ml-8 mb-2 flex justify-between items-center">
-                        <div className="font-bold text-indigo-300">Prof. Gemini</div>
-                        {isAiLoading && <div className="text-xs text-indigo-400 animate-pulse">Thinking...</div>}
-                    </div>
-                    <p className="text-slate-200 text-sm leading-relaxed border-l-2 border-indigo-500/30 pl-3">
-                        {aiFeedback}
-                    </p>
-                </div>
+            {/* AI Teacher Interface */}
+            <div className="pointer-events-auto">
+                <TeacherInterface
+                    lastReactionMessage={lastReaction}
+                    aiService={aiService}
+                />
             </div>
 
             {/* Footer Info */}

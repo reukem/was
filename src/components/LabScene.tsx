@@ -391,6 +391,9 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
                         case 'SUGAR': mesh = createBoxMesh(0xffffff); break;
                         case 'POLONIUM': mesh = createRockMesh(0x94a3b8); break;
                         case 'RADIUM': mesh = createRockMesh(0x4ade80, true); break;
+                        case 'SODIUM': mesh = createRockMesh(0xd1d5db); break;
+                        case 'CHLORINE': mesh = createBottleMesh(0xbeef00); break;
+                        case 'SALT': mesh = createBoxMesh(0xffffff); break;
                         default: mesh = createBottleMesh(0xcccccc);
                     }
                     group.add(mesh);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import LabScene from './components/LabScene';
 import LabUI from './components/LabUI';
 import { ContainerState } from './types/ChemistryTypes';
@@ -8,7 +8,9 @@ import { AIService } from './systems/AIService';
 
 const ChemistryLab: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>(import.meta.env.VITE_GEMINI_API_KEY || '');
-  const aiServiceRef = useRef<AIService | null>(null);
+
+  // Memoize AI Service so it updates when key changes
+  const aiService = useMemo(() => new AIService(apiKey), [apiKey]);
 
   // Initial State setup
   const createInitialState = (): ContainerState[] => {
@@ -24,13 +26,14 @@ const ChemistryLab: React.FC = () => {
 
       // 2. Shelf Items
       const shelfItems = [
-          { id: 'LEMON_JUICE', x: -3 },
-          { id: 'VINEGAR', x: -2 },
-          { id: 'BAKING_SODA', x: -1 },
-          { id: 'SOAP', x: 0 },
-          { id: 'BLEACH', x: 1 },
-          { id: 'SUGAR', x: 2 },
-          { id: 'RADIUM', x: 3 }
+          { id: 'LEMON_JUICE', x: -3.5 },
+          { id: 'BAKING_SODA', x: -2.5 },
+          { id: 'VINEGAR', x: -1.5 },
+          { id: 'SODIUM', x: -0.5 },
+          { id: 'CHLORINE', x: 0.5 },
+          { id: 'BLEACH', x: 1.5 },
+          { id: 'RADIUM', x: 2.5 },
+          { id: 'INDICATOR', x: 3.5 }
       ];
 
       shelfItems.forEach(item => {
@@ -47,27 +50,20 @@ const ChemistryLab: React.FC = () => {
 
   const [containers, setContainers] = useState<ContainerState[]>(createInitialState());
   const [lastReaction, setLastReaction] = useState<string | null>(null);
-  const [aiFeedback, setAiFeedback] = useState<string>("Hello students! I am Prof. Gemini. Let's do some safe science!");
-  const [isAiLoading, setIsAiLoading] = useState(false);
-
-  useEffect(() => {
-      aiServiceRef.current = new AIService(apiKey);
-  }, [apiKey]);
 
   const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
       setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
   }, []);
 
-  const handlePour = useCallback(async (sourceId: string, targetId: string) => {
+  const handlePour = useCallback((sourceId: string, targetId: string) => {
+      // Find source and target in the *current* state (we need to access state inside callback)
+      // Since we are inside a callback, we should use functional update or rely on `containers` dependency.
+      // `containers` is in dependency array, so this function recreates on change.
+
       const source = containers.find(c => c.id === sourceId);
       const target = containers.find(c => c.id === targetId);
 
       if (!source || !target || !source.contents) return;
-
-      // Logic:
-      // If source is a "Source" (Infinite supply), we add a fixed amount.
-      // If source is a beaker, we pour existing amount.
-      // But for this simplified version, let's say "pouring" from a source adds 0.2 volume.
 
       const isSource = sourceId.startsWith('source_');
       const amountToPour = isSource ? 0.2 : Math.min(0.1, source.contents.volume);
@@ -104,16 +100,9 @@ const ChemistryLab: React.FC = () => {
       });
 
       if (mixResult.reaction) {
-          setLastReaction(mixResult.reaction.message);
-          const eventDescription = `Mixed ${source.contents.chemicalId} into ${targetChemId}. Result: ${mixResult.reaction.productName}. ${mixResult.reaction.message}`;
-
-          if (aiServiceRef.current) {
-              setIsAiLoading(true);
-              const systemPrompt = "You are Prof. Gemini, a friendly and encouraging chemistry teacher for kids. Explain the reaction simply and safely.";
-              const feedback = await aiServiceRef.current.getFeedback(eventDescription, systemPrompt); // Note: Update AIService if needed to accept prompt
-              setAiFeedback(feedback);
-              setIsAiLoading(false);
-          }
+          // Send specific detailed message for AI
+          const detail = `${mixResult.reaction.message} (Result: ${mixResult.reaction.productName})`;
+          setLastReaction(detail);
       } else {
           setLastReaction(null);
       }
@@ -121,7 +110,6 @@ const ChemistryLab: React.FC = () => {
   }, [containers]);
 
   const handleSpawn = (chemId: string) => {
-      // Random position
       const x = (Math.random() - 0.5) * 4;
       const z = (Math.random() - 0.5) * 2;
 
@@ -137,7 +125,6 @@ const ChemistryLab: React.FC = () => {
               }
           ]);
       } else {
-          // Spawn Source Item
           const chem = CHEMICALS[chemId];
           if (chem) {
               const newId = `source_${chemId}_${Date.now()}`;
@@ -157,7 +144,6 @@ const ChemistryLab: React.FC = () => {
   const handleReset = () => {
       setContainers(createInitialState());
       setLastReaction(null);
-      setAiFeedback("Lab reset. Ready for new experiments.");
   };
 
   return (
@@ -172,10 +158,9 @@ const ChemistryLab: React.FC = () => {
             setApiKey={setApiKey}
             lastReaction={lastReaction}
             containers={containers}
-            aiFeedback={aiFeedback}
-            isAiLoading={isAiLoading}
             onSpawn={handleSpawn}
             onReset={handleReset}
+            aiService={aiService}
         />
     </div>
   );

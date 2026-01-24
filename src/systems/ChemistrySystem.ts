@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Chemical, ReactionResult } from '../types/ChemistryTypes';
 import { CHEMICALS, getChemical } from './ChemicalDatabase';
+import { REACTION_REGISTRY } from './ReactionRegistry';
 
 export class ChemistrySystem {
 
@@ -31,57 +32,40 @@ export class ChemistrySystem {
 
         if (!c1 || !c2) return { resultId: 'H2O', resultColor: '#ffffff' };
 
-        // Default: Physical mixture
+        // 1. Check Registry for Specific Reactions
+        const registryMatch = REACTION_REGISTRY.find(r =>
+            (r.reactants.includes(chemId1) && r.reactants.includes(chemId2) && chemId1 !== chemId2)
+        );
+
+        if (registryMatch) {
+            const product = getChemical(registryMatch.product);
+            return {
+                resultId: registryMatch.product,
+                resultColor: registryMatch.resultColor || product?.color || '#ffffff',
+                reaction: {
+                    productName: product?.name || 'Unknown Product',
+                    color: registryMatch.resultColor || product?.color || '#ffffff',
+                    effect: registryMatch.effect,
+                    message: registryMatch.message
+                }
+            };
+        }
+
+        // 2. Default: Physical mixture (Dilution/Mixing)
         let resultId = 'MIXTURE';
-        // Simple heuristic: if same, keep same. If water + something, keep something (diluted).
-        if (chemId1 === chemId2) resultId = chemId1;
-        else if (chemId1 === 'H2O') resultId = chemId2;
+
+        // Logic: Keep the "Solute" if mixing with water, or dominant volume?
+        // Simple logic: If mixing with water, keep the chemical but it's diluted (same ID).
+        if (chemId1 === 'H2O') resultId = chemId2;
         else if (chemId2 === 'H2O') resultId = chemId1;
+        // If mixing two different non-water things that don't react:
+        else if (chemId1 === chemId2) resultId = chemId1;
+        else resultId = 'MIXTURE'; // Generic Brown Sludge
 
         let resultColor = this.blendColors(c1.color, vol1, c2.color, vol2);
         let reaction: ReactionResult | undefined;
 
-        // --- Reaction Rules ---
-
-        // 1. Baking Soda + Acid (Volcano Effect)
-        if ((chemId1 === 'BAKING_SODA' && c2.ph < 7) || (chemId2 === 'BAKING_SODA' && c1.ph < 7)) {
-             resultId = 'H2O'; // Ends up mostly as water/salt solution
-             resultColor = '#ffffff'; // White foam visual
-             reaction = {
-                 productName: 'Fizzy Reaction!',
-                 color: '#ffffff',
-                 effect: 'bubbles',
-                 message: 'Baking Soda reacts with acid to make bubbles (CO2)!'
-             };
-        }
-
-        // 2. Bleach + Acid (Dangerous)
-        // Check for specific dangerous mix
-        else if ((chemId1 === 'BLEACH' && c2.ph < 7) || (chemId2 === 'BLEACH' && c1.ph < 7)) {
-             resultColor = '#bef264'; // Greenish gas color
-             reaction = {
-                 productName: 'Chlorine Gas (Danger!)',
-                 color: '#bef264',
-                 effect: 'smoke',
-                 message: 'WARNING: Bleach + Acid creates toxic Chlorine gas! Never do this at home!'
-             };
-        }
-
-        // 3. Neutralization (Generic Acid + Base)
-        else if ((c1.ph < 7 && c2.ph > 7) || (c1.ph > 7 && c2.ph < 7)) {
-             // If not caught by specific rules above
-             resultId = 'H2O';
-             // Color tends towards clear/water
-             resultColor = this.blendColors('#e0f2fe', 1, resultColor, 0.2);
-
-             reaction = {
-                 productName: 'Neutralization',
-                 color: resultColor,
-                 message: 'Acid and Base neutralized each other.'
-             };
-        }
-
-        // 4. Indicator
+        // 3. Fallback Logic: Indicator
         if (chemId1 === 'INDICATOR' || chemId2 === 'INDICATOR') {
             const other = chemId1 === 'INDICATOR' ? c2 : c1;
             resultId = 'INDICATOR'; // It dominates visual

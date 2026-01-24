@@ -12,6 +12,73 @@ export const CHEMICALS: Record<string, Chemical> = {
         description: 'Universal solvent. Neutral pH.'
     },
 
+    // Elements
+    'SODIUM': {
+        id: 'SODIUM',
+        name: 'Sodium',
+        formula: 'Na',
+        color: '#d1d5db', // Silver-grey
+        type: 'solid',
+        ph: 7.0,
+        description: 'Soft, reactive metal. Explosive with water!'
+    },
+    'CHLORINE': {
+        id: 'CHLORINE',
+        name: 'Chlorine',
+        formula: 'Cl₂',
+        color: '#bef264', // Yellow-green gas/liquid
+        type: 'gas',
+        ph: 4.0, // Dissolves to acidic
+        description: 'Toxic yellow-green gas.'
+    },
+    'HYDROGEN': {
+        id: 'HYDROGEN',
+        name: 'Hydrogen',
+        formula: 'H₂',
+        color: '#ffffff', // Invisible/Clear
+        type: 'gas',
+        ph: 7.0,
+        description: 'Lightest element. Flammable.'
+    },
+    'OXYGEN': {
+        id: 'OXYGEN',
+        name: 'Oxygen',
+        formula: 'O₂',
+        color: '#ffffff', // Invisible
+        type: 'gas',
+        ph: 7.0,
+        description: 'Essential for breathing and fire.'
+    },
+
+    // Compounds
+    'SALT': {
+        id: 'SALT',
+        name: 'Table Salt',
+        formula: 'NaCl',
+        color: '#ffffff',
+        type: 'solid',
+        ph: 7.0,
+        description: 'Common salt. Essential for life.'
+    },
+    'HCl': {
+        id: 'HCl',
+        name: 'Hydrochloric Acid',
+        formula: 'HCl',
+        color: '#fef08a',
+        type: 'liquid',
+        ph: 1.0,
+        description: 'Strong acid. Corrosive.'
+    },
+    'NaOH': {
+        id: 'NaOH',
+        name: 'Sodium Hydroxide',
+        formula: 'NaOH',
+        color: '#e2e8f0',
+        type: 'liquid',
+        ph: 14.0,
+        description: 'Strong base. Caustic.'
+    },
+
     // Acids
     'LEMON_JUICE': {
         id: 'LEMON_JUICE',
@@ -101,24 +168,6 @@ export const CHEMICALS: Record<string, Chemical> = {
         type: 'liquid',
         ph: 7.0,
         description: 'Changes color based on pH.'
-    },
-    'HCl': {
-        id: 'HCl',
-        name: 'Hydrochloric Acid',
-        formula: 'HCl',
-        color: '#fef08a',
-        type: 'liquid',
-        ph: 1.0,
-        description: 'Strong acid. Corrosive.'
-    },
-    'NaOH': {
-        id: 'NaOH',
-        name: 'Sodium Hydroxide',
-        formula: 'NaOH',
-        color: '#e2e8f0',
-        type: 'liquid',
-        ph: 14.0,
-        description: 'Strong base. Caustic.'
     }
 };
 
