@@ -20,8 +20,8 @@ const LabUI: React.FC<LabUIProps> = ({ apiKey, setApiKey, lastReaction, containe
         <div className="lab-ui flex flex-col justify-between h-full pointer-events-none">
             {/* Header */}
             <div className="flex justify-between items-start pointer-events-auto p-4 z-20">
-                <h1 className="ui-title text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-600 drop-shadow-sm">
-                    Chemistry Lab AI
+                <h1 className="ui-title text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-blue-500 drop-shadow-sm filter">
+                    Kid's Chemistry Lab
                 </h1>
                 <div className="flex gap-2">
                      <button
@@ -46,7 +46,7 @@ const LabUI: React.FC<LabUIProps> = ({ apiKey, setApiKey, lastReaction, containe
             {/* Sidebar Inventory */}
             <div className={`absolute left-0 top-20 bottom-20 transition-all duration-300 pointer-events-auto flex ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
                 <div className="bg-slate-900/90 border-r border-slate-700 w-64 p-4 overflow-y-auto backdrop-blur-sm">
-                     <h2 className="text-slate-300 font-bold mb-4 uppercase text-sm tracking-wider">Inventory</h2>
+                     <h2 className="text-slate-300 font-bold mb-4 uppercase text-sm tracking-wider">Extra Supplies</h2>
                      <div className="space-y-2">
                         {Object.values(CHEMICALS).map(chem => (
                             <button
@@ -82,10 +82,10 @@ const LabUI: React.FC<LabUIProps> = ({ apiKey, setApiKey, lastReaction, containe
             <div className="absolute bottom-8 right-8 w-96 pointer-events-auto z-20">
                 <div className="bg-slate-900/95 border border-indigo-500 rounded-lg p-5 shadow-2xl relative">
                     <div className="absolute -top-3 -left-3 bg-indigo-600 rounded-full p-2 shadow-lg border-2 border-slate-900">
-                        <div className="text-2xl">🧙‍♂️</div>
+                        <div className="text-2xl">✨</div>
                     </div>
                     <div className="ml-8 mb-2 flex justify-between items-center">
-                        <div className="font-bold text-indigo-300">Prof. Alchemist</div>
+                        <div className="font-bold text-indigo-300">Prof. Gemini</div>
                         {isAiLoading && <div className="text-xs text-indigo-400 animate-pulse">Thinking...</div>}
                     </div>
                     <p className="text-slate-200 text-sm leading-relaxed border-l-2 border-indigo-500/30 pl-3">

@@ -41,24 +41,47 @@ export class ChemistrySystem {
         let resultColor = this.blendColors(c1.color, vol1, c2.color, vol2);
         let reaction: ReactionResult | undefined;
 
-        // Reaction Rules
+        // --- Reaction Rules ---
 
-        // 1. Neutralization (Acid + Base)
-        if ((c1.ph < 7 && c2.ph > 7) || (c1.ph > 7 && c2.ph < 7)) {
-            // Check for HCl + NaOH specifically
-            if ((chemId1 === 'HCl' && chemId2 === 'NaOH') || (chemId1 === 'NaOH' && chemId2 === 'HCl')) {
-                resultId = 'H2O'; // Salt water (approx)
-                resultColor = '#e0f2fe'; // Pale blue/clear
-                reaction = {
-                    productName: 'Salt Water (Hot)',
-                    color: resultColor,
-                    effect: 'smoke',
-                    message: 'Neutralization reaction! Heat released.'
-                };
-            }
+        // 1. Baking Soda + Acid (Volcano Effect)
+        if ((chemId1 === 'BAKING_SODA' && c2.ph < 7) || (chemId2 === 'BAKING_SODA' && c1.ph < 7)) {
+             resultId = 'H2O'; // Ends up mostly as water/salt solution
+             resultColor = '#ffffff'; // White foam visual
+             reaction = {
+                 productName: 'Fizzy Reaction!',
+                 color: '#ffffff',
+                 effect: 'bubbles',
+                 message: 'Baking Soda reacts with acid to make bubbles (CO2)!'
+             };
         }
 
-        // 2. Indicator
+        // 2. Bleach + Acid (Dangerous)
+        // Check for specific dangerous mix
+        else if ((chemId1 === 'BLEACH' && c2.ph < 7) || (chemId2 === 'BLEACH' && c1.ph < 7)) {
+             resultColor = '#bef264'; // Greenish gas color
+             reaction = {
+                 productName: 'Chlorine Gas (Danger!)',
+                 color: '#bef264',
+                 effect: 'smoke',
+                 message: 'WARNING: Bleach + Acid creates toxic Chlorine gas! Never do this at home!'
+             };
+        }
+
+        // 3. Neutralization (Generic Acid + Base)
+        else if ((c1.ph < 7 && c2.ph > 7) || (c1.ph > 7 && c2.ph < 7)) {
+             // If not caught by specific rules above
+             resultId = 'H2O';
+             // Color tends towards clear/water
+             resultColor = this.blendColors('#e0f2fe', 1, resultColor, 0.2);
+
+             reaction = {
+                 productName: 'Neutralization',
+                 color: resultColor,
+                 message: 'Acid and Base neutralized each other.'
+             };
+        }
+
+        // 4. Indicator
         if (chemId1 === 'INDICATOR' || chemId2 === 'INDICATOR') {
             const other = chemId1 === 'INDICATOR' ? c2 : c1;
             resultId = 'INDICATOR'; // It dominates visual
@@ -75,17 +98,6 @@ export class ChemistrySystem {
                  resultColor = '#3b82f6'; // Blue
                  reaction = { productName: 'Slightly Basic', color: resultColor, message: 'Indicator turned BLUE.' };
             }
-        }
-
-        // 3. Water + Potassium (Explosion)
-        if ((chemId1 === 'K' && chemId2 === 'H2O') || (chemId1 === 'H2O' && chemId2 === 'K')) {
-             resultColor = '#ffffff';
-             reaction = {
-                 productName: 'Explosion',
-                 color: '#ff0000',
-                 effect: 'explosion',
-                 message: 'Potassium reacts violently with water!'
-             };
         }
 
         return { resultId, resultColor, reaction };

@@ -11,27 +11,29 @@ export class AIService {
         }
     }
 
-    async getFeedback(eventDescription: string): Promise<string> {
+    async getFeedback(eventDescription: string, overrideSystemInstruction?: string): Promise<string> {
         if (!this.client) {
-            return "AI Teacher is offline (No API Key provided).";
+            return "Prof. Gemini is offline (No API Key provided).";
         }
 
         try {
-            const model = "gemini-1.5-flash"; // Or gemini-2.0-flash if available
-            const systemInstruction = "You are Professor Alchemist, a wise, safe, and slightly eccentric chemistry teacher. A student is performing experiments in a virtual lab. React to their actions. If they do something dangerous (like mixing acid and base without care), warn them. If they succeed, congratulate them. If the result is boring, give a fun fact about the chemicals involved. Keep your response short (max 2 sentences).";
+            const model = "gemini-1.5-flash";
+            const defaultInstruction = "You are Prof. Gemini, a friendly and encouraging chemistry teacher for kids. Explain the reaction simply and safely. Keep it short.";
+
+            const instruction = overrideSystemInstruction || defaultInstruction;
 
             const response = await this.client.models.generateContent({
                 model: model,
                 contents: [{ role: 'user', parts: [{ text: `Student Action: ${eventDescription}` }] }],
                 config: {
-                    systemInstruction: { parts: [{ text: systemInstruction }] }
+                    systemInstruction: { parts: [{ text: instruction }] }
                 }
             });
 
-            return response.response.text() || "The Professor is thinking...";
+            return response.response.text() || "Prof. Gemini is thinking...";
         } catch (error) {
             console.error("AI Error:", error);
-            return "The Professor is distracted (API Error).";
+            return "Prof. Gemini is distracted (API Error).";
         }
     }
 }
