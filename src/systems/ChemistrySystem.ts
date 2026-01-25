@@ -13,9 +13,10 @@ export class ChemistrySystem {
         const totalVol = vol1 + vol2;
         if (totalVol === 0) return color1;
 
-        const r = (c1.r * vol1 + c2.r * vol2) / totalVol;
-        const g = (c1.g * vol1 + c2.g * vol2) / totalVol;
-        const b = (c1.b * vol1 + c2.b * vol2) / totalVol;
+        // Use Root-Mean-Square (RMS) mixing for better brightness preservation
+        const r = Math.sqrt((Math.pow(c1.r, 2) * vol1 + Math.pow(c2.r, 2) * vol2) / totalVol);
+        const g = Math.sqrt((Math.pow(c1.g, 2) * vol1 + Math.pow(c2.g, 2) * vol2) / totalVol);
+        const b = Math.sqrt((Math.pow(c1.b, 2) * vol1 + Math.pow(c2.b, 2) * vol2) / totalVol);
 
         return '#' + new THREE.Color(r, g, b).getHexString();
     }

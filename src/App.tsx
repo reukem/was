@@ -1,10 +1,16 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import LabScene from './components/LabScene';
 import LabUI from './components/LabUI';
 import { ContainerState } from './types/ChemistryTypes';
 import { ChemistrySystem } from './systems/ChemistrySystem';
 import { CHEMICALS } from './systems/ChemicalDatabase';
 import { AIService } from './systems/AIService';
+
+export interface ActiveEffect {
+    id: string; // Unique ID for the event to trigger updates
+    type: 'bubbles' | 'smoke' | 'fire' | 'explosion';
+    targetId: string;
+}
 
 const ChemistryLab: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>(import.meta.env.VITE_GEMINI_API_KEY || '');
@@ -50,16 +56,14 @@ const ChemistryLab: React.FC = () => {
 
   const [containers, setContainers] = useState<ContainerState[]>(createInitialState());
   const [lastReaction, setLastReaction] = useState<string | null>(null);
+  const [activeEffect, setActiveEffect] = useState<ActiveEffect | null>(null);
 
   const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
       setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
   }, []);
 
   const handlePour = useCallback((sourceId: string, targetId: string) => {
-      // Find source and target in the *current* state (we need to access state inside callback)
-      // Since we are inside a callback, we should use functional update or rely on `containers` dependency.
-      // `containers` is in dependency array, so this function recreates on change.
-
+      // Find source and target in the *current* state
       const source = containers.find(c => c.id === sourceId);
       const target = containers.find(c => c.id === targetId);
 
@@ -78,33 +82,52 @@ const ChemistryLab: React.FC = () => {
           source.contents.chemicalId, amountToPour
       );
 
+      // Effect Trigger
+      if (mixResult.reaction && mixResult.reaction.effect) {
+          setActiveEffect({
+              id: Date.now().toString(),
+              type: mixResult.reaction.effect,
+              targetId: targetId
+          });
+      }
+
       setContainers(prev => {
-           return prev.map(c => {
-              // If it's a normal beaker source, reduce volume
+           // 1. Calculate new states
+           const nextState = prev.map(c => {
               if (c.id === sourceId && !isSource) {
                   return { ...c, contents: { ...c.contents!, volume: c.contents!.volume - amountToPour } };
               }
-              // Update target
               if (c.id === targetId) {
                   return {
                       ...c,
                       contents: {
                           chemicalId: mixResult.resultId,
-                          volume: Math.min(1.0, targetVol + amountToPour), // Cap at 1.0
+                          volume: Math.min(1.0, targetVol + amountToPour),
                           color: mixResult.resultColor
                       }
                   };
               }
               return c;
            });
+
+           // 2. Filter out empty containers (Clean Mechanics)
+           return nextState.filter(c => {
+               // Keep sources
+               if (c.id.startsWith('source_')) return true;
+               // Keep Mixing Vessel (it's the main pot)
+               if (c.id === 'MIXING_VESSEL') return true;
+               // Remove if empty (volume near 0)
+               if (c.contents && c.contents.volume <= 0.001) return false;
+               return true;
+           });
       });
 
       if (mixResult.reaction) {
-          // Send specific detailed message for AI
           const detail = `${mixResult.reaction.message} (Result: ${mixResult.reaction.productName})`;
           setLastReaction(detail);
       } else {
-          setLastReaction(null);
+          // Keep old message or clear? Let's keep it so user can read.
+          // setLastReaction(null);
       }
 
   }, [containers]);
@@ -144,6 +167,7 @@ const ChemistryLab: React.FC = () => {
   const handleReset = () => {
       setContainers(createInitialState());
       setLastReaction(null);
+      setActiveEffect(null);
   };
 
   return (
@@ -152,6 +176,7 @@ const ChemistryLab: React.FC = () => {
             containers={containers}
             onMove={handleMoveContainer}
             onPour={handlePour}
+            activeEffect={activeEffect}
         />
         <LabUI
             apiKey={apiKey}

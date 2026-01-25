@@ -17,13 +17,21 @@ import {
 import { getChemical } from '../systems/ChemicalDatabase';
 import { ContainerState } from '../types/ChemistryTypes';
 
+// Import ActiveEffect type locally if not exported, or just define it here to match App.tsx
+interface ActiveEffect {
+    id: string;
+    type: 'bubbles' | 'smoke' | 'fire' | 'explosion';
+    targetId: string;
+}
+
 interface LabSceneProps {
     containers: ContainerState[];
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
+    activeEffect?: ActiveEffect | null;
 }
 
-const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
+const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour, activeEffect }) => {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -34,6 +42,9 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
     const meshesRef = useRef<Map<string, THREE.Group>>(new Map());
     const liquidsRef = useRef<Map<string, THREE.Mesh>>(new Map());
     const testerRef = useRef<{ mesh: THREE.Group, canvas: HTMLCanvasElement, texture: THREE.CanvasTexture } | null>(null);
+
+    // Particle System
+    const particlesRef = useRef<THREE.Group>(new THREE.Group());
 
     // Interaction Refs
     const raycaster = useRef(new THREE.Raycaster());
@@ -77,6 +88,48 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
         }
         tester.texture.needsUpdate = true;
     };
+
+    // Effect Handling
+    useEffect(() => {
+        if (!activeEffect || !sceneRef.current) return;
+
+        const targetGroup = meshesRef.current.get(activeEffect.targetId);
+        if (!targetGroup) return;
+
+        const position = targetGroup.position.clone();
+        position.y += 0.5; // Emit from top of container
+
+        const particleCount = activeEffect.type === 'explosion' ? 50 : 20;
+        const color = activeEffect.type === 'fire' || activeEffect.type === 'explosion' ? 0xff4500 :
+                      activeEffect.type === 'smoke' ? 0x888888 : 0xffffff;
+
+        const geo = new THREE.SphereGeometry(0.1, 8, 8);
+        const mat = new THREE.MeshBasicMaterial({ color: color });
+
+        for (let i = 0; i < particleCount; i++) {
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(position);
+
+            // Random velocity
+            const velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.5,
+                (Math.random() * 0.5) + 0.2, // Upward bias
+                (Math.random() - 0.5) * 0.5
+            );
+
+            if (activeEffect.type === 'explosion') {
+                velocity.multiplyScalar(3); // Faster
+            }
+
+            mesh.userData = {
+                velocity: velocity,
+                lifetime: 60 + Math.random() * 60 // frames
+            };
+
+            particlesRef.current.add(mesh);
+        }
+
+    }, [activeEffect]);
 
     useEffect(() => {
         if (!mountRef.current) return;
@@ -135,6 +188,9 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
         scene.add(mesh);
         testerRef.current = { mesh, canvas, texture };
         meshesRef.current.set('TESTER', mesh);
+
+        // Add Particle System Container
+        scene.add(particlesRef.current);
 
         // Interaction Handlers
         const onPointerMove = (event: PointerEvent) => {
@@ -249,41 +305,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
         window.addEventListener('pointerdown', onPointerDown);
         window.addEventListener('pointerup', onPointerUp);
 
-        const animate = () => {
-            requestAnimationFrame(animate);
-            controls.update();
-
-            // Tester Logic
-            if (testerRef.current && meshesRef.current) {
-                const testerPos = testerRef.current.mesh.position;
-                let found = false;
-
-                // Check proximity to Beakers (not Sources)
-                meshesRef.current.forEach((group, id) => {
-                    if (id === 'TESTER') return;
-                    if (id.startsWith('source_')) return;
-
-                    const dist = testerPos.distanceTo(group.position);
-                    if (dist < 1.0) {
-                        // Find data in containers prop, since props are updated
-                        // But wait, animate closes over initial props?
-                        // No, `containers` prop updates trigger the 2nd useEffect.
-                        // But we need access to the *latest* containers inside animate loop.
-                        // The `animate` function is defined once. `containers` variable is stale!
-
-                        // Fix: We need a ref to containers
-                        found = true;
-                        // See containersRef hack below
-                    }
-                });
-
-                // Actually, reading from DOM/Three userData might be safer or use a Ref for containers
-            }
-
-            renderer.render(scene, camera);
-        };
-        // animate(); -> Moved below to wrap containersRef
-
+        // Main setup done, triggering ready
         const handleResize = () => {
             if (!mountRef.current) return;
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -301,8 +323,6 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
             window.removeEventListener('pointerup', onPointerUp);
             mountRef.current?.removeChild(renderer.domElement);
             renderer.dispose();
-            // Stop animation?
-            // In a real app we'd cancelAnimationFrame
         };
     }, []);
 
@@ -314,8 +334,6 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
 
     // Animate Loop with access to latest state
     useEffect(() => {
-        // We need to attach the animate loop here or use a Ref in the main loop
-        // Let's use a Ref for the requestAnimationFrame ID
         let rAF: number;
 
         const animate = () => {
@@ -343,6 +361,30 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
                 }
             }
 
+            // Update Particles
+            if (particlesRef.current) {
+                for (let i = particlesRef.current.children.length - 1; i >= 0; i--) {
+                    const p = particlesRef.current.children[i];
+                    const v = p.userData.velocity as THREE.Vector3;
+
+                    p.position.add(v);
+
+                    // Gravity effect
+                    v.y -= 0.01;
+
+                    p.userData.lifetime -= 1;
+                    if (p.userData.lifetime <= 0) {
+                        particlesRef.current.remove(p);
+                        (p as THREE.Mesh).geometry.dispose();
+                        ((p as THREE.Mesh).material as THREE.Material).dispose();
+                    } else {
+                        // Fade out
+                        const scale = p.userData.lifetime / 60;
+                        p.scale.setScalar(scale);
+                    }
+                }
+            }
+
             if (rendererRef.current && sceneRef.current && cameraRef.current) {
                 rendererRef.current.render(sceneRef.current, cameraRef.current);
             }
@@ -352,7 +394,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, onMove, onPour }) => {
         return () => {
             cancelAnimationFrame(rAF);
         };
-    }, []); // Run once, but it accesses containersRef.current which is updated.
+    }, []); // Run once
 
     // Sync React State with Three.js
     useEffect(() => {
