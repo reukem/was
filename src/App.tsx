@@ -1,194 +1,181 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import LabScene from './components/LabScene';
 import LabUI from './components/LabUI';
-import { ContainerState } from './types/ChemistryTypes';
-import { ChemistrySystem } from './systems/ChemistrySystem';
-import { CHEMICALS } from './systems/ChemicalDatabase';
-import { AIService } from './systems/AIService';
+import { ContainerState } from './types';
+import { ChemistryEngine } from './systems/ChemistryEngine';
+import { CHEMICALS } from './constants';
+import { GeminiService } from './services/geminiService';
 
-export interface ActiveEffect {
-    id: string; // Unique ID for the event to trigger updates
-    type: 'bubbles' | 'smoke' | 'fire' | 'explosion';
-    targetId: string;
-}
+const App: React.FC = () => {
+    const aiServiceRef = useRef<GeminiService | null>(null);
+    const reactionTimeoutRef = useRef<number | null>(null);
 
-const ChemistryLab: React.FC = () => {
-  const [apiKey, setApiKey] = useState<string>(import.meta.env.VITE_GEMINI_API_KEY || '');
+    const initialContainers: ContainerState[] = [
+        {
+            id: 'beaker-1',
+            position: [-1.5, 0, 0],
+            contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 }
+        },
+        {
+            id: 'beaker-2',
+            position: [1.5, 0, 0],
+            contents: null
+        }
+    ];
 
-  // Memoize AI Service so it updates when key changes
-  const aiService = useMemo(() => new AIService(apiKey), [apiKey]);
+    const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
+    const [lastReaction, setLastReaction] = useState<string | null>(null);
+    const [lastEffect, setLastEffect] = useState<string | null>(null);
+    const [aiFeedback, setAiFeedback] = useState<string>("Greetings, apprentice! Ready to probe the mysteries of matter?");
+    const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // Initial State setup
-  const createInitialState = (): ContainerState[] => {
-      const items: ContainerState[] = [];
+    useEffect(() => {
+        aiServiceRef.current = new GeminiService();
+        return () => {
+            if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
+        };
+    }, []);
 
-      // 1. Mixing Vessel (Center Table)
-      items.push({
-          id: 'MIXING_VESSEL',
-          position: [0, 0, 0],
-          rotation: [0, 0, 0],
-          contents: { chemicalId: 'H2O', volume: 0.5, color: CHEMICALS['H2O'].color }
-      });
+    const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
+        setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
+    }, []);
 
-      // 2. Shelf Items
-      const shelfItems = [
-          { id: 'LEMON_JUICE', x: -3.5 },
-          { id: 'BAKING_SODA', x: -2.5 },
-          { id: 'VINEGAR', x: -1.5 },
-          { id: 'SODIUM', x: -0.5 },
-          { id: 'CHLORINE', x: 0.5 },
-          { id: 'BLEACH', x: 1.5 },
-          { id: 'RADIUM', x: 2.5 },
-          { id: 'INDICATOR', x: 3.5 }
-      ];
+    const handlePour = useCallback(async (sourceId: string, targetId: string) => {
+        const source = containers.find(c => c.id === sourceId);
+        const target = containers.find(c => c.id === targetId);
 
-      shelfItems.forEach(item => {
-          items.push({
-              id: `source_${item.id}`,
-              position: [item.x, 0.6, -2], // On Shelf
-              rotation: [0, 0, 0],
-              contents: { chemicalId: item.id, volume: 1.0, color: CHEMICALS[item.id].color }
-          });
-      });
+        if (!source || !target || !source.contents) return;
 
-      return items;
-  };
+        const isSourceItem = sourceId.startsWith('source_');
+        const sourceChem = CHEMICALS[source.contents.chemicalId];
 
-  const [containers, setContainers] = useState<ContainerState[]>(createInitialState());
-  const [lastReaction, setLastReaction] = useState<string | null>(null);
-  const [activeEffect, setActiveEffect] = useState<ActiveEffect | null>(null);
+        const amountToPour = sourceChem.type === 'solid' ? 0.3 : Math.min(0.2, source.contents.volume);
+        if (amountToPour <= 0) return;
 
-  const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
-      setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
-  }, []);
+        const targetChemId = target.contents ? target.contents.chemicalId : 'H2O';
+        const targetVol = target.contents ? target.contents.volume : 0;
+        const targetTemp = target.contents?.temperature || 25;
 
-  const handlePour = useCallback((sourceId: string, targetId: string) => {
-      // Find source and target in the *current* state
-      const source = containers.find(c => c.id === sourceId);
-      const target = containers.find(c => c.id === targetId);
+        const mixResult = ChemistryEngine.mix(
+            targetChemId, targetVol,
+            source.contents.chemicalId, amountToPour
+        );
 
-      if (!source || !target || !source.contents) return;
+        setContainers(prev => {
+            const isReactionProduct = !!mixResult.reaction;
+            const newTemp = mixResult.reaction?.temperature || targetTemp;
 
-      const isSource = sourceId.startsWith('source_');
-      const amountToPour = isSource ? 0.2 : Math.min(0.1, source.contents.volume);
+            // Garbage Collection: Filter out empty containers that were just used as sources
+            const nextContainers = prev.map(c => {
+                // Update Source (if it's a beaker/mixable)
+                if (c.id === sourceId && !isSourceItem) {
+                    const newVol = Math.max(0, c.contents!.volume - amountToPour);
+                    return {
+                        ...c,
+                        contents: newVol < 0.05 ? null : { ...c.contents!, volume: newVol }
+                    };
+                }
+                // Update Target
+                if (c.id === targetId) {
+                     return {
+                        ...c,
+                        contents: {
+                            chemicalId: mixResult.resultId,
+                            volume: Math.min(1.0, targetVol + amountToPour),
+                            color: mixResult.resultColor,
+                            temperature: isReactionProduct ? newTemp : targetTemp
+                        }
+                    };
+                }
+                return c;
+            });
 
-      if (amountToPour <= 0 && !isSource) return;
+            // Remove source completely if it was consumed in a reaction (e.g. Sodium rock into Water)
+            // OR if it's a source item that is now empty (e.g. empty bottle)
+            // OR if it's a beaker that was used as source and is now empty (cleanup)
+            return nextContainers.filter(c => {
+                 if (c.id === sourceId) {
+                     // If it was a reaction, the source (reactant) is consumed
+                     if (isReactionProduct) return false;
+                     // If it's a generic beaker source and now empty, remove it to keep table clean
+                     if (!isSourceItem && c.contents === null) return false;
+                     // If it's a source item (bottle) and empty (volume logic not tracked for source_ yet, assumed 1.0 but lets say we want to keep them or remove?)
+                     // User said "leaves both substance on the table".
+                     // If I drop Sodium (source_SODIUM) into Water, it's a reaction, so it returns false above.
+                     // If I pour Water (source_BEAKER) into Beaker, the source beaker empties.
+                 }
+                 return true;
+            });
+        });
 
-      const targetChemId = target.contents ? target.contents.chemicalId : 'H2O';
-      const targetVol = target.contents ? target.contents.volume : 0;
+        if (mixResult.reaction) {
+            setLastReaction(mixResult.reaction.message);
+            setLastEffect(mixResult.reaction.effect || null);
 
-      const mixResult = ChemistrySystem.mix(
-          targetChemId, targetVol,
-          source.contents.chemicalId, amountToPour
-      );
+            if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
+            reactionTimeoutRef.current = window.setTimeout(() => {
+                setLastReaction(null);
+                setLastEffect(null);
+            }, 6000);
 
-      // Effect Trigger
-      if (mixResult.reaction && mixResult.reaction.effect) {
-          setActiveEffect({
-              id: Date.now().toString(),
-              type: mixResult.reaction.effect,
-              targetId: targetId
-          });
-      }
+            const detail = `Experimental event: Mixed ${source.contents.chemicalId} into ${targetChemId}. Produced ${mixResult.reaction.productName}. Atmosphere: ${mixResult.reaction.message}. Temperature reached: ${mixResult.reaction.temperature || 'Ambient'}`;
 
-      setContainers(prev => {
-           // 1. Calculate new states
-           const nextState = prev.map(c => {
-              if (c.id === sourceId && !isSource) {
-                  return { ...c, contents: { ...c.contents!, volume: c.contents!.volume - amountToPour } };
-              }
-              if (c.id === targetId) {
-                  return {
-                      ...c,
-                      contents: {
-                          chemicalId: mixResult.resultId,
-                          volume: Math.min(1.0, targetVol + amountToPour),
-                          color: mixResult.resultColor
-                      }
-                  };
-              }
-              return c;
-           });
+            if (aiServiceRef.current) {
+                setIsAiLoading(true);
+                const feedback = await aiServiceRef.current.getProfessorFeedback(detail);
+                setAiFeedback(feedback);
+                setIsAiLoading(false);
+            }
+        }
+    }, [containers]);
 
-           // 2. Filter out empty containers (Clean Mechanics)
-           return nextState.filter(c => {
-               // Keep sources
-               if (c.id.startsWith('source_')) return true;
-               // Keep Mixing Vessel (it's the main pot)
-               if (c.id === 'MIXING_VESSEL') return true;
-               // Remove if empty (volume near 0)
-               if (c.contents && c.contents.volume <= 0.001) return false;
-               return true;
-           });
-      });
+    const handleSpawn = (chemId: string) => {
+        const isBeaker = chemId === 'BEAKER';
+        const newId = isBeaker ? `beaker-${Date.now()}` : `source_${chemId}_${Date.now()}`;
+        const chem = CHEMICALS[chemId];
 
-      if (mixResult.reaction) {
-          const detail = `${mixResult.reaction.message} (Result: ${mixResult.reaction.productName})`;
-          setLastReaction(detail);
-      } else {
-          // Keep old message or clear? Let's keep it so user can read.
-          // setLastReaction(null);
-      }
+        const x = (Math.random() - 0.5) * 6;
+        const y = isBeaker ? 0 : 0.6;
+        const z = isBeaker ? (Math.random() * 2) : -3.5;
 
-  }, [containers]);
+        setContainers(prev => [
+            ...prev,
+            {
+                id: newId,
+                position: [x, y, z],
+                initialPosition: isBeaker ? undefined : [x, y, z],
+                contents: isBeaker
+                    ? null
+                    : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 }
+            }
+        ]);
+    };
 
-  const handleSpawn = (chemId: string) => {
-      const x = (Math.random() - 0.5) * 4;
-      const z = (Math.random() - 0.5) * 2;
+    const handleReset = () => {
+        setContainers(initialContainers);
+        setLastReaction(null);
+        setLastEffect(null);
+        setAiFeedback("Laboratory sterilization complete. The molecular canvas is blank once more!");
+    };
 
-      if (chemId === 'BEAKER') {
-          const newId = `c_${Date.now()}`;
-          setContainers(prev => [
-              ...prev,
-              {
-                  id: newId,
-                  position: [x, 2, z],
-                  rotation: [0, 0, 0],
-                  contents: { chemicalId: 'H2O', volume: 0, color: '#ffffff' }
-              }
-          ]);
-      } else {
-          const chem = CHEMICALS[chemId];
-          if (chem) {
-              const newId = `source_${chemId}_${Date.now()}`;
-              setContainers(prev => [
-                  ...prev,
-                  {
-                      id: newId,
-                      position: [x, 2, z],
-                      rotation: [0, 0, 0],
-                      contents: { chemicalId: chemId, volume: 1.0, color: chem.color }
-                  }
-              ]);
-          }
-      }
-  };
-
-  const handleReset = () => {
-      setContainers(createInitialState());
-      setLastReaction(null);
-      setActiveEffect(null);
-  };
-
-  return (
-    <div className="lab-container">
-        <LabScene
-            containers={containers}
-            onMove={handleMoveContainer}
-            onPour={handlePour}
-            activeEffect={activeEffect}
-        />
-        <LabUI
-            apiKey={apiKey}
-            setApiKey={setApiKey}
-            lastReaction={lastReaction}
-            containers={containers}
-            onSpawn={handleSpawn}
-            onReset={handleReset}
-            aiService={aiService}
-        />
-    </div>
-  );
+    return (
+        <div className={`relative w-full h-screen bg-slate-950 transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
+            <LabScene
+                containers={containers}
+                lastEffect={lastEffect}
+                onMove={handleMoveContainer}
+                onPour={handlePour}
+            />
+            <LabUI
+                lastReaction={lastReaction}
+                containers={containers}
+                aiFeedback={aiFeedback}
+                isAiLoading={isAiLoading}
+                onSpawn={handleSpawn}
+                onReset={handleReset}
+            />
+        </div>
+    );
 };
 
-export default ChemistryLab;
+export default App;
