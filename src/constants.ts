@@ -5,7 +5,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         id: 'H2O',
         name: 'Distilled Water',
         formula: 'H₂O',
-        color: '#a5f3fc',
+        color: '#06b6d4', // Cyan-500 (More visible)
         type: 'liquid',
         ph: 7.0,
         description: 'Universal solvent. Neutral pH.'

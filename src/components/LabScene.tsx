@@ -30,6 +30,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, onMove, onP
 
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
+    const [isSceneReady, setIsSceneReady] = useState(false);
 
     useEffect(() => {
         onMoveRef.current = onMove;
@@ -245,6 +246,8 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, onMove, onP
         };
         window.addEventListener('resize', handleResize);
 
+        setIsSceneReady(true);
+
         return () => {
             window.removeEventListener('resize', handleResize);
             window.removeEventListener('pointermove', onPointerMove);
@@ -256,7 +259,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, onMove, onP
     }, []);
 
     useEffect(() => {
-        if (!sceneRef.current) return;
+        if (!sceneRef.current || !isSceneReady) return;
 
         meshesRef.current.forEach((group, id) => {
             if (id !== 'TESTER_TOOL' && !containers.find(c => c.id === id)) {
@@ -333,11 +336,11 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, onMove, onP
                 } else {
                     mat.color.copy(baseColor);
                     mat.emissive.set(baseColor);
-                    mat.emissiveIntensity = 0.05;
+                    mat.emissiveIntensity = 0.8;
                 }
             }
         });
-    }, [containers]);
+    }, [containers, isSceneReady]);
 
     return <div ref={mountRef} className="w-full h-full relative" />;
 };

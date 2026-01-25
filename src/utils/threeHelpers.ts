@@ -3,30 +3,30 @@ import * as THREE from 'three';
 export const createGlassMaterial = () => {
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
-        metalness: 0.0,
-        roughness: 0.01,
-        transmission: 0.99, // Extremely clear
-        thickness: 0.1,    // Thinner glass for better visibility
-        ior: 1.45,
+        metalness: 0.1,
+        roughness: 0.05,
+        transmission: 0.9, // Slightly less transmission so the glass shape is visible
+        thickness: 0.1,
+        ior: 1.5,
         reflectivity: 0.5,
         transparent: true,
-        side: THREE.FrontSide, // Front side only helps with transparency artifacts
+        side: THREE.FrontSide,
         clearcoat: 1.0
     });
 };
 
 export const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
-    return new THREE.MeshPhysicalMaterial({
+    // Use MeshStandardMaterial with high opacity and emissive glow for robust visibility
+    // This avoids nested transmission artifacts in Three.js
+    return new THREE.MeshStandardMaterial({
         color: color,
-        metalness: 0.1,
-        roughness: 0.2,
-        transmission: 0.2, // Some light passes through, but mostly opaque to see color
-        thickness: 0.5,
-        ior: 1.33,
+        metalness: 0.0,
+        roughness: 0.1,
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.9, // Almost opaque to standout
+        side: THREE.DoubleSide,
         emissive: color,
-        emissiveIntensity: 0.05 // Slight glow to make it stand out
+        emissiveIntensity: 0.6 // Very strong glow for "Sci-Fi Lab" visibility
     });
 };
 
