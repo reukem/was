@@ -9,9 +9,20 @@ interface LabUIProps {
     isAiLoading: boolean;
     onSpawn: (chemId: string) => void;
     onReset: () => void;
+    onUserChat: (msg: string) => void;
 }
 
-const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, aiFeedback, isAiLoading, onSpawn, onReset }) => {
+const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, aiFeedback, isAiLoading, onSpawn, onReset, onUserChat }) => {
+    const [chatInput, setChatInput] = React.useState('');
+
+    const handleSubmitChat = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (chatInput.trim() && !isAiLoading) {
+            onUserChat(chatInput);
+            setChatInput('');
+        }
+    };
+
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 overflow-hidden select-none font-sans">
             {/* Header */}
@@ -100,9 +111,19 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, aiFeedback, isA
                                 )}
                             </div>
                         </div>
-                        <p className="text-slate-300 text-sm italic font-medium leading-relaxed">
+                        <p className="text-slate-300 text-sm italic font-medium leading-relaxed min-h-[3rem]">
                             "{aiFeedback}"
                         </p>
+
+                        <form onSubmit={handleSubmitChat} className="mt-4 border-t border-white/5 pt-3">
+                            <input
+                                type="text"
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                placeholder="Ask Professor Alchemist..."
+                                className="w-full bg-slate-950/50 border border-indigo-500/20 rounded-xl px-3 py-2 text-xs text-indigo-100 placeholder-indigo-400/50 focus:outline-none focus:border-indigo-400/50 transition-colors"
+                            />
+                        </form>
                     </div>
                     {/* Decorative aura */}
                     <div className="absolute -inset-1 bg-indigo-500/5 rounded-[2.1rem] blur-2xl -z-10" />

@@ -122,12 +122,21 @@ const App: React.FC = () => {
 
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
-                const feedback = await aiServiceRef.current.getProfessorFeedback(detail);
+                const feedback = await aiServiceRef.current.chat(`Observation: ${detail}`, "Student performed an experiment.");
                 setAiFeedback(feedback);
                 setIsAiLoading(false);
             }
         }
     }, [containers]);
+
+    const handleUserChat = async (message: string) => {
+        if (aiServiceRef.current) {
+            setIsAiLoading(true);
+            const feedback = await aiServiceRef.current.chat(message, "Student is asking a question.");
+            setAiFeedback(feedback);
+            setIsAiLoading(false);
+        }
+    };
 
     const handleSpawn = (chemId: string) => {
         const isBeaker = chemId === 'BEAKER';
@@ -173,6 +182,7 @@ const App: React.FC = () => {
                 isAiLoading={isAiLoading}
                 onSpawn={handleSpawn}
                 onReset={handleReset}
+                onUserChat={handleUserChat}
             />
         </div>
     );

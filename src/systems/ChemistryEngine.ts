@@ -11,17 +11,26 @@ export class ChemistryEngine {
         const totalVol = vol1 + vol2;
         if (totalVol === 0) return color1;
 
-        // If one is water, make it more susceptible to tinting
-        const tintFactor1 = color1.toLowerCase() === CHEMICALS['H2O'].color.toLowerCase() ? 0.2 : 1.0;
-        const tintFactor2 = color2.toLowerCase() === CHEMICALS['H2O'].color.toLowerCase() ? 0.2 : 1.0;
+        // "Solvent Tinting" - Liquids like water take on color easily
+        // If a chemical is water, its "weight" in the color mix is reduced, allowing the solute to dominate
+        const waterColor = CHEMICALS['H2O'].color.toLowerCase();
+        const isWater1 = color1.toLowerCase() === waterColor;
+        const isWater2 = color2.toLowerCase() === waterColor;
+
+        const tintFactor1 = isWater1 ? 0.1 : 1.0;
+        const tintFactor2 = isWater2 ? 0.1 : 1.0;
 
         const w1 = vol1 * tintFactor1;
         const w2 = vol2 * tintFactor2;
         const totalW = w1 + w2;
 
-        const r = (c1.r * w1 + c2.r * w2) / totalW;
-        const g = (c1.g * w1 + c2.g * w2) / totalW;
-        const b = (c1.b * w1 + c2.b * w2) / totalW;
+        if (totalW === 0) return color1;
+
+        // Root-Mean-Square (RMS) Mixing for more realistic light/liquid blending
+        // This prevents the "muddy" look of simple linear interpolation
+        const r = Math.sqrt((c1.r ** 2 * w1 + c2.r ** 2 * w2) / totalW);
+        const g = Math.sqrt((c1.g ** 2 * w1 + c2.g ** 2 * w2) / totalW);
+        const b = Math.sqrt((c1.b ** 2 * w1 + c2.b ** 2 * w2) / totalW);
 
         return '#' + new THREE.Color(r, g, b).getHexString();
     }
