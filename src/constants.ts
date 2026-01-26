@@ -8,6 +8,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#06b6d4', // Cyan-500 (More visible)
         type: 'liquid',
         ph: 7.0,
+        density: 1.0,
         description: 'Universal solvent. Neutral pH.'
     },
     'SODIUM': {
@@ -17,6 +18,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#d1d5db',
         type: 'solid',
         ph: 12.0,
+        density: 2.0, // Solid range 1.5-5.0
         description: 'Soft, reactive metal.'
     },
     'CHLORINE': {
@@ -26,6 +28,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#bef264',
         type: 'gas',
         ph: 4.0,
+        density: 0.003,
         description: 'Toxic yellow-green gas.'
     },
     'SALT': {
@@ -35,6 +38,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#ffffff',
         type: 'solid',
         ph: 7.0,
+        density: 2.16, // Solid range 1.5-5.0
         description: 'Sodium Chloride solution.'
     },
     'HCl': {
@@ -44,6 +48,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#fef08a',
         type: 'liquid',
         ph: 1.0,
+        density: 1.18, // Liquid range 0.8-1.5
         description: 'Strong acid.'
     },
     'NaOH': {
@@ -53,6 +58,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#e2e8f0',
         type: 'liquid',
         ph: 14.0,
+        density: 1.5, // Liquid range 0.8-1.5
         description: 'Strong base.'
     },
     'VINEGAR': {
@@ -62,6 +68,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#ffffff',
         type: 'liquid',
         ph: 2.5,
+        density: 1.05, // Liquid range 0.8-1.5
         description: 'Acetic acid.'
     },
     'BAKING_SODA': {
@@ -71,6 +78,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#ffffff',
         type: 'solid',
         ph: 8.3,
+        density: 2.2, // Solid range 1.5-5.0
         description: 'Sodium Bicarbonate.'
     },
     'BLEACH': {
@@ -80,6 +88,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#fde047',
         type: 'liquid',
         ph: 12.5,
+        density: 1.11, // Liquid range 0.8-1.5
         description: 'Sodium Hypochlorite.'
     },
     'INDICATOR': {
@@ -89,6 +98,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#22c55e',
         type: 'liquid',
         ph: 7.0,
+        density: 1.0, // Liquid range 0.8-1.5
         description: 'Changes color based on pH.'
     },
     'COPPER_SULFATE': {
@@ -98,6 +108,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         color: '#3b82f6',
         type: 'liquid',
         ph: 4.0,
+        density: 1.2, // Liquid range 0.8-1.5
         description: 'Blue crystalline solution.'
     }
 };

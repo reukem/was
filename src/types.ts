@@ -15,6 +15,7 @@ export interface Chemical {
     color: string;
     type: ChemicalType;
     ph: number;
+    density: number;
     description: string;
 }
 
