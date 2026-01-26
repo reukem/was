@@ -29,9 +29,9 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, aiFeedback, isA
             <div className="flex justify-between items-start pointer-events-auto">
                 <div className="bg-slate-900/90 backdrop-blur-xl p-5 rounded-2xl border border-white/10 shadow-2xl">
                     <h1 className="text-3xl font-black bg-gradient-to-br from-emerald-300 via-cyan-400 to-blue-500 bg-clip-text text-transparent tracking-tighter">
-                        ALCHEMIST AI
+                        Chemic-AI
                     </h1>
-                    <p className="text-slate-500 text-[9px] mt-1 uppercase tracking-[0.3em] font-black">Simulation Engine // 5.0 Stable</p>
+                    <p className="text-slate-500 text-[9px] mt-1 uppercase tracking-[0.3em] font-black">Simulation Engine // 5.1 Stable</p>
                 </div>
                 <div className="flex flex-col gap-2 items-end">
                     <button
@@ -96,7 +96,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, aiFeedback, isA
                                 👨‍🔬
                             </div>
                             <div>
-                                <h3 className="text-indigo-200 font-black text-sm tracking-tight">Professor Alchemist</h3>
+                                <h3 className="text-indigo-200 font-black text-sm tracking-tight">Prof. Gemini</h3>
                                 {isAiLoading ? (
                                     <div className="flex gap-1 mt-1">
                                         <div className="w-1 h-1 bg-cyan-400 rounded-full animate-bounce" />
@@ -120,7 +120,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, aiFeedback, isA
                                 type="text"
                                 value={chatInput}
                                 onChange={(e) => setChatInput(e.target.value)}
-                                placeholder="Ask Professor Alchemist..."
+                                placeholder="Ask Prof. Gemini..."
                                 className="w-full bg-slate-950/50 border border-indigo-500/20 rounded-xl px-3 py-2 text-xs text-indigo-100 placeholder-indigo-400/50 focus:outline-none focus:border-indigo-400/50 transition-colors"
                             />
                         </form>
@@ -134,7 +134,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, aiFeedback, isA
             <div className="flex justify-center text-slate-500 text-[8px] font-mono gap-12 mt-6 bg-slate-900/60 backdrop-blur-md py-3 px-10 rounded-full border border-white/5 pointer-events-auto shadow-inner">
                 <span className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-emerald-500"/> PHYSICS_STABLE</span>
                 <span>MOLECULAR_CACHE: {containers.length}</span>
-                <span className="text-slate-400">GEMINI_3_FLASH_ENABLED</span>
+                <span className="text-slate-400">GEMINI_ULTRA_ENABLED</span>
             </div>
         </div>
     );

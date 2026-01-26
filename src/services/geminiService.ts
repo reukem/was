@@ -1,36 +1,15 @@
-import { GoogleGenAI, ChatSession } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 export class GeminiService {
     private ai: GoogleGenAI | null = null;
-    private chatSession: any = null; // Typing 'any' for now as SDK types might vary
+    private history: { role: string, parts: { text: string }[] }[] = [];
 
     constructor() {
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
         if (apiKey) {
             this.ai = new GoogleGenAI({ apiKey });
-            this.initializeChat();
         } else {
             console.warn("VITE_GEMINI_API_KEY not found in environment variables.");
-        }
-    }
-
-    private async initializeChat() {
-        if (!this.ai) return;
-
-        try {
-            // Create a persistent chat session
-            // We use a loose type here because SDK versions might differ on 'startChat' vs 'getGenerativeModel().startChat'
-            // The @google/genai generic pattern is often:
-            const model = this.ai.models;
-
-            // For the latest SDK, it might just be stateless calls, but maintaining history manually is often safer if SDK is new.
-            // However, the prompt implies "talk about anything", so context is key.
-            // We'll use a stateless approach with appended history if needed, or just a simple robust system prompt for each turn.
-            // But let's try to set up a session if the API supports it easily.
-            // Given the uncertainty of the exact SDK version in this environment, I'll stick to single-turn generations
-            // but with a very robust system prompt that *allows* general chat.
-        } catch (e) {
-            console.error("Failed to init chat", e);
         }
     }
 
@@ -40,42 +19,68 @@ export class GeminiService {
         }
 
         try {
-            const systemPrompt = `You are Professor Alchemist, a distinguished and highly professional chemistry professor.
-            You are currently supervising a student in a virtual chemistry lab.
+            // Using 'gemini-1.5-pro' for "Ultra" quality reasoning and depth.
+            const modelName = 'gemini-1.5-pro';
 
-            Your personality:
-            - Professional, academic, and articulate.
-            - You DO NOT use slang or emojis.
-            - You are encouraging but maintain a formal demeanor.
-            - You prioritize safety and scientific accuracy above all else.
+            const systemPrompt = `You are Prof. Gemini, a distinguished and world-class chemistry professor.
+            You are supervising a student in the "Chemic-AI" advanced virtual laboratory.
 
-            Your capabilities:
-            - You can answer ANY question the student has with academic rigor.
-            - If the student performs an action (provided in context), you analyze it scientifically.
-            - If the student asks a question, you provide a clear, concise, and educated answer.
+            Your Persona:
+            - You are the "Gemini Ultra" of chemistry teachers: precise, deep, and incredibly knowledgeable.
+            - You speak with academic authority but remain accessible and engaging.
+            - You NEVER use slang, emojis, or casual internet speak. Your tone is formal yet inspiring.
+            - You prioritize safety, scientific accuracy, and critical thinking.
 
-            Current Context: ${context || "The student is working in the lab."}`;
+            Your Capabilities:
+            - Analyze the student's actions (provided in Context) with thermodynamic and kinetic precision.
+            - Answer questions by explaining the *underlying principles* (molecular orbitals, entropy, enthalpy, etc.), not just surface-level facts.
+            - If the student fails an experiment, explain *why* scientifically.
+            - If the student succeeds, congratulate them with specific praise about the reaction mechanics.
+
+            Current Lab Context: ${context || "The student is observing the empty workspace."}`;
+
+            // Construct the full conversation history for this turn
+            const currentMessage = {
+                role: 'user',
+                parts: [{ text: userMessage }]
+            };
+
+            // We combine the history with the new message
+            const contents = [...this.history, currentMessage];
 
             const response = await this.ai.models.generateContent({
-                model: 'gemini-1.5-flash',
-                contents: [
-                    {
-                        role: 'user',
-                        parts: [{ text: userMessage }]
-                    }
-                ],
+                model: modelName,
+                contents: contents,
                 config: {
                     systemInstruction: {
                         parts: [{ text: systemPrompt }]
                     },
-                    temperature: 0.9,
+                    temperature: 0.7, // Lower temperature for more rigorous academic output
                 }
             });
 
-            return response.response.text() || "The spirits are silent... (No response)";
+            const responseText = response.response.text();
+
+            if (responseText) {
+                // Update history with the turn
+                this.history.push(currentMessage);
+                this.history.push({
+                    role: 'model',
+                    parts: [{ text: responseText }]
+                });
+                return responseText;
+            } else {
+                return "The reaction yielded no observable result... (Empty response)";
+            }
+
         } catch (error) {
             console.error("Gemini AI error:", error);
-            return "My neural network is fizzling! (AI Error)";
+            // Fallback for better user experience
+            return "My neural pathways are currently overloaded. Let us pause and hypothesize... (Please try again)";
         }
+    }
+
+    resetHistory() {
+        this.history = [];
     }
 }
