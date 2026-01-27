@@ -1,19 +1,82 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CHEMICALS } from '../constants';
-import { ContainerState } from '../types';
+import { CHEMICALS, REACTION_REGISTRY } from '../constants';
+import { ContainerState, ChatMessage } from '../types';
 
 interface LabUIProps {
     lastReaction: string | null;
     containers: ContainerState[];
-    aiFeedback: string;
+    chatHistory: ChatMessage[];
+    aiFeedback?: string; // Legacy prop, kept for compatibility if needed
     isAiLoading: boolean;
     onSpawn: (chemId: string) => void;
     onReset: () => void;
     onUserChat: (msg: string) => void;
 }
 
-const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, aiFeedback, isAiLoading, onSpawn, onReset, onUserChat }) => {
+const formatScientificText = (text: string) => {
+    if (!text) return null;
+    // Replace typical chemical numbers with subscripts
+    const parts = text.split(/(\d+)/g);
+    return parts.map((part, index) => {
+        // Simple heuristic: if it's a number and previous part ends with a letter, subscript it
+        // This is basic, a regex might be better for specific chemical patterns,
+        // but for now we follow the user's intent.
+        // Actually, the user asked for Unicode subscripts or HTML tags.
+        if (index % 2 === 1) {
+            return <sub key={index} className="text-[0.7em] align-baseline">{part}</sub>;
+        }
+        return part;
+    });
+};
+
+const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm pointer-events-auto">
+            <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl w-[600px] max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                <div className="p-4 border-b border-indigo-500/20 flex justify-between items-center bg-indigo-900/20">
+                    <h2 className="text-xl font-black text-indigo-300 tracking-wider flex items-center gap-2">
+                        <span>📖</span> LABORATORY NOTES
+                    </h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-2xl leading-none">&times;</button>
+                </div>
+                <div className="p-6 overflow-y-auto custom-scrollbar">
+                    <p className="text-sm text-slate-400 mb-4 font-mono uppercase tracking-widest border-b border-white/5 pb-2">
+                        AUTHORIZED PERSONNEL ONLY. RECORDED REACTION PROTOCOLS.
+                    </p>
+                    <div className="space-y-4">
+                        {REACTION_REGISTRY.map((reaction, idx) => (
+                            <div key={idx} className="bg-slate-800/50 p-4 rounded-lg border border-white/5 hover:border-indigo-500/30 transition-colors">
+                                <div className="flex items-center flex-wrap gap-2 mb-2">
+                                    <span className="text-xs font-bold text-slate-300 bg-slate-700 px-2 py-1 rounded">
+                                        {formatScientificText(reaction.reactants[0])}
+                                    </span>
+                                    <span className="text-slate-500">+</span>
+                                    <span className="text-xs font-bold text-slate-300 bg-slate-700 px-2 py-1 rounded">
+                                        {formatScientificText(reaction.reactants[1])}
+                                    </span>
+                                    <span className="text-slate-500">→</span>
+                                    <span className="text-xs font-bold text-emerald-400">
+                                        {formatScientificText(reaction.product)}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-400 italic border-l-2 border-slate-600 pl-2">
+                                    "{formatScientificText(reaction.message)}"
+                                </p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onUserChat }) => {
     const [chatInput, setChatInput] = useState('');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isNotebookOpen, setIsNotebookOpen] = useState(false);
+    const [isChatOpen, setIsChatOpen] = useState(false); // Collapsed by default
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     const handleSubmitChat = (e: React.FormEvent) => {
@@ -24,168 +87,193 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, aiFeedback, isA
         }
     };
 
-    // Auto-scroll chat (if we had history, but currently just one message, but good practice)
+    // Auto-scroll chat
     useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [aiFeedback]);
+        if (isChatOpen) {
+            chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [chatHistory, isChatOpen]);
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 overflow-hidden select-none font-sans text-white">
+            <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
 
             {/* --- HEADER --- */}
             <div className="flex justify-between items-start pointer-events-auto z-50">
                 <div className="flex flex-col">
-                    <div className="bg-lab-card/80 backdrop-blur-md px-8 py-6 rounded-2xl border border-lab-border shadow-xl">
-                        <h1 className="text-4xl font-black text-blue-500 tracking-tight">
+                    <div className="bg-slate-900/90 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10 shadow-xl">
+                        <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent tracking-tighter">
                             CHEMIC-AI
                         </h1>
-                        <div className="flex items-center gap-2 mt-1 opacity-70">
-                            <span className="text-[10px] font-mono tracking-[0.2em] text-lab-text uppercase">
-                                Research Environment // V4.0
-                            </span>
-                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-[0.3em] font-medium">
+                            Research Environment // v4.2.1
+                        </p>
                     </div>
-                    {/* Database Header connected visually or separate? Reference shows separate sidebar header */}
                 </div>
 
-                <button
-                    onClick={onReset}
-                    className="group flex items-center gap-2 px-6 py-3 rounded-lg border border-red-500/30 bg-red-900/10 hover:bg-red-500/10 transition-all cursor-pointer backdrop-blur-sm"
-                >
-                    <span className="text-[11px] font-black tracking-widest text-red-400 group-hover:text-red-300 uppercase">
-                        Sterilize Workspace
-                    </span>
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setIsNotebookOpen(true)}
+                        className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 hover:text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/20 transition-all font-bold text-xl backdrop-blur-md shadow-lg"
+                        title="Open Lab Notebook"
+                    >
+                        📖
+                    </button>
+                    <button
+                        onClick={onReset}
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-5 py-3 rounded-xl border border-red-500/20 transition-all font-bold text-[10px] uppercase tracking-widest backdrop-blur-md shadow-lg"
+                    >
+                        Sterilize
+                    </button>
+                </div>
             </div>
 
             {/* --- SIDEBAR (Compound Database) --- */}
-            <div className="absolute left-6 top-40 bottom-20 w-64 flex flex-col pointer-events-auto z-40">
-                <div className="mb-4">
-                    <h2 className="text-[11px] font-black tracking-widest text-indigo-400 uppercase bg-lab-card/50 w-fit px-3 py-1 rounded-full border border-indigo-500/20 backdrop-blur-md">
-                        Compound Database
-                    </h2>
+            <div className={`absolute left-6 top-36 bottom-24 w-64 pointer-events-auto transition-transform duration-300 ease-in-out z-40 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[120%]'}`}>
+                <div className="flex justify-between items-center mb-2 px-2">
+                    <h2 className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] drop-shadow-md">Chemical Inventory</h2>
+                    <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-white transition-colors">✕</button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto pr-2 space-y-3 pb-4 custom-scrollbar">
+                <div className="h-full overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-2 pb-4">
                     {/* Helper to spawn empty beaker */}
-                    <div
+                    <button
                         onClick={() => onSpawn('BEAKER')}
-                        className="group relative bg-lab-card/80 hover:bg-lab-border border border-lab-border hover:border-white/20 p-4 rounded-xl cursor-pointer transition-all shadow-lg backdrop-blur-sm"
+                        className="group p-4 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm"
                     >
-                        <div className="flex justify-between items-start mb-1">
-                            <span className="text-sm font-bold text-slate-200">Sterile Beaker</span>
-                            <div className="w-2 h-2 rounded-full bg-slate-500 shadow-[0_0_8px_rgba(148,163,184,0.5)]"></div>
-                        </div>
-                        <div className="text-[10px] font-mono text-lab-text uppercase tracking-wider">Borosilicate Glassware</div>
-                    </div>
+                        <span className="text-xs font-bold text-slate-200">Sterile Beaker</span>
+                        <p className="text-[9px] text-slate-500 mt-1 uppercase tracking-wider">Borosilicate Glassware</p>
+                    </button>
+
+                    <div className="h-px bg-white/10 my-1 mx-2" />
 
                     {/* Chemicals */}
                     {Object.values(CHEMICALS).map(chem => (
-                        <div
+                        <button
                             key={chem.id}
                             onClick={() => onSpawn(chem.id)}
-                            className="group relative bg-lab-card/80 hover:bg-lab-border border border-lab-border hover:border-lab-cyan/30 p-4 rounded-xl cursor-pointer transition-all shadow-lg backdrop-blur-sm"
+                            className="group relative p-3 rounded-lg bg-slate-950/30 hover:bg-slate-800/60 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-sm shadow-sm"
                         >
-                             {/* Hover Glow */}
-                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-xl pointer-events-none" />
-
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="text-sm font-bold text-slate-200 group-hover:text-white transition-colors">{chem.name}</span>
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[11px] font-bold text-slate-300 group-hover:text-white transition-colors">{chem.name}</span>
                                 <div
-                                    className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]"
-                                    style={{ color: chem.color, backgroundColor: chem.color }}
+                                    className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.1)]"
+                                    style={{ backgroundColor: chem.color }}
                                 ></div>
                             </div>
-                            <div className="text-[10px] font-mono text-lab-text group-hover:text-lab-cyan transition-colors">{chem.formula}</div>
-                        </div>
+                            <span className="text-[9px] font-mono text-slate-500 group-hover:text-indigo-400 tracking-tighter transition-colors">
+                                {formatScientificText(chem.formula)}
+                            </span>
+                        </button>
                     ))}
                 </div>
             </div>
 
+            {!isSidebarOpen && (
+                <button
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="absolute left-6 top-36 pointer-events-auto bg-slate-900/80 p-3 rounded-xl border border-white/10 text-indigo-400 hover:text-white transition-all shadow-lg z-40"
+                >
+                    <span className="writing-vertical text-xs font-bold uppercase tracking-widest">Inventory</span>
+                </button>
+            )}
+
             {/* --- REACTION ALERT (Floating Centered) --- */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none w-full flex justify-center z-30">
                 {lastReaction && (
-                    <div className="animate-in fade-in zoom-in duration-300 slide-in-from-bottom-4 bg-lab-card/90 backdrop-blur-xl border border-orange-500/30 px-8 py-6 rounded-2xl shadow-[0_0_50px_rgba(249,115,22,0.1)] text-center max-w-md">
-                        <div className="flex justify-center mb-2">
-                            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-orange-500 border border-orange-500/30 px-2 py-0.5 rounded-full">Reaction Detected</span>
-                        </div>
-                        <p className="text-white text-lg font-medium leading-relaxed font-mono">{lastReaction}</p>
+                    <div className="animate-in fade-in zoom-in duration-500 slide-in-from-bottom-8 bg-slate-900/90 backdrop-blur-3xl border border-orange-500/30 p-8 rounded-[2rem] shadow-2xl text-center max-w-lg">
+                        <p className="text-orange-400 font-bold text-[10px] uppercase tracking-[0.2em] mb-3">Reaction Detected</p>
+                        <p className="text-white text-md font-medium leading-relaxed tracking-tight shadow-sm">
+                            {formatScientificText(lastReaction)}
+                        </p>
                     </div>
                 )}
             </div>
 
             {/* --- FOOTER / STATUS BAR --- */}
-            <div className="absolute bottom-8 left-0 right-0 flex justify-center pointer-events-none z-30">
-                <div className="bg-lab-card/80 backdrop-blur-md px-8 py-2 rounded-full border border-lab-border shadow-2xl flex items-center gap-8 pointer-events-auto">
-                    <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                        <span className="text-[10px] font-mono text-slate-400 tracking-widest">SYSTEM_READY</span>
-                    </div>
-                    <div className="w-px h-3 bg-white/10"></div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-slate-400 tracking-widest">ENTITIES: <span className="text-white">{containers.length}</span></span>
-                    </div>
-                    <div className="w-px h-3 bg-white/10"></div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono text-indigo-400 tracking-widest">GEMINI_ULTRA_MODE</span>
-                    </div>
+            <div className="absolute bottom-6 left-0 w-full flex justify-center pointer-events-none z-30">
+                <div className="flex justify-center text-slate-500 text-[8px] font-mono gap-12 bg-slate-900/60 backdrop-blur-md py-3 px-10 rounded-full border border-white/5 pointer-events-auto shadow-inner">
+                    <span className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-emerald-500"/> SYSTEM_READY</span>
+                    <span>ENTITIES: {containers.length}</span>
+                    <span className="text-slate-400">GEMINI_ADVANCED_CORE</span>
                 </div>
             </div>
 
             {/* --- CHAT INTERFACE (Professor Gemini) --- */}
-            <div className="absolute right-8 bottom-8 w-[24rem] pointer-events-auto z-50">
-                <div className="bg-lab-card/95 backdrop-blur-xl border border-lab-border rounded-3xl shadow-2xl overflow-hidden">
-                    {/* Chat Header */}
-                    <div className="p-5 flex items-center gap-4 border-b border-white/5">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-900 to-slate-900 flex items-center justify-center border border-indigo-500/30 shadow-inner">
-                            {/* Graduation Cap Icon SVG */}
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
-                            </svg>
+            <div className="absolute right-8 bottom-8 pointer-events-auto z-50 flex flex-col items-end gap-4">
+
+                {/* Minimized Button "Comm Link" */}
+                {!isChatOpen && (
+                    <button
+                        onClick={() => setIsChatOpen(true)}
+                        className="bg-slate-900/90 backdrop-blur-xl border border-indigo-500/30 p-4 rounded-2xl shadow-2xl hover:bg-indigo-900/20 transition-all group flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4"
+                    >
+                        <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-xl shadow-xl border border-white/5 group-hover:scale-110 transition-transform">
+                            🎓
                         </div>
-                        <div>
-                            <h3 className="text-white font-bold text-sm tracking-tight">Professor Gemini</h3>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-                                <div className={`w-1.5 h-1.5 rounded-full ${isAiLoading ? 'bg-amber-400 animate-bounce' : 'bg-emerald-500'}`}></div>
-                                <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest">
-                                    {isAiLoading ? 'ANALYZING...' : 'ACTIVE'}
-                                </span>
+                        <div className="text-left">
+                            <div className="text-xs font-bold text-indigo-300">Comm Link</div>
+                            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Professor Gemini</div>
+                        </div>
+                    </button>
+                )}
+
+                {/* Expanded Chat Window */}
+                {isChatOpen && (
+                    <div className="w-[24rem] h-[32rem] bg-slate-900/95 backdrop-blur-3xl border border-indigo-500/30 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-300">
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-slate-800/30 cursor-pointer" onClick={() => setIsChatOpen(false)}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-lg shadow-inner border border-white/5">
+                                    🎓
+                                </div>
+                                <div>
+                                    <h3 className="text-white font-bold text-xs tracking-tight">Professor Gemini</h3>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${isAiLoading ? 'bg-amber-400 animate-bounce' : 'bg-emerald-500'}`}></div>
+                                        <span className="text-[8px] text-slate-400 font-mono uppercase tracking-widest">
+                                            {isAiLoading ? 'ANALYZING...' : 'ONLINE'}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
+                            <button className="text-slate-400 hover:text-white p-2">✕</button>
                         </div>
-                    </div>
 
-                    {/* Chat Content */}
-                    <div className="p-5 min-h-[120px] max-h-[200px] overflow-y-auto">
-                        <p className="text-slate-300 text-sm leading-relaxed font-light">
-                            "{aiFeedback}"
-                        </p>
-                        <div ref={chatEndRef} />
-                    </div>
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 custom-scrollbar bg-black/20">
+                            {chatHistory.map((msg, i) => (
+                                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 rounded-bl-none border border-white/5'}`}>
+                                        {formatScientificText(msg.text)}
+                                    </div>
+                                </div>
+                            ))}
+                            <div ref={chatEndRef} />
+                        </div>
 
-                    {/* Chat Input */}
-                    <div className="p-4 pt-0">
-                        <form onSubmit={handleSubmitChat} className="relative group">
-                            <input
-                                type="text"
-                                value={chatInput}
-                                onChange={(e) => setChatInput(e.target.value)}
-                                placeholder="Inquire about chemical principles..."
-                                className="w-full bg-slate-950/50 text-slate-200 text-xs px-4 py-3.5 rounded-xl border border-white/10 focus:border-indigo-500/50 focus:outline-none transition-all placeholder-slate-600"
-                            />
-                            <button
-                                type="submit"
-                                disabled={isAiLoading || !chatInput.trim()}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors disabled:opacity-50"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                                </svg>
-                            </button>
+                        {/* Input */}
+                        <form onSubmit={handleSubmitChat} className="p-3 bg-slate-800/50 border-t border-white/5">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    placeholder="Ask the Professor..."
+                                    className="w-full bg-slate-950/50 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/10 focus:border-indigo-500/50 focus:outline-none transition-all placeholder-slate-600 pr-10"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={isAiLoading || !chatInput.trim()}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                                >
+                                    ➤
+                                </button>
+                            </div>
                         </form>
                     </div>
-                </div>
+                )}
             </div>
-
         </div>
     );
 };

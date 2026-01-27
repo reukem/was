@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { CHEMICALS } from '../constants';
-import { REACTION_REGISTRY } from './ReactionRegistry';
+import { CHEMICALS, REACTION_REGISTRY } from '../constants';
 import { ReactionResult } from '../types';
 
 export class ChemistryEngine {

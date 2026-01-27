@@ -1,86 +1,125 @@
-import { GoogleGenAI } from "@google/genai";
+import { ChatMessage } from '../types';
 
 export class GeminiService {
-    private ai: GoogleGenAI | null = null;
-    private history: { role: string, parts: { text: string }[] }[] = [];
+    private apiKey: string = ""; // In a real app, this would come from env vars
+    private history: { role: 'user' | 'model', parts: { text: string }[] }[] = [];
+    private systemInstruction: string = "";
+    public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
 
     constructor() {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (apiKey) {
-            this.ai = new GoogleGenAI({ apiKey });
-        } else {
-            console.warn("VITE_GEMINI_API_KEY not found in environment variables.");
+        // In a real implementation, you would secure this key
+        // For this simulation environment, we assume it's injected or available
+        this.apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+
+        this.systemInstruction = `You are Professor Gemini, an elite chemistry professor and laboratory supervisor.
+
+        Guidelines:
+        - Maintain a persona that is highly intelligent, encouraging, academic, and precise.
+        - Answer chemistry questions accurately and rigorously.
+        - When a user mixes chemicals, explain the reaction including the balanced chemical equation.
+        - Use scientific terminology but explain it clearly.
+        - If the user asks non-chemistry questions, politely guide them back to the lab work.
+        - Format chemical formulas clearly (e.g. H2O, NaCl, Fe2O3).
+        - DO NOT use emojis or slang. Maintain professional academic decorum.
+        `;
+
+        this.startNewChat();
+    }
+
+    private notifyUpdate() {
+        if (this.onHistoryUpdate) {
+            const formattedHistory = this.history.map(h => ({
+                role: h.role,
+                text: h.parts[0]?.text || "" // Safety check for empty parts
+            }));
+            this.onHistoryUpdate(formattedHistory);
         }
     }
 
-    async chat(userMessage: string, context?: string): Promise<string> {
-        if (!this.ai) {
-             return "I seem to have misplaced my communication crystal (API Key missing). I can only perform basic alchemy!";
+    startNewChat() {
+        this.history = [
+            { role: "user", parts: [{ text: "Hello Professor." }] },
+            { role: "model", parts: [{ text: "Greetings, Apprentice. I am Professor Gemini. I am connected to the laboratory's neural core and ready to assist you. Please proceed with your experiments." }] }
+        ];
+        this.notifyUpdate();
+    }
+
+    // Local knowledge base for fallback if API fails
+    private getLocalResponse(message: string): string {
+        const msg = message.toLowerCase();
+        if (msg.includes("h2o") && (msg.includes("nacl") || msg.includes("salt"))) {
+            return "Dissolving Sodium Chloride (NaCl) in Water (H₂O) creates a saline solution. The ionic bonds break, releasing Na⁺ and Cl⁻ ions into the solvent. It is a physical change, fascinating in its simplicity.";
         }
+        if (msg.includes("sodium") && msg.includes("water")) {
+            return "A classic demonstration. Sodium (Na) reacts violently with Water (H₂O) to produce Sodium Hydroxide (NaOH) and Hydrogen gas (H₂). The heat generated ignites the hydrogen, causing the explosion. 2Na + 2H₂O → 2NaOH + H₂.";
+        }
+        if (msg.includes("hello") || msg.includes("hi")) {
+            return "Hello. Ready to conduct rigorous scientific inquiry?";
+        }
+        return "My connection to the external archive is currently intermittent. However, I am fully capable of observing your local experiments. Please continue.";
+    }
 
-        try {
-            // Using 'gemini-1.5-pro' for "Ultra" quality reasoning and depth.
-            const modelName = 'gemini-1.5-pro';
+    async chat(message: string, context?: string): Promise<string> {
+        // Add user message to history
+        const userMsg = context ? `[CONTEXT: ${context}] ${message}` : message;
+        this.history.push({ role: "user", parts: [{ text: userMsg }] });
+        this.notifyUpdate();
 
-            const systemPrompt = `You are Prof. Gemini, a distinguished and world-class chemistry professor.
-            You are supervising a student in the "Chemic-AI" advanced virtual laboratory.
+        const maxRetries = 2;
+        let attempt = 0;
 
-            Your Persona:
-            - You are the "Gemini Ultra" of chemistry teachers: precise, deep, and incredibly knowledgeable.
-            - You speak with academic authority but remain accessible and engaging.
-            - You NEVER use slang, emojis, or casual internet speak. Your tone is formal yet inspiring.
-            - You prioritize safety, scientific accuracy, and critical thinking.
+        while (attempt < maxRetries) {
+            try {
+                // Using the specific model requested: gemini-2.5-flash-preview-09-2025
+                const response = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${this.apiKey}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: this.history,
+                            systemInstruction: { parts: [{ text: this.systemInstruction }] },
+                            generationConfig: {
+                                maxOutputTokens: 500,
+                                temperature: 0.7 // Balanced creativity/precision
+                            }
+                        })
+                    }
+                );
 
-            Your Capabilities:
-            - Analyze the student's actions (provided in Context) with thermodynamic and kinetic precision.
-            - Answer questions by explaining the *underlying principles* (molecular orbitals, entropy, enthalpy, etc.), not just surface-level facts.
-            - If the student fails an experiment, explain *why* scientifically.
-            - If the student succeeds, congratulate them with specific praise about the reaction mechanics.
-
-            Current Lab Context: ${context || "The student is observing the empty workspace."}`;
-
-            // Construct the full conversation history for this turn
-            const currentMessage = {
-                role: 'user',
-                parts: [{ text: userMessage }]
-            };
-
-            // We combine the history with the new message
-            const contents = [...this.history, currentMessage];
-
-            const response = await this.ai.models.generateContent({
-                model: modelName,
-                contents: contents,
-                config: {
-                    systemInstruction: {
-                        parts: [{ text: systemPrompt }]
-                    },
-                    temperature: 0.7, // Lower temperature for more rigorous academic output
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
                 }
-            });
 
-            const responseText = response.response.text();
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-            if (responseText) {
-                // Update history with the turn
-                this.history.push(currentMessage);
-                this.history.push({
-                    role: 'model',
-                    parts: [{ text: responseText }]
-                });
-                return responseText;
-            } else {
-                return "The reaction yielded no observable result... (Empty response)";
+                if (!text) throw new Error("Empty response from API");
+
+                this.history.push({ role: "model", parts: [{ text }] });
+                this.notifyUpdate();
+                return text;
+
+            } catch (error) {
+                attempt++;
+                console.warn(`Gemini API attempt ${attempt} failed:`, error);
+                // Exponential backoff
+                await new Promise(r => setTimeout(r, 1000 * attempt));
             }
-
-        } catch (error) {
-            console.error("Gemini AI error:", error);
-            // Fallback for better user experience
-            return "My neural pathways are currently overloaded. Let us pause and hypothesize... (Please try again)";
         }
+
+        // Fallback to local brain
+        const fallbackText = this.getLocalResponse(message);
+        this.history.push({ role: "model", parts: [{ text: fallbackText }] });
+        this.notifyUpdate();
+        return fallbackText;
     }
 
-    resetHistory() {
-        this.history = [];
+    // Helper to get history directly if needed
+    getHistory(): ChatMessage[] {
+        return this.history.map(h => ({
+            role: h.role,
+            text: h.parts[0]?.text || ""
+        }));
     }
 }

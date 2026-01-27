@@ -1,9 +1,10 @@
 export type ChemicalType = 'liquid' | 'solid' | 'gas';
+export type MeshStyle = 'flask' | 'rock' | 'crystal' | 'mound' | 'canister';
 
 export interface ReactionResult {
     productName: string;
     color: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
     temperature?: number; // In Celsius
     message: string;
 }
@@ -14,6 +15,7 @@ export interface Chemical {
     formula: string;
     color: string;
     type: ChemicalType;
+    meshStyle?: MeshStyle; // Optional for backward compatibility, but we will populate it
     ph: number;
     density: number;
     description: string;
@@ -31,4 +33,18 @@ export interface ContainerState {
     position: [number, number, number];
     initialPosition?: [number, number, number]; // Where it belongs on the shelf
     contents: ContainerContents | null;
+}
+
+export interface ReactionEntry {
+    reactants: [string, string];
+    product: string;
+    resultColor?: string;
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+    temperature?: number;
+    message: string;
+}
+
+export interface ChatMessage {
+    role: 'user' | 'model';
+    text: string;
 }
