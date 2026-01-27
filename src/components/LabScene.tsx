@@ -83,8 +83,11 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, onMove, onP
         if (!mountRef.current) return;
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a);
+        scene.background = new THREE.Color(0x050b14); // Matches new UI background
         sceneRef.current = scene;
+
+        // Add subtle fog to blend the grid into the background
+        scene.fog = new THREE.Fog(0x050b14, 10, 25);
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 7, 12);

@@ -33,7 +33,7 @@ export const CHEMICALS: Record<string, Chemical> = {
     },
     'SALT': {
         id: 'SALT',
-        name: 'Table Salt',
+        name: 'Sodium Chloride',
         formula: 'NaCl',
         color: '#ffffff',
         type: 'solid',

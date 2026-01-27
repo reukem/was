@@ -42,15 +42,31 @@ export const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2)
 };
 
 export const createTable = () => {
+    const group = new THREE.Group();
+
+    // Table Base
     const geometry = new THREE.BoxGeometry(12, 0.2, 6);
     const material = new THREE.MeshStandardMaterial({
-        color: 0x1e293b,
+        color: 0x0f1623, // Darker lab card color
         roughness: 0.8,
         metalness: 0.2
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.receiveShadow = true;
-    return mesh;
+    group.add(mesh);
+
+    // Sci-Fi Grid
+    const grid = new THREE.GridHelper(12, 24, 0x38bdf8, 0x1e293b);
+    grid.position.y = 0.11;
+    grid.scale.z = 0.5; // Scale to match table aspect ratio (12x6)
+
+    const gridMat = grid.material as THREE.LineBasicMaterial;
+    gridMat.opacity = 0.15;
+    gridMat.transparent = true;
+
+    group.add(grid);
+
+    return group;
 };
 
 export const createLabel = (text: string) => {
