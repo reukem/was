@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import LabScene from './components/LabScene';
 import LabUI from './components/LabUI';
-import { ContainerState, ChatMessage } from './types';
+import { ContainerState, ChatMessage, ContainerType } from './types';
 import { ChemistryEngine } from './systems/ChemistryEngine';
-import { CHEMICALS } from './constants';
+import { CHEMICALS, HEATER_POSITION } from './constants';
 import { GeminiService } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -13,11 +13,13 @@ const App: React.FC = () => {
     const initialContainers: ContainerState[] = [
         {
             id: 'beaker-1',
-            position: [-1.5, 0.11, 0], // Corrected height for table
+            type: 'beaker',
+            position: [-1.5, 0.11, 0],
             contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 }
         },
         {
             id: 'beaker-2',
+            type: 'beaker',
             position: [1.5, 0.11, 0],
             contents: null
         }
@@ -36,13 +38,43 @@ const App: React.FC = () => {
             setChatHistory([...history]);
         };
         aiServiceRef.current = service;
-
-        // Initial sync
         setChatHistory(service.getHistory());
 
         return () => {
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
         };
+    }, []);
+
+    // Simulation Loop (Heating/Cooling)
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setContainers(prev => prev.map(c => {
+                if (!c.contents) return c;
+
+                // 2D Distance check (ignore Y height)
+                const dist = Math.sqrt(
+                    Math.pow(c.position[0] - HEATER_POSITION[0], 2) +
+                    Math.pow(c.position[2] - HEATER_POSITION[2], 2)
+                );
+
+                let newTemp = c.contents.temperature || 25;
+
+                // If close to heater position
+                if (dist < 0.5) {
+                    // Heating up (faster if smaller volume?)
+                    newTemp = Math.min(800, newTemp + 2.5);
+                } else {
+                    // Cooling down to room temp
+                    if (newTemp > 25) newTemp = Math.max(25, newTemp - 0.5);
+                }
+
+                if (newTemp !== c.contents.temperature) {
+                    return { ...c, contents: { ...c.contents, temperature: newTemp } };
+                }
+                return c;
+            }));
+        }, 100); // 10Hz physics loop
+        return () => clearInterval(interval);
     }, []);
 
     const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
@@ -55,19 +87,30 @@ const App: React.FC = () => {
 
         if (!source || !target || !source.contents) return;
 
-        const isSourceItem = sourceId.startsWith('source_');
+        // Restriction: Can only pour INTO a Vessel (Beaker/TestTube)
+        if (target.type !== 'beaker' && target.type !== 'test_tube') return;
+
+        // Restriction: Can only pour FROM a Source or another Vessel
+        const isSourceItem = ['bottle', 'jar', 'rock', 'paper_wrap'].includes(source.type);
+
         const sourceChem = CHEMICALS[source.contents.chemicalId];
 
-        const amountToPour = sourceChem.type === 'solid' ? 0.3 : Math.min(0.2, source.contents.volume);
+        // Logic: Pour amount depends on type
+        // If it's a 'rock' type source (e.g. Sodium Chunk), we drop a specific amount (0.3 volume unit)
+        // If it's liquid/powder, we pour up to 0.2
+        const amountToPour = (source.type === 'rock' || sourceChem.type === 'solid') ? 0.3 : Math.min(0.2, source.contents.volume);
+
         if (amountToPour <= 0) return;
 
         const targetChemId = target.contents ? target.contents.chemicalId : 'H2O';
         const targetVol = target.contents ? target.contents.volume : 0;
         const targetTemp = target.contents?.temperature || 25;
 
+        // Calculate Mix
         const mixResult = ChemistryEngine.mix(
             targetChemId, targetVol,
-            source.contents.chemicalId, amountToPour
+            source.contents.chemicalId, amountToPour,
+            targetTemp
         );
 
         setContainers(prev => {
@@ -75,13 +118,19 @@ const App: React.FC = () => {
             const newTemp = mixResult.reaction?.temperature || targetTemp;
 
             const nextContainers = prev.map(c => {
-                if (c.id === sourceId && !isSourceItem) {
+                // Update Source (Reduce volume if it's a finite vessel, infinite if it's a generic source item?)
+                // Actually, let's make Shelf Sources infinite, but spawned table items finite?
+                // For now, consistent behavior: sources on table deplete.
+                if (c.id === sourceId) {
+                    // Source Items from Shelf (ID starts with source_) are infinite in this logic?
+                    // No, let's make them finite so you have to grab another.
                     const newVol = Math.max(0, c.contents!.volume - amountToPour);
                     return {
                         ...c,
                         contents: newVol < 0.05 ? null : { ...c.contents!, volume: newVol }
                     };
                 }
+                // Update Target
                 if (c.id === targetId) {
                      return {
                         ...c,
@@ -96,10 +145,13 @@ const App: React.FC = () => {
                 return c;
             });
 
+            // Cleanup empty sources (garbage collection)
             return nextContainers.filter(c => {
                  if (c.id === sourceId) {
-                     if (isReactionProduct) return false;
-                     if (!isSourceItem && c.contents === null) return false;
+                     // If reaction occurred (e.g. dropping sodium in water), the source (sodium rock) shouldn't disappear immediately unless fully consumed.
+                     // But here we just reduce volume.
+                     // If it's a rock and volume is low, remove it.
+                     if (c.contents === null) return false;
                  }
                  return true;
             });
@@ -117,11 +169,9 @@ const App: React.FC = () => {
                 setLastEffectPos(null);
             }, 6000);
 
-            // Trigger AI feedback
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
                 const detail = `Mixed ${source.contents.chemicalId} into ${targetChemId}. Produced ${mixResult.reaction.productName}.`;
-                // Fire and forget, state updates via callback
                 await aiServiceRef.current.chat(`[SYSTEM ALERT: EXPERIMENT PERFORMED] ${detail}`);
                 setIsAiLoading(false);
             }
@@ -138,22 +188,43 @@ const App: React.FC = () => {
 
     const handleSpawn = (chemId: string) => {
         const isBeaker = chemId === 'BEAKER';
-        const newId = isBeaker ? `beaker-${Date.now()}` : `source_${chemId}_${Date.now()}`;
+        const isTestTube = chemId === 'TEST_TUBE';
+
+        const newId = isBeaker ? `beaker-${Date.now()}` :
+                      isTestTube ? `tube-${Date.now()}` :
+                      `source_${chemId}_${Date.now()}`;
+
         const chem = CHEMICALS[chemId];
+        let containerType: ContainerType = 'bottle'; // Default
+
+        if (isBeaker) containerType = 'beaker';
+        else if (isTestTube) containerType = 'test_tube';
+        else {
+            // Determine source type based on chemical properties
+            if (chem.meshStyle === 'rock' || chem.id === 'SODIUM' || chem.id === 'POTASSIUM' || chem.id === 'IRON') {
+                containerType = 'rock';
+            } else if (chem.type === 'solid') {
+                containerType = 'jar';
+            } else {
+                containerType = 'bottle';
+            }
+        }
 
         const x = (Math.random() - 0.5) * 6;
-        const y = isBeaker ? 0.11 : 0.56; // Corrected spawn heights
-        const z = isBeaker ? (Math.random() * 2) : -3.5;
+        const y = (containerType === 'beaker' || containerType === 'test_tube') ? 0.11 : 0.56;
+        const z = (containerType === 'beaker' || containerType === 'test_tube') ? (Math.random() * 2) : -3.5;
 
         setContainers(prev => [
             ...prev,
             {
                 id: newId,
+                type: containerType,
                 position: [x, y, z],
-                initialPosition: isBeaker ? undefined : [x, y, z],
-                contents: isBeaker
+                initialPosition: (containerType === 'beaker' || containerType === 'test_tube') ? undefined : [x, y, z],
+                contents: (isBeaker || isTestTube)
                     ? null
-                    : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 }
+                    : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 },
+                label: chem ? chem.name : undefined
             }
         ]);
     };

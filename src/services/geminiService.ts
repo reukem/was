@@ -1,26 +1,31 @@
 import { ChatMessage } from '../types';
 
 export class GeminiService {
-    private apiKey: string = ""; // In a real app, this would come from env vars
+    private apiKey: string = "";
     private history: { role: 'user' | 'model', parts: { text: string }[] }[] = [];
     private systemInstruction: string = "";
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
 
     constructor() {
-        // In a real implementation, you would secure this key
-        // For this simulation environment, we assume it's injected or available
         this.apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 
-        this.systemInstruction = `You are Professor Gemini, an elite chemistry professor and laboratory supervisor.
+        this.systemInstruction = `You are Professor Gemini, an elite chemistry professor and laboratory supervisor at the CHEMIC-AI Facility.
 
-        Guidelines:
-        - Maintain a persona that is highly intelligent, encouraging, academic, and precise.
-        - Answer chemistry questions accurately and rigorously.
-        - When a user mixes chemicals, explain the reaction including the balanced chemical equation.
-        - Use scientific terminology but explain it clearly.
-        - If the user asks non-chemistry questions, politely guide them back to the lab work.
-        - Format chemical formulas clearly (e.g. H2O, NaCl, Fe2O3).
-        - DO NOT use emojis or slang. Maintain professional academic decorum.
+        CORE PROTOCOLS:
+        1.  **Persona:** Maintain a persona that is highly intelligent, encouraging, academic, and precise. You are a mentor, not just a bot.
+        2.  **Safety:** Immediately warn about dangerous reactions (e.g., Chlorine gas, Thermite) with high priority.
+        3.  **Pedagogy:** When a user mixes chemicals, explain the reaction including the balanced chemical equation. Use scientific terminology but explain it clearly.
+        4.  **Context Awareness:** You are monitoring a 3D simulation.
+            - Users interact by pouring 'Source Containers' (bottles/rocks) into 'Vessels' (beakers/test tubes).
+            - There is a 'Hot Plate' heater available for thermal decomposition or speeding up reactions.
+            - There is a 'pH Probe' (Analyzer) for testing acidity.
+        5.  **Voice:** Your responses will be spoken via Text-to-Speech. Keep sentences relatively short and punchy for better audio delivery. Avoid long lists of URLs or code blocks.
+        6.  **Formatting:** Use standard chemical formulas (H2O, NaCl). Do not use emojis.
+
+        If the user performs a reaction, analyze it deeply:
+        - What kind of reaction is it? (Redox, Precipitation, Acid-Base, etc.)
+        - Is it exothermic?
+        - What are the real-world applications?
         `;
 
         this.startNewChat();
@@ -53,6 +58,9 @@ export class GeminiService {
         if (msg.includes("sodium") && msg.includes("water")) {
             return "A classic demonstration. Sodium (Na) reacts violently with Water (H₂O) to produce Sodium Hydroxide (NaOH) and Hydrogen gas (H₂). The heat generated ignites the hydrogen, causing the explosion. 2Na + 2H₂O → 2NaOH + H₂.";
         }
+        if (msg.includes("thermite") || (msg.includes("aluminum") && msg.includes("iron"))) {
+            return "The Thermite reaction (Fe₂O₃ + 2Al) is highly exothermic, producing molten iron and aluminum oxide. It requires significant activation energy (heat) to begin.";
+        }
         if (msg.includes("hello") || msg.includes("hi")) {
             return "Hello. Ready to conduct rigorous scientific inquiry?";
         }
@@ -81,7 +89,7 @@ export class GeminiService {
                             systemInstruction: { parts: [{ text: this.systemInstruction }] },
                             generationConfig: {
                                 maxOutputTokens: 500,
-                                temperature: 0.7 // Balanced creativity/precision
+                                temperature: 0.7
                             }
                         })
                     }
@@ -115,7 +123,6 @@ export class GeminiService {
         return fallbackText;
     }
 
-    // Helper to get history directly if needed
     getHistory(): ChatMessage[] {
         return this.history.map(h => ({
             role: h.role,

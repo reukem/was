@@ -77,6 +77,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false); // Collapsed by default
+    const [isMuted, setIsMuted] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     const handleSubmitChat = (e: React.FormEvent) => {
@@ -93,6 +94,20 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
             chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }, [chatHistory, isChatOpen]);
+
+    // Voice Synthesis
+    useEffect(() => {
+        const lastMsg = chatHistory[chatHistory.length - 1];
+        if (!isMuted && lastMsg?.role === 'model' && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            // Strip markdown/html for speech
+            const cleanText = lastMsg.text.replace(/[*_`]/g, '');
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            utterance.rate = 1.0;
+            utterance.pitch = 0.9;
+            window.speechSynthesis.speak(utterance);
+        }
+    }, [chatHistory, isMuted]);
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 overflow-hidden select-none font-sans text-white">
@@ -137,13 +152,22 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
 
                 <div className="h-full overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-2 pb-4">
                     {/* Helper to spawn empty beaker */}
-                    <button
-                        onClick={() => onSpawn('BEAKER')}
-                        className="group p-4 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm"
-                    >
-                        <span className="text-xs font-bold text-slate-200">Sterile Beaker</span>
-                        <p className="text-[9px] text-slate-500 mt-1 uppercase tracking-wider">Borosilicate Glassware</p>
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button
+                            onClick={() => onSpawn('BEAKER')}
+                            className="group p-3 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm"
+                        >
+                            <span className="text-xs font-bold text-slate-200">Beaker</span>
+                            <p className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">250ml Glass</p>
+                        </button>
+                        <button
+                            onClick={() => onSpawn('TEST_TUBE')}
+                            className="group p-3 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm"
+                        >
+                            <span className="text-xs font-bold text-slate-200">Test Tube</span>
+                            <p className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">Sample Glass</p>
+                        </button>
+                    </div>
 
                     <div className="h-px bg-white/10 my-1 mx-2" />
 
@@ -237,7 +261,14 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                                     </div>
                                 </div>
                             </div>
-                            <button className="text-slate-400 hover:text-white p-2">✕</button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                                className="text-slate-400 hover:text-white p-2 transition-colors mr-1"
+                                title={isMuted ? "Unmute Voice" : "Mute Voice"}
+                            >
+                                {isMuted ? "🔇" : "🔊"}
+                            </button>
+                            <button onClick={() => setIsChatOpen(false)} className="text-slate-400 hover:text-white p-2">✕</button>
                         </div>
 
                         {/* Messages */}

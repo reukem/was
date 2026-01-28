@@ -2,11 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createTable, createBeakerGeometry, createGlassMaterial, createLiquidMaterial, createLabel } from '../utils/threeHelpers';
+import { createTable, createBeakerGeometry, createRoughChunkGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh } from '../utils/threeHelpers';
 import { ContainerState } from '../types';
-import { CHEMICALS } from '../constants';
+import { CHEMICALS, HEATER_POSITION } from '../constants';
 
-// --- GEOMETRY GENERATORS (Local for Scene) ---
+// --- LOCAL GEOMETRY GENERATORS (To be moved to threeHelpers or refined) ---
 const createFlaskGeometry = () => {
     const points = [];
     for (let i = 0; i <= 10; i++) {
@@ -19,21 +19,44 @@ const createFlaskGeometry = () => {
     return new THREE.LatheGeometry(points, 24);
 };
 
-const createCanisterGeometry = () => {
-    const geo = new THREE.CapsuleGeometry(0.3, 0.8, 4, 12);
-    geo.translate(0, 0.4, 0);
-    return geo;
+const createTestTubeGeometry = () => {
+    const points = [];
+    points.push(new THREE.Vector2(0, 0));
+    // Round bottom
+    for (let i = 0; i <= 5; i++) {
+        const angle = (i / 5) * (Math.PI / 2);
+        points.push(new THREE.Vector2(Math.sin(angle) * 0.15, -Math.cos(angle) * 0.15 + 0.15));
+    }
+    points.push(new THREE.Vector2(0.15, 1.2));
+    points.push(new THREE.Vector2(0.18, 1.2)); // Lip
+    return new THREE.LatheGeometry(points, 16);
 };
 
-const createMoundGeometry = () => {
-    const geo = new THREE.ConeGeometry(0.4, 0.4, 16, 1, true);
-    geo.translate(0, 0.2, 0);
-    return geo;
+const createBottleGeometry = () => {
+    // Simple reagent bottle
+    const points = [];
+    points.push(new THREE.Vector2(0, 0));
+    points.push(new THREE.Vector2(0.4, 0));
+    points.push(new THREE.Vector2(0.4, 0.6));
+    points.push(new THREE.Vector2(0.15, 0.7));
+    points.push(new THREE.Vector2(0.15, 0.9));
+    points.push(new THREE.Vector2(0.18, 0.92));
+    return new THREE.LatheGeometry(points, 24);
+};
+
+const createJarGeometry = () => {
+    // Wide mouth jar
+    const points = [];
+    points.push(new THREE.Vector2(0, 0));
+    points.push(new THREE.Vector2(0.35, 0));
+    points.push(new THREE.Vector2(0.35, 0.5));
+    points.push(new THREE.Vector2(0.3, 0.5));
+    points.push(new THREE.Vector2(0.3, 0.55));
+    return new THREE.LatheGeometry(points, 24);
 };
 
 const createAnalyzerMachine = () => {
     const group = new THREE.Group();
-
     // Body (Black)
     const bodyGeo = new THREE.BoxGeometry(0.5, 0.8, 0.3);
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
@@ -41,11 +64,11 @@ const createAnalyzerMachine = () => {
     body.castShadow = true;
     group.add(body);
 
-    // Accent (Yellow) - Shifted up to avoid z-fighting
+    // Accent (Yellow)
     const accentGeo = new THREE.BoxGeometry(0.52, 0.1, 0.32);
     const accentMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 1.0, roughness: 0.2 });
     const topAccent = new THREE.Mesh(accentGeo, accentMat);
-    topAccent.position.y = 0.42; // Shifted from 0.41
+    topAccent.position.y = 0.42;
     group.add(topAccent);
 
     // Arm
@@ -61,7 +84,7 @@ const createAnalyzerMachine = () => {
     const probe = new THREE.Mesh(probeGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 1.0 }));
     group.add(probe);
 
-    // Screen - Pulled forward
+    // Screen
     const canvas = document.createElement('canvas');
     canvas.width = 256;
     canvas.height = 128;
@@ -76,7 +99,7 @@ const createAnalyzerMachine = () => {
     }
     const texture = new THREE.CanvasTexture(canvas);
     const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.25), new THREE.MeshBasicMaterial({ map: texture }));
-    screen.position.set(0, 0.1, 0.17); // Pulled from 0.16
+    screen.position.set(0, 0.1, 0.17);
     group.add(screen);
 
     return { group, texture, canvas };
@@ -98,15 +121,12 @@ class ParticleSystem {
     }
 
     createExplosion(position: THREE.Vector3, intensity: number = 1.0) {
-        // Sparks
         const sparkCount = Math.floor(100 * intensity);
         const sparkGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
         const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
-
         for (let i = 0; i < sparkCount; i++) {
             const mesh = new THREE.Mesh(sparkGeo, sparkMat);
             mesh.position.copy(position);
-            // Higher velocity spread for intensity
             const velocity = new THREE.Vector3(
                 (Math.random() - 0.5) * 12 * intensity,
                 (Math.random() * 8 + 4) * intensity,
@@ -115,52 +135,18 @@ class ParticleSystem {
             this.scene.add(mesh);
             this.particles.push({ mesh, velocity, life: 0, maxLife: 50 + Math.random() * 30, type: 'spark' });
         }
-
-        // Smoke
-        const smokeCount = Math.floor(60 * intensity);
-        const smokeGeo = new THREE.DodecahedronGeometry(0.3, 0);
-        const smokeMat = new THREE.MeshStandardMaterial({
-            color: 0x888888,
-            transparent: true,
-            opacity: 0.6,
-            roughness: 1.0
-        });
-
-        for (let i = 0; i < smokeCount; i++) {
-            const mesh = new THREE.Mesh(smokeGeo, smokeMat);
-            mesh.position.copy(position);
-            mesh.position.y += 0.5; // Start slightly higher
-            const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 4,
-                (Math.random() * 4 + 1) * intensity,
-                (Math.random() - 0.5) * 4
-            );
-            this.scene.add(mesh);
-            this.particles.push({ mesh, velocity, life: 0, maxLife: 120 + Math.random() * 60, type: 'smoke' });
-        }
     }
 
     update() {
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
             p.life++;
-
             p.mesh.position.add(p.velocity.clone().multiplyScalar(0.016));
-
             if (p.type === 'spark') {
-                p.velocity.y -= 0.25; // Strong gravity
+                p.velocity.y -= 0.25;
                 p.mesh.rotation.x += 0.2;
-                p.mesh.rotation.z += 0.2;
                 p.mesh.scale.multiplyScalar(0.96);
-            } else if (p.type === 'smoke') {
-                p.velocity.y *= 0.98;
-                p.velocity.x *= 0.95;
-                p.velocity.z *= 0.95;
-                p.mesh.scale.multiplyScalar(1.015);
-                const mat = p.mesh.material as THREE.Material;
-                if(mat) mat.opacity = 0.6 * (1 - (p.life / p.maxLife));
             }
-
             if (p.life > p.maxLife || p.mesh.position.y < -2) {
                 this.scene.remove(p.mesh);
                 (p.mesh.material as THREE.Material).dispose();
@@ -199,7 +185,6 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
 
-    // FIX: State variable for scene readiness
     const [isSceneReady, setIsSceneReady] = useState(false);
 
     useEffect(() => {
@@ -207,19 +192,15 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         onPourRef.current = onPour;
     }, [onMove, onPour]);
 
-    // Handle Effects (Explosion Shake & Particles)
+    // Handle Effects
     useEffect(() => {
         if (!sceneRef.current || !lastEffect) return;
-
         const position = lastEffectPos ? new THREE.Vector3(...lastEffectPos) : new THREE.Vector3(0, 1, 0);
-
         if (lastEffect === 'explosion') {
             particleSystemRef.current?.createExplosion(position, 1.5);
-
             const flashLight = new THREE.PointLight(0xffaa00, 10, 20);
             flashLight.position.copy(position).add(new THREE.Vector3(0, 1, 0));
             sceneRef.current.add(flashLight);
-
             let intensity = 10;
             const fadeFlash = () => {
                 intensity *= 0.8;
@@ -228,23 +209,6 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 else sceneRef.current?.remove(flashLight);
             };
             fadeFlash();
-        }
-
-        if ((lastEffect === 'explosion' || lastEffect === 'foam') && cameraRef.current) {
-            const originalPos = cameraRef.current.position.clone();
-            let count = 0;
-            const shake = () => {
-                if (count < 40 && cameraRef.current) {
-                    const magnitude = (40 - count) / 60;
-                    cameraRef.current.position.x = originalPos.x + (Math.random() - 0.5) * magnitude;
-                    cameraRef.current.position.y = originalPos.y + (Math.random() - 0.5) * magnitude;
-                    count++;
-                    requestAnimationFrame(shake);
-                } else if (cameraRef.current) {
-                    cameraRef.current.position.copy(originalPos);
-                }
-            };
-            shake();
         }
     }, [lastEffect, lastEffectPos]);
 
@@ -314,6 +278,11 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
 
         scene.add(createTable());
 
+        // Heater
+        const heater = createHeaterMesh();
+        heater.position.set(...HEATER_POSITION);
+        scene.add(heater);
+
         const shelf = new THREE.Mesh(
             new THREE.BoxGeometry(10, 0.1, 2.5),
             new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 })
@@ -345,7 +314,6 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                     const group = meshesRef.current.get(draggedItem.current.id);
                     if (group) {
                         group.position.copy(target.add(draggedItem.current.offset));
-                        // FIX: Lift height increased to 2.5
                         group.position.y = Math.max(0.2, THREE.MathUtils.lerp(group.position.y, 2.5, 0.2));
                     }
                 }
@@ -383,6 +351,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                     meshesRef.current.forEach((otherGroup, otherId) => {
                         if (id !== otherId && !poured && otherId !== 'ANALYZER_MACHINE') {
                             const dist = myPos.distanceTo(otherGroup.position);
+                            // Pour range
                             if (dist < 1.4) {
                                 onPourRef.current(id, otherId);
                                 poured = true;
@@ -406,7 +375,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                         };
                         animateReturn();
                     } else {
-                        // Drop to table (FIX: y=0.11)
+                        // Drop to table
                         const targetY = 0.11;
                         const animateDrop = () => {
                             if (!group) return;
@@ -441,7 +410,6 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 const analyzerPos = analyzerRef.current.group.position;
                 containers.forEach(c => {
                     const cPos = new THREE.Vector3(...c.position);
-                    // FIX: Detection radius increased to 2.0
                     if (analyzerPos.distanceTo(cPos) < 2.0 && c.contents) {
                         foundChem = c.contents.chemicalId;
                         foundTemp = c.contents.temperature || 25;
@@ -477,7 +445,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
     useEffect(() => {
         if (!sceneRef.current || !isSceneReady) return;
 
-        // Cleanup
+        // Cleanup removed containers
         meshesRef.current.forEach((group, id) => {
             if (id !== 'ANALYZER_MACHINE' && !containers.find(c => c.id === id)) {
                 sceneRef.current?.remove(group);
@@ -493,14 +461,13 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             if (!group) {
                 group = new THREE.Group();
                 group.userData.id = container.id;
+                let mesh;
 
-                if (!container.id.startsWith('source_')) {
-                    // Beaker
-                    const beaker = new THREE.Mesh(createBeakerGeometry(0.5, 1.2), createGlassMaterial());
-                    beaker.castShadow = true;
-                    beaker.receiveShadow = true;
-                    beaker.renderOrder = 2;
-                    group.add(beaker);
+                // Determine Geometry based on Container Type
+                if (container.type === 'beaker') {
+                    mesh = new THREE.Mesh(createBeakerGeometry(0.5, 1.2), createGlassMaterial());
+                    mesh.renderOrder = 2;
+                    group.add(mesh);
 
                     const liquidGeo = new THREE.CylinderGeometry(0.46, 0.46, 1, 32);
                     liquidGeo.translate(0, 0.5, 0);
@@ -509,40 +476,73 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
-                } else {
-                    // Source Item
-                    const chem = CHEMICALS[container.contents?.chemicalId || 'H2O'];
-                    const color = chem.color;
-                    let mesh;
 
-                    if (chem.meshStyle === 'flask') {
-                         const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial());
-                         flask.renderOrder = 2;
-                         const innerLiquid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 24), new THREE.MeshStandardMaterial({color}));
-                         innerLiquid.position.y = 0.4;
-                         flask.add(innerLiquid);
-                         mesh = flask;
-                    } else if (chem.meshStyle === 'rock') {
-                        mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3, 0), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true }));
-                    } else if (chem.meshStyle === 'crystal') {
-                        mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.3, 0), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true }));
-                    } else if (chem.meshStyle === 'mound') {
-                        mesh = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 1.0 }));
-                    } else if (chem.meshStyle === 'canister') {
-                        mesh = new THREE.Mesh(createCanisterGeometry(), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.4 }));
-                        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.1, 32), new THREE.MeshBasicMaterial({ color }));
-                        band.position.y = 0.5;
-                        mesh.add(band);
-                    } else {
-                        mesh = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.4,0.4), new THREE.MeshStandardMaterial({color}));
+                } else if (container.type === 'test_tube') {
+                    mesh = new THREE.Mesh(createTestTubeGeometry(), createGlassMaterial());
+                    mesh.renderOrder = 2;
+                    group.add(mesh);
+
+                    const liquidGeo = new THREE.CylinderGeometry(0.13, 0.13, 1.1, 16);
+                    liquidGeo.translate(0, 0.5, 0);
+                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
+                    liquidMesh.scale.set(1, 0.01, 1);
+                    liquidMesh.renderOrder = 1;
+                    group.add(liquidMesh);
+                    liquidsRef.current.set(container.id, liquidMesh);
+
+                } else if (container.type === 'bottle') {
+                    mesh = new THREE.Mesh(createBottleGeometry(), createGlassMaterial());
+                    group.add(mesh);
+                    // Inner liquid (static for source bottles for now, or use liquidMesh)
+                    // Let's use liquidMesh but keep it simple
+                    const liquidGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.5, 24);
+                    liquidGeo.translate(0, 0.3, 0);
+                    const contents = container.contents ? CHEMICALS[container.contents.chemicalId] : null;
+                    const color = contents ? contents.color : 0xffffff;
+                    liquidMesh = new THREE.Mesh(liquidGeo, new THREE.MeshStandardMaterial({ color: color }));
+                    group.add(liquidMesh);
+
+                } else if (container.type === 'jar') {
+                    mesh = new THREE.Mesh(createJarGeometry(), createGlassMaterial());
+                    group.add(mesh);
+                    // Powder mound inside
+                    if (container.contents) {
+                        const mound = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color: container.contents.color, roughness: 1.0 }));
+                        mound.scale.set(0.8, 0.8, 0.8);
+                        group.add(mound);
                     }
+
+                } else if (container.type === 'rock') {
+                    // Raw element chunk
+                    const chem = container.contents ? CHEMICALS[container.contents.chemicalId] : null;
+                    const color = chem ? chem.color : 0x888888;
+                    // Determine if metal based on simple heuristic or ID
+                    const isMetal = ['SODIUM', 'POTASSIUM', 'IRON', 'MAGNESIUM', 'ZINC', 'COPPER', 'ALUMINUM', 'GOLD'].includes(chem?.id || '');
+
+                    const geo = createRoughChunkGeometry(0.25);
+                    const mat = isMetal
+                        ? createMetalMaterial(color, 0.3)
+                        : new THREE.MeshStandardMaterial({ color, roughness: 0.9 });
+
+                    mesh = new THREE.Mesh(geo, mat);
                     mesh.castShadow = true;
                     group.add(mesh);
                 }
 
-                if (container.contents) {
+                if (mesh) {
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                }
+
+                // Label
+                if (container.contents && container.type !== 'rock') {
                     const label = createLabel(CHEMICALS[container.contents.chemicalId].name);
-                    label.position.y = 1.6;
+                    label.position.y = container.type === 'test_tube' ? 1.4 : 1.6;
+                    group.add(label);
+                } else if (container.type === 'rock' && container.contents) {
+                    const label = createLabel(CHEMICALS[container.contents.chemicalId].name);
+                    label.position.y = 0.6;
+                    label.scale.set(0.6, 0.15, 1);
                     group.add(label);
                 }
 
@@ -555,11 +555,11 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 group.position.lerp(new THREE.Vector3(...container.position), 0.2);
             }
 
-            // Update Liquid Visuals
-            if (liquidMesh) {
+            // Update Liquid Visuals for Vessels
+            if (liquidMesh && (container.type === 'beaker' || container.type === 'test_tube')) {
                 if (container.contents) {
                     liquidMesh.visible = true;
-                    const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
+                    const targetScaleY = Math.max(0.01, container.contents.volume * (container.type === 'test_tube' ? 1.0 : 1.15));
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
 
                     const mat = liquidMesh.material as THREE.MeshPhysicalMaterial;
@@ -570,23 +570,18 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                         const heatFactor = Math.min((temp - 100) / 500, 1);
                         const glowColor = new THREE.Color(baseColor).lerp(new THREE.Color(0xff4400), heatFactor);
                         mat.color.copy(glowColor);
-                        if ('attenuationColor' in mat) {
-                             // @ts-ignore
-                             mat.attenuationColor.copy(glowColor);
-                        }
+                        if ('attenuationColor' in mat) { // @ts-ignore
+                             mat.attenuationColor.copy(glowColor); }
                         mat.emissive.copy(new THREE.Color(0xff2200));
                         mat.emissiveIntensity = heatFactor;
                     } else {
                         mat.color.copy(baseColor);
-                        if ('attenuationColor' in mat) {
-                             // @ts-ignore
-                             mat.attenuationColor.copy(baseColor);
-                        }
+                        if ('attenuationColor' in mat) { // @ts-ignore
+                             mat.attenuationColor.copy(baseColor); }
                         mat.emissive.setHex(0x000000);
                         mat.emissiveIntensity = 0;
                     }
                 } else {
-                    // FIX: Phantom Liquid - Hide if empty
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2);
                     if (liquidMesh.scale.y < 0.01) liquidMesh.visible = false;
                 }

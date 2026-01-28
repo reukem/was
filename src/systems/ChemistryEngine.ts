@@ -38,7 +38,8 @@ export class ChemistryEngine {
         chemId1: string,
         vol1: number,
         chemId2: string,
-        vol2: number
+        vol2: number,
+        currentTemperature: number = 20 // Default ambient
     ): { resultId: string; resultColor: string; reaction?: ReactionResult } {
 
         const c1 = CHEMICALS[chemId1] || CHEMICALS['H2O'];
@@ -50,21 +51,27 @@ export class ChemistryEngine {
             (r.reactants[1] === chemId1 && r.reactants[0] === chemId2)
         );
 
+        // Check Temperature Activation Energy
         if (match) {
-            const product = CHEMICALS[match.product];
-            // Explosions and big reactions often result in a dominant product color
-            const resColor = match.effect === 'explosion' ? product.color : this.blendColors(c1.color, vol1, c2.color, vol2);
-            return {
-                resultId: match.product,
-                resultColor: resColor,
-                reaction: {
-                    productName: product.name,
-                    color: resColor,
-                    effect: match.effect,
-                    temperature: match.temperature,
-                    message: match.message
-                }
-            };
+            const minTemp = match.minTemperature || -273; // Absolute zero if not specified
+
+            if (currentTemperature >= minTemp) {
+                const product = CHEMICALS[match.product];
+                // Explosions and big reactions often result in a dominant product color
+                const resColor = match.effect === 'explosion' ? product.color : this.blendColors(c1.color, vol1, c2.color, vol2);
+                return {
+                    resultId: match.product,
+                    resultColor: resColor,
+                    reaction: {
+                        productName: product.name,
+                        color: resColor,
+                        effect: match.effect,
+                        temperature: match.temperature,
+                        message: match.message
+                    }
+                };
+            }
+            // If match exists but temp is too low, fall through to blending (no reaction yet)
         }
 
         // 2. Special Indicator Logic (Visual pH test)

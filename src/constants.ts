@@ -1,5 +1,7 @@
 import { Chemical, ReactionEntry } from './types';
 
+export const HEATER_POSITION: [number, number, number] = [0, 0.11, 1.0]; // On table, slightly forward
+
 export const CHEMICALS: Record<string, Chemical> = {
     // --- LIQUIDS ---
     'H2O': {
@@ -116,7 +118,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         id: 'AgNO3',
         name: 'Silver Nitrate',
         formula: 'AgNO₃',
-        color: '#94a3b8', // Colorless solution usually, kept grayish
+        color: '#94a3b8',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 6.0,
@@ -129,7 +131,7 @@ export const CHEMICALS: Record<string, Chemical> = {
         id: 'SODIUM',
         name: 'Sodium',
         formula: 'Na',
-        color: '#9ca3af',
+        color: '#e5e7eb', // White/Grey
         type: 'solid',
         meshStyle: 'rock',
         ph: 12.0,
@@ -279,6 +281,17 @@ export const CHEMICALS: Record<string, Chemical> = {
         density: 2.70,
         description: 'Strong oxidizer (purple crystals).'
     },
+    'GOLD': {
+        id: 'GOLD',
+        name: 'Gold',
+        formula: 'Au',
+        color: '#fbbf24', // Golden yellow
+        type: 'solid',
+        meshStyle: 'rock',
+        ph: 7.0,
+        density: 19.3,
+        description: 'Noble metal.'
+    },
 
     // --- GASES/OTHERS ---
     'CHLORINE': {
@@ -303,7 +316,6 @@ export const CHEMICALS: Record<string, Chemical> = {
         density: 3.6,
         description: 'Blue crystals.'
     },
-    // Used for Thermite result
     'MOLTEN_IRON': {
         id: 'MOLTEN_IRON',
         name: 'Molten Iron',
@@ -336,7 +348,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
     },
     {
         reactants: ['MAGNESIUM', 'HCl'],
-        product: 'H2O', // Simulating clear MgCl2 solution
+        product: 'H2O',
         resultColor: '#e2e8f0',
         effect: 'bubbles',
         temperature: 60,
@@ -344,8 +356,8 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
     },
     {
         reactants: ['COPPER', 'HNO3'],
-        product: 'COPPER_SULFATE', // Visual proxy for Cu(NO3)2
-        resultColor: '#1e3a8a', // Deep Blue
+        product: 'COPPER_SULFATE',
+        resultColor: '#1e3a8a',
         effect: 'smoke',
         temperature: 80,
         message: 'Redox Reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Production of toxic brown Nitrogen Dioxide gas.'
@@ -414,20 +426,20 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         temperature: 90,
         message: 'Catalytic Decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction.'
     },
-    // New Reactions for v4.2.0
     {
         reactants: ['Fe2O3', 'ALUMINUM'],
         product: 'MOLTEN_IRON',
         resultColor: '#f59e0b',
         effect: 'explosion',
         temperature: 2500,
+        minTemperature: 500, // Requires activation energy (heater)
         message: 'Thermite Reaction! Fe₂O₃ + 2Al → 2Fe + Al₂O₃. Extreme heat produces molten iron.'
     },
     {
         reactants: ['AgNO3', 'SALT'],
-        product: 'H2O', // White precipitate in water
+        product: 'H2O',
         resultColor: '#f8fafc',
-        effect: 'smoke', // Simulating precipitate cloud
+        effect: 'smoke',
         temperature: 25,
         message: 'Precipitation. AgNO₃ + NaCl → AgCl(s) + NaNO₃. Formation of white Silver Chloride precipitate.'
     },
@@ -441,7 +453,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
     },
     {
         reactants: ['IRON', 'H2SO4'],
-        product: 'H2O', // Greenish solution FeSO4
+        product: 'H2O',
         resultColor: '#bef264',
         effect: 'bubbles',
         temperature: 50,
@@ -449,7 +461,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
     },
     {
         reactants: ['NH3', 'HCl'],
-        product: 'H2O', // White smoke (NH4Cl)
+        product: 'H2O',
         resultColor: '#f1f5f9',
         effect: 'smoke',
         temperature: 30,
