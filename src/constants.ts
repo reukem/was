@@ -125,6 +125,39 @@ export const CHEMICALS: Record<string, Chemical> = {
         density: 4.35,
         description: 'Photosensitive compound.'
     },
+    'PbNO3': {
+        id: 'PbNO3',
+        name: 'Lead(II) Nitrate',
+        formula: 'Pb(NO₃)₂',
+        color: '#f8fafc',
+        type: 'liquid',
+        meshStyle: 'flask',
+        ph: 5.0,
+        density: 4.53,
+        description: 'Toxic salt.'
+    },
+    'GLUCOSE': {
+        id: 'GLUCOSE',
+        name: 'Glucose Solution',
+        formula: 'C₆H₁₂O₆(aq)',
+        color: '#f8fafc',
+        type: 'liquid',
+        meshStyle: 'flask',
+        ph: 7.0,
+        density: 1.54,
+        description: 'Sugar solution.'
+    },
+    'INDIGO_CARMINE': {
+        id: 'INDIGO_CARMINE',
+        name: 'Indigo Carmine',
+        formula: 'C₁₆H₈N₂Na₂O₈S₂',
+        color: '#3b82f6', // Blue
+        type: 'liquid',
+        meshStyle: 'flask',
+        ph: 7.0,
+        density: 1.0,
+        description: 'Redox indicator.'
+    },
 
     // --- SOLIDS ---
     'SODIUM': {
@@ -326,6 +359,28 @@ export const CHEMICALS: Record<string, Chemical> = {
         ph: 7.0,
         density: 6.98,
         description: 'Superheated liquid iron.'
+    },
+    'GOLDEN_RAIN': {
+        id: 'GOLDEN_RAIN',
+        name: 'Lead(II) Iodide',
+        formula: 'PbI₂',
+        color: '#facc15', // Bright Yellow
+        type: 'solid',
+        meshStyle: 'crystal',
+        ph: 7.0,
+        density: 6.16,
+        description: 'Beautiful golden hexagonal crystals.'
+    },
+    'TRAFFIC_RED': {
+        id: 'TRAFFIC_RED',
+        name: 'Intermediate Red',
+        formula: 'Complex',
+        color: '#ef4444',
+        type: 'liquid',
+        meshStyle: 'flask',
+        ph: 10.0,
+        density: 1.0,
+        description: 'Transient state.'
     }
 };
 
@@ -360,6 +415,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#1e3a8a',
         effect: 'smoke',
         temperature: 80,
+        duration: 3000,
         message: 'Redox Reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Production of toxic brown Nitrogen Dioxide gas.'
     },
     {
@@ -424,6 +480,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#fef3c7',
         effect: 'foam',
         temperature: 90,
+        duration: 4000,
         message: 'Catalytic Decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction.'
     },
     {
@@ -466,5 +523,24 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         effect: 'smoke',
         temperature: 30,
         message: 'Gas Phase Reaction. NH₃ + HCl → NH₄Cl. Formation of white Ammonium Chloride smoke.'
+    },
+    // --- SHOWSTOPPERS ---
+    {
+        reactants: ['PbNO3', 'KI'],
+        product: 'GOLDEN_RAIN',
+        resultColor: '#facc15', // Gold
+        effect: 'sparkles',
+        temperature: 30,
+        duration: 5000, // Slow precipitation
+        message: 'Golden Rain! Pb(NO₃)₂ + 2KI → PbI₂ + 2KNO₃. Beautiful golden crystals of Lead Iodide precipitate.'
+    },
+    {
+        reactants: ['GLUCOSE', 'INDIGO_CARMINE'],
+        product: 'TRAFFIC_RED',
+        resultColor: '#ef4444', // Turns Red
+        effect: 'bubbles',
+        temperature: 25,
+        duration: 4000,
+        message: 'Chemical Traffic Light. Oxidation state change causes color shift from Blue to Red (and eventually Yellow).'
     }
 ];

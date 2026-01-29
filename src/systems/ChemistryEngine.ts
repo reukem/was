@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CHEMICALS, REACTION_REGISTRY } from '../constants';
-import { ReactionResult } from '../types';
+import { ReactionResult, ActiveReaction } from '../types';
 
 export class ChemistryEngine {
     static blendColors(color1: string, vol1: number, color2: string, vol2: number): string {
@@ -40,7 +40,7 @@ export class ChemistryEngine {
         chemId2: string,
         vol2: number,
         currentTemperature: number = 20 // Default ambient
-    ): { resultId: string; resultColor: string; reaction?: ReactionResult } {
+    ): { resultId: string; resultColor: string; reaction?: ReactionResult; activeReaction?: ActiveReaction } {
 
         const c1 = CHEMICALS[chemId1] || CHEMICALS['H2O'];
         const c2 = CHEMICALS[chemId2] || CHEMICALS['H2O'];
@@ -57,19 +57,47 @@ export class ChemistryEngine {
 
             if (currentTemperature >= minTemp) {
                 const product = CHEMICALS[match.product];
+                // Initial blend color (before reaction completes)
+                const startBlend = this.blendColors(c1.color, vol1, c2.color, vol2);
+
                 // Explosions and big reactions often result in a dominant product color
-                const resColor = match.effect === 'explosion' ? product.color : this.blendColors(c1.color, vol1, c2.color, vol2);
-                return {
+                const finalColor = match.effect === 'explosion' ? product.color : match.resultColor || product.color;
+
+                // Prepare result
+                const result: {
+                    resultId: string;
+                    resultColor: string;
+                    reaction: ReactionResult;
+                    activeReaction?: ActiveReaction
+                } = {
                     resultId: match.product,
-                    resultColor: resColor,
+                    resultColor: finalColor,
                     reaction: {
                         productName: product.name,
-                        color: resColor,
+                        color: finalColor,
                         effect: match.effect,
                         temperature: match.temperature,
                         message: match.message
                     }
                 };
+
+                // Add Kinetics if duration is specified
+                if (match.duration && match.duration > 0) {
+                    result.activeReaction = {
+                        startTime: Date.now(),
+                        duration: match.duration,
+                        startColor: startBlend,
+                        targetColor: finalColor,
+                        productId: match.product,
+                        productName: product.name,
+                        effect: match.effect,
+                        message: match.message
+                    };
+                    // If kinetic, start with the blend color, not the final color
+                    result.resultColor = startBlend;
+                }
+
+                return result;
             }
             // If match exists but temp is too low, fall through to blending (no reaction yet)
         }

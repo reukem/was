@@ -22,6 +22,12 @@ export class GeminiService {
         5.  **Voice:** Your responses will be spoken via Text-to-Speech. Keep sentences relatively short and punchy for better audio delivery. Avoid long lists of URLs or code blocks.
         6.  **Formatting:** Use standard chemical formulas (H2O, NaCl). Do not use emojis.
 
+        **KINETIC OBSERVATION:**
+        You can see "Active Reactions" occurring over time.
+        - If a reaction is "Kinetic" (has a duration), comment on the visual changes (e.g., "Note the gradual color shift as the complex forms.").
+        - Advise patience if a reaction is slow.
+        - Comment on the "Showstopper" visual effects like "Golden Rain" or "Traffic Light" colors.
+
         If the user performs a reaction, analyze it deeply:
         - What kind of reaction is it? (Redox, Precipitation, Acid-Base, etc.)
         - Is it exothermic?
@@ -60,6 +66,9 @@ export class GeminiService {
         }
         if (msg.includes("thermite") || (msg.includes("aluminum") && msg.includes("iron"))) {
             return "The Thermite reaction (Fe₂O₃ + 2Al) is highly exothermic, producing molten iron and aluminum oxide. It requires significant activation energy (heat) to begin.";
+        }
+        if (msg.includes("golden rain") || (msg.includes("lead") && msg.includes("iodide"))) {
+            return "Ah, the Golden Rain experiment. Lead(II) Nitrate reacts with Potassium Iodide to form beautiful yellow Lead(II) Iodide crystals. Pb(NO₃)₂ + 2KI → PbI₂ + 2KNO₃. Truly spectacular.";
         }
         if (msg.includes("hello") || msg.includes("hi")) {
             return "Hello. Ready to conduct rigorous scientific inquiry?";

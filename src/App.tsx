@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import * as THREE from 'three';
 import LabScene from './components/LabScene';
 import LabUI from './components/LabUI';
 import { ContainerState, ChatMessage, ContainerType } from './types';
@@ -45,19 +46,45 @@ const App: React.FC = () => {
         };
     }, []);
 
-    // Simulation Loop (Heating/Cooling)
+    // Simulation Loop (Heating/Cooling + Kinetics)
     useEffect(() => {
         const interval = setInterval(() => {
+            const now = Date.now();
+
             setContainers(prev => prev.map(c => {
                 if (!c.contents) return c;
 
+                let updatedContents = { ...c.contents };
+                let changed = false;
+
+                // 1. Kinetics (Active Reaction)
+                if (c.contents.activeReaction) {
+                    const ar = c.contents.activeReaction;
+                    const elapsed = now - ar.startTime;
+                    const progress = Math.min(1.0, elapsed / ar.duration);
+
+                    // Interpolate Color
+                    const startC = new THREE.Color(ar.startColor);
+                    const endC = new THREE.Color(ar.targetColor);
+                    const currentC = startC.lerp(endC, progress);
+                    updatedContents.color = '#' + currentC.getHexString();
+                    changed = true;
+
+                    // Completion
+                    if (progress >= 1.0) {
+                        updatedContents.activeReaction = null;
+                        updatedContents.chemicalId = ar.productId; // Finalize product ID
+                    }
+                }
+
+                // 2. Thermal Dynamics
                 // 2D Distance check (ignore Y height)
                 const dist = Math.sqrt(
                     Math.pow(c.position[0] - HEATER_POSITION[0], 2) +
                     Math.pow(c.position[2] - HEATER_POSITION[2], 2)
                 );
 
-                let newTemp = c.contents.temperature || 25;
+                let newTemp = updatedContents.temperature || 25;
 
                 // If close to heater position
                 if (dist < 0.5) {
@@ -68,12 +95,17 @@ const App: React.FC = () => {
                     if (newTemp > 25) newTemp = Math.max(25, newTemp - 0.5);
                 }
 
-                if (newTemp !== c.contents.temperature) {
-                    return { ...c, contents: { ...c.contents, temperature: newTemp } };
+                if (newTemp !== updatedContents.temperature) {
+                    updatedContents.temperature = newTemp;
+                    changed = true;
+                }
+
+                if (changed) {
+                    return { ...c, contents: updatedContents };
                 }
                 return c;
             }));
-        }, 100); // 10Hz physics loop
+        }, 50); // 20Hz physics/kinetics loop for smoother color shifts
         return () => clearInterval(interval);
     }, []);
 
@@ -118,12 +150,8 @@ const App: React.FC = () => {
             const newTemp = mixResult.reaction?.temperature || targetTemp;
 
             const nextContainers = prev.map(c => {
-                // Update Source (Reduce volume if it's a finite vessel, infinite if it's a generic source item?)
-                // Actually, let's make Shelf Sources infinite, but spawned table items finite?
-                // For now, consistent behavior: sources on table deplete.
+                // Update Source
                 if (c.id === sourceId) {
-                    // Source Items from Shelf (ID starts with source_) are infinite in this logic?
-                    // No, let's make them finite so you have to grab another.
                     const newVol = Math.max(0, c.contents!.volume - amountToPour);
                     return {
                         ...c,
@@ -138,7 +166,8 @@ const App: React.FC = () => {
                             chemicalId: mixResult.resultId,
                             volume: Math.min(1.0, targetVol + amountToPour),
                             color: mixResult.resultColor,
-                            temperature: isReactionProduct ? newTemp : targetTemp
+                            temperature: isReactionProduct ? newTemp : targetTemp,
+                            activeReaction: mixResult.activeReaction // Pass the kinetic state if any
                         }
                     };
                 }
@@ -148,9 +177,6 @@ const App: React.FC = () => {
             // Cleanup empty sources (garbage collection)
             return nextContainers.filter(c => {
                  if (c.id === sourceId) {
-                     // If reaction occurred (e.g. dropping sodium in water), the source (sodium rock) shouldn't disappear immediately unless fully consumed.
-                     // But here we just reduce volume.
-                     // If it's a rock and volume is low, remove it.
                      if (c.contents === null) return false;
                  }
                  return true;
@@ -172,7 +198,9 @@ const App: React.FC = () => {
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
                 const detail = `Mixed ${source.contents.chemicalId} into ${targetChemId}. Produced ${mixResult.reaction.productName}.`;
-                await aiServiceRef.current.chat(`[SYSTEM ALERT: EXPERIMENT PERFORMED] ${detail}`);
+                // If it's a kinetic reaction, mention it
+                const kineticNote = mixResult.activeReaction ? ` The reaction is proceeding slowly over ${(mixResult.activeReaction.duration / 1000).toFixed(1)}s.` : '';
+                await aiServiceRef.current.chat(`[SYSTEM ALERT: EXPERIMENT PERFORMED] ${detail}${kineticNote}`);
                 setIsAiLoading(false);
             }
         }

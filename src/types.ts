@@ -22,11 +22,23 @@ export interface Chemical {
     description: string;
 }
 
+export interface ActiveReaction {
+    startTime: number;
+    duration: number;
+    startColor: string;
+    targetColor: string;
+    productId: string;
+    productName: string;
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+    message: string;
+}
+
 export interface ContainerContents {
     chemicalId: string;
     volume: number; // 0 to 1
     color: string;
     temperature: number;
+    activeReaction?: ActiveReaction | null;
 }
 
 export interface ContainerState {
@@ -45,6 +57,7 @@ export interface ReactionEntry {
     effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
     temperature?: number;
     minTemperature?: number; // Minimum temp required to trigger reaction
+    duration?: number; // Time in ms for reaction to complete
     message: string;
 }
 

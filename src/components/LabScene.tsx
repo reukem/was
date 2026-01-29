@@ -2,22 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createTable, createBeakerGeometry, createRoughChunkGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh } from '../utils/threeHelpers';
+import { createTable, createBeakerGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh } from '../utils/threeHelpers';
+import { EffectSystem } from '../utils/EffectSystem';
 import { ContainerState } from '../types';
 import { CHEMICALS, HEATER_POSITION } from '../constants';
-
-// --- LOCAL GEOMETRY GENERATORS (To be moved to threeHelpers or refined) ---
-const createFlaskGeometry = () => {
-    const points = [];
-    for (let i = 0; i <= 10; i++) {
-        const t = i / 10;
-        const x = 0.5 * (1 - t) + 0.15 * t;
-        points.push(new THREE.Vector2(x, t * 0.8));
-    }
-    points.push(new THREE.Vector2(0.15, 1.0));
-    points.push(new THREE.Vector2(0.18, 1.05));
-    return new THREE.LatheGeometry(points, 24);
-};
 
 const createTestTubeGeometry = () => {
     const points = [];
@@ -105,58 +93,6 @@ const createAnalyzerMachine = () => {
     return { group, texture, canvas };
 };
 
-// --- PARTICLE SYSTEM ---
-class ParticleSystem {
-    particles: {
-        mesh: THREE.Mesh;
-        velocity: THREE.Vector3;
-        life: number;
-        maxLife: number;
-        type: 'spark' | 'smoke' | 'bubble';
-    }[] = [];
-    scene: THREE.Scene;
-
-    constructor(scene: THREE.Scene) {
-        this.scene = scene;
-    }
-
-    createExplosion(position: THREE.Vector3, intensity: number = 1.0) {
-        const sparkCount = Math.floor(100 * intensity);
-        const sparkGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
-        const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
-        for (let i = 0; i < sparkCount; i++) {
-            const mesh = new THREE.Mesh(sparkGeo, sparkMat);
-            mesh.position.copy(position);
-            const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 12 * intensity,
-                (Math.random() * 8 + 4) * intensity,
-                (Math.random() - 0.5) * 12 * intensity
-            );
-            this.scene.add(mesh);
-            this.particles.push({ mesh, velocity, life: 0, maxLife: 50 + Math.random() * 30, type: 'spark' });
-        }
-    }
-
-    update() {
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const p = this.particles[i];
-            p.life++;
-            p.mesh.position.add(p.velocity.clone().multiplyScalar(0.016));
-            if (p.type === 'spark') {
-                p.velocity.y -= 0.25;
-                p.mesh.rotation.x += 0.2;
-                p.mesh.scale.multiplyScalar(0.96);
-            }
-            if (p.life > p.maxLife || p.mesh.position.y < -2) {
-                this.scene.remove(p.mesh);
-                (p.mesh.material as THREE.Material).dispose();
-                (p.mesh.geometry as THREE.BufferGeometry).dispose();
-                this.particles.splice(i, 1);
-            }
-        }
-    }
-}
-
 interface LabSceneProps {
     containers: ContainerState[];
     lastEffect: string | null;
@@ -175,7 +111,8 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
     const meshesRef = useRef<Map<string, THREE.Group>>(new Map());
     const liquidsRef = useRef<Map<string, THREE.Mesh>>(new Map());
     const analyzerRef = useRef<{ group: THREE.Group, texture: THREE.CanvasTexture, canvas: HTMLCanvasElement } | null>(null);
-    const particleSystemRef = useRef<ParticleSystem | null>(null);
+    const effectSystemRef = useRef<EffectSystem | null>(null);
+    const shakeIntensity = useRef(0);
 
     const raycaster = useRef(new THREE.Raycaster());
     const pointer = useRef(new THREE.Vector2());
@@ -196,8 +133,12 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
     useEffect(() => {
         if (!sceneRef.current || !lastEffect) return;
         const position = lastEffectPos ? new THREE.Vector3(...lastEffectPos) : new THREE.Vector3(0, 1, 0);
+
         if (lastEffect === 'explosion') {
-            particleSystemRef.current?.createExplosion(position, 1.5);
+            effectSystemRef.current?.createExplosion(position, 1.5);
+            shakeIntensity.current = 1.0; // Trigger shake
+
+            // Light Flash
             const flashLight = new THREE.PointLight(0xffaa00, 10, 20);
             flashLight.position.copy(position).add(new THREE.Vector3(0, 1, 0));
             sceneRef.current.add(flashLight);
@@ -209,6 +150,10 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 else sceneRef.current?.remove(flashLight);
             };
             fadeFlash();
+        } else if (lastEffect === 'sparkles') {
+            effectSystemRef.current?.createSparkles(position, '#ffd700', 20);
+        } else if (lastEffect === 'smoke') {
+            // Manual smoke trigger if needed, though explosion handles its own smoke
         }
     }, [lastEffect, lastEffectPos]);
 
@@ -299,7 +244,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         analyzerRef.current = analyzer;
         meshesRef.current.set('ANALYZER_MACHINE', analyzer.group);
 
-        particleSystemRef.current = new ParticleSystem(scene);
+        effectSystemRef.current = new EffectSystem(scene);
 
         const onPointerMove = (event: PointerEvent) => {
             pointer.current.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -402,7 +347,17 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         const animate = () => {
             requestAnimationFrame(animate);
             controls.update();
-            particleSystemRef.current?.update();
+            effectSystemRef.current?.update();
+
+            // Camera Shake
+            if (shakeIntensity.current > 0) {
+                const shake = shakeIntensity.current;
+                camera.position.x += (Math.random() - 0.5) * shake * 0.5;
+                camera.position.y += (Math.random() - 0.5) * shake * 0.5;
+                camera.position.z += (Math.random() - 0.5) * shake * 0.5;
+                shakeIntensity.current *= 0.9; // Decay
+                if (shakeIntensity.current < 0.01) shakeIntensity.current = 0;
+            }
 
             if (analyzerRef.current) {
                 let foundChem = null;

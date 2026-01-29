@@ -76,6 +76,21 @@ export const createRoughChunkGeometry = (radius: number = 0.3) => {
     return geometry;
 };
 
+export const createMoundGeometry = (radius: number = 0.3, height: number = 0.4) => {
+    // A cone-like mound for powders
+    const geometry = new THREE.ConeGeometry(radius, height, 32, 4, true);
+    // Open ended? No, we want a solid look, usually seated in a jar.
+    // Let's use Lathe for a soft mound
+    const points = [];
+    for(let i=0; i<=10; i++) {
+        const t = i/10;
+        const x = radius * (1-t);
+        const y = height * (1 - Math.cos(t * Math.PI / 2)); // Ease out
+        points.push(new THREE.Vector2(x, y));
+    }
+    return new THREE.LatheGeometry(points, 32);
+};
+
 // --- ENVIRONMENT ---
 
 export const createTable = () => {
