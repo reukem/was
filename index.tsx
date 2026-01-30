@@ -391,7 +391,7 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     <div className="log-panel">
-                        {logs.map((msg, i) => <div key={i} className="log-entry">> {msg}</div>)}
+                        {logs.map((msg, i) => <div key={i} className="log-entry">&gt; {msg}</div>)}
                     </div>
                     <div className="action-row">
                         <button className="action-btn high-end" onClick={() => handleStudy()}>EXEC_STUDY</button>
