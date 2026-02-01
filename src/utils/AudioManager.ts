@@ -189,6 +189,27 @@ export class AudioManager {
              osc.stop(now + i*0.1 + 0.5);
         });
     }
+
+    playScan() {
+        if (!this.ctx || !this.masterGain) return;
+        this.ensureContext();
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(1200, this.ctx.currentTime + 0.1);
+
+        gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.1);
+    }
 }
 
 export const audioManager = new AudioManager();

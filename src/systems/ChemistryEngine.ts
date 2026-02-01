@@ -102,26 +102,6 @@ export class ChemistryEngine {
             // If match exists but temp is too low, fall through to blending (no reaction yet)
         }
 
-        // 2. Special Indicator Logic (Visual pH test)
-        if (chemId1 === 'INDICATOR' || chemId2 === 'INDICATOR') {
-            const reactant = chemId1 === 'INDICATOR' ? c2 : c1;
-            let indicatorColor = '#22c55e'; // Default Neutral Green
-            if (reactant.ph < 3) indicatorColor = '#ef4444'; // Strong Acid (Red)
-            else if (reactant.ph < 6) indicatorColor = '#f97316'; // Weak Acid (Orange)
-            else if (reactant.ph > 11) indicatorColor = '#a855f7'; // Strong Base (Purple)
-            else if (reactant.ph > 8) indicatorColor = '#3b82f6'; // Weak Base (Blue)
-
-            return {
-                resultId: 'INDICATOR',
-                resultColor: indicatorColor,
-                reaction: {
-                    productName: 'pH Indication',
-                    color: indicatorColor,
-                    message: `Indicator shift! Detected pH: ${reactant.ph.toFixed(1)}`
-                }
-            };
-        }
-
         // 3. Realistic Dilution/Blending
         const resultColor = this.blendColors(c1.color, vol1, c2.color, vol2);
 

@@ -71,6 +71,11 @@ const createAnalyzerMachine = () => {
     const probeGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.6);
     probeGeo.translate(0, -0.3, 0.5);
     const probe = new THREE.Mesh(probeGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 1.0 }));
+    // Add collision volume to probe for better detection
+    const collider = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
+    collider.translate(0, -0.3, 0.5);
+    collider.userData.type = 'PROBE_SENSOR';
+    group.add(collider);
     group.add(probe);
 
     // Screen
@@ -170,16 +175,16 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             const chem = CHEMICALS[chemId];
             ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
             ctx.font = 'bold 24px monospace';
-            ctx.fillText(chem.name.substring(0, 18).toUpperCase(), 128, 40);
+            ctx.fillText('SCANNING...', 128, 40);
             ctx.fillStyle = '#22c55e';
             ctx.font = 'bold 36px monospace';
             ctx.fillText(`pH: ${chem.ph}`, 128, 80);
             ctx.font = '24px monospace';
             ctx.fillText(`${temp || 25}°C`, 128, 110);
         } else {
-            ctx.fillStyle = '#22c55e';
+            ctx.fillStyle = '#94a3b8';
             ctx.font = 'bold 32px monospace';
-            ctx.fillText('STANDBY', 128, 70);
+            ctx.fillText('READY', 128, 70);
         }
         analyzerRef.current.texture.needsUpdate = true;
     };
@@ -190,10 +195,6 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050b14);
         sceneRef.current = scene;
-
-        const pmremGenerator = new THREE.PMREMGenerator(new THREE.WebGLRenderer());
-        scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-        pmremGenerator.dispose();
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 8, 12);
@@ -207,6 +208,10 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
+
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+        pmremGenerator.dispose();
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
@@ -421,14 +426,33 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             if (analyzerRef.current) {
                 let foundChem = null;
                 let foundTemp = 25;
-                const analyzerPos = analyzerRef.current.group.position;
+                const analyzerGroup = analyzerRef.current.group;
+
+                // Get world position of the probe tip
+                const probeTipWorld = new THREE.Vector3(0, -0.6, 0.5); // Local offset of probe tip
+                probeTipWorld.applyMatrix4(analyzerGroup.matrixWorld);
+
                 containers.forEach(c => {
+                    // Check if vessel is close enough to probe tip
                     const cPos = new THREE.Vector3(...c.position);
-                    if (analyzerPos.distanceTo(cPos) < 2.0 && c.contents) {
+                    // Vessel is roughly at y=0.11, height ~1.2
+                    // Probe tip is at ~0.5 height relative to machine center
+
+                    // Simple distance check to probe tip
+                    if (probeTipWorld.distanceTo(cPos) < 0.8 && c.contents) {
                         foundChem = c.contents.chemicalId;
                         foundTemp = c.contents.temperature || 25;
                     }
                 });
+
+                // Play scan sound if state changed to active
+                if (foundChem && analyzerRef.current.userData?.lastState !== 'SCANNING') {
+                    audioManager.playScan();
+                    analyzerRef.current.userData = { lastState: 'SCANNING' };
+                } else if (!foundChem) {
+                    analyzerRef.current.userData = { lastState: 'IDLE' };
+                }
+
                 updateAnalyzerDisplay(foundChem, foundTemp);
             }
 
