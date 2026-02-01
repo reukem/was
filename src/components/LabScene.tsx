@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { createTable, createBeakerGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh } from '../utils/threeHelpers';
 import { EffectSystem } from '../utils/EffectSystem';
+import { audioManager } from '../utils/AudioManager';
 import { ContainerState } from '../types';
 import { CHEMICALS, HEATER_POSITION } from '../constants';
 
@@ -116,8 +117,11 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
 
     const raycaster = useRef(new THREE.Raycaster());
     const pointer = useRef(new THREE.Vector2());
-    const draggedItem = useRef<{ id: string, offset: THREE.Vector3, originalPos: THREE.Vector3 } | null>(null);
+    const draggedItem = useRef<{ id: string, offset: THREE.Vector3, originalPos: THREE.Vector3, isPouring?: boolean } | null>(null);
     const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
+
+    const isRightClickDown = useRef(false);
+    const pourInterval = useRef<number | null>(null);
 
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
@@ -136,9 +140,8 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
 
         if (lastEffect === 'explosion') {
             effectSystemRef.current?.createExplosion(position, 1.5);
-            shakeIntensity.current = 1.0; // Trigger shake
+            shakeIntensity.current = 1.0;
 
-            // Light Flash
             const flashLight = new THREE.PointLight(0xffaa00, 10, 20);
             flashLight.position.copy(position).add(new THREE.Vector3(0, 1, 0));
             sceneRef.current.add(flashLight);
@@ -152,8 +155,6 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             fadeFlash();
         } else if (lastEffect === 'sparkles') {
             effectSystemRef.current?.createSparkles(position, '#ffd700', 20);
-        } else if (lastEffect === 'smoke') {
-            // Manual smoke trigger if needed, though explosion handles its own smoke
         }
     }, [lastEffect, lastEffectPos]);
 
@@ -258,15 +259,64 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 if (target) {
                     const group = meshesRef.current.get(draggedItem.current.id);
                     if (group) {
+                        // If holding right click (pouring), we want to hold position steady or control it differently?
+                        // Actually, draggedItem moves with mouse.
+                        // But if right click is down, we tilt.
+
                         group.position.copy(target.add(draggedItem.current.offset));
                         group.position.y = Math.max(0.2, THREE.MathUtils.lerp(group.position.y, 2.5, 0.2));
+
+                        if (isRightClickDown.current && draggedItem.current.isPouring) {
+                            // Find target below
+                             meshesRef.current.forEach((otherGroup, otherId) => {
+                                if (draggedItem.current?.id !== otherId && otherId !== 'ANALYZER_MACHINE') {
+                                    if (group.position.distanceTo(otherGroup.position) < 1.4) {
+                                        // Tilt towards it
+                                        group.rotation.z = -Math.PI / 4;
+                                        group.position.y += 0.5; // Lift up slightly to clear rim
+                                    }
+                                }
+                            });
+                        } else {
+                            group.rotation.set(0, 0, 0);
+                        }
                     }
                 }
             }
         };
 
-        const onPointerDown = () => {
+        const onPointerDown = (event: PointerEvent) => {
             if (!cameraRef.current) return;
+
+            if (event.button === 2) {
+                isRightClickDown.current = true;
+                if (draggedItem.current) {
+                    draggedItem.current.isPouring = true;
+                    // Start pour loop
+                    if (!pourInterval.current) {
+                        pourInterval.current = window.setInterval(() => {
+                            if (draggedItem.current && isRightClickDown.current) {
+                                const id = draggedItem.current.id;
+                                const group = meshesRef.current.get(id);
+                                if (group) {
+                                    meshesRef.current.forEach((otherGroup, otherId) => {
+                                        if (id !== otherId && otherId !== 'ANALYZER_MACHINE') {
+                                            const dist = group.position.distanceTo(otherGroup.position);
+                                            // Pour range
+                                            if (dist < 1.4) {
+                                                onPourRef.current(id, otherId);
+                                                audioManager.playPour(0.1); // Short bursts
+                                            }
+                                        }
+                                    });
+                                }
+                            }
+                        }, 200); // Pour every 200ms while holding
+                    }
+                }
+                return;
+            }
+
             raycaster.current.setFromCamera(pointer.current, cameraRef.current);
             const objects = Array.from(meshesRef.current.values());
             const intersects = raycaster.current.intersectObjects(objects, true);
@@ -276,34 +326,39 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 while(target.parent && !target.userData.id) target = target.parent;
 
                 if (target && target.userData.id) {
-                    controls.enabled = false;
-                    const id = target.userData.id;
-                    const offset = target.position.clone().sub(intersects[0].point);
-                    offset.y = 0;
-                    draggedItem.current = { id, offset, originalPos: target.position.clone() };
+                    // Start Drag
+                    if (event.button === 0) { // Left Click
+                        controls.enabled = false;
+                        const id = target.userData.id;
+                        const offset = target.position.clone().sub(intersects[0].point);
+                        offset.y = 0;
+                        draggedItem.current = { id, offset, originalPos: target.position.clone() };
+                        audioManager.playGlassClink();
+                    }
                 }
             }
         };
 
-        const onPointerUp = () => {
-            if (draggedItem.current) {
+        const onPointerUp = (event: PointerEvent) => {
+             if (event.button === 2) {
+                isRightClickDown.current = false;
+                if (draggedItem.current) draggedItem.current.isPouring = false;
+                if (pourInterval.current) {
+                    clearInterval(pourInterval.current);
+                    pourInterval.current = null;
+                }
+                // Reset rotation
+                if (draggedItem.current) {
+                    const group = meshesRef.current.get(draggedItem.current.id);
+                    if (group) group.rotation.set(0, 0, 0);
+                }
+                return;
+            }
+
+            if (draggedItem.current && event.button === 0) {
                 const id = draggedItem.current.id;
                 const group = meshesRef.current.get(id);
                 if (group) {
-                    const myPos = group.position.clone();
-                    let poured = false;
-
-                    meshesRef.current.forEach((otherGroup, otherId) => {
-                        if (id !== otherId && !poured && otherId !== 'ANALYZER_MACHINE') {
-                            const dist = myPos.distanceTo(otherGroup.position);
-                            // Pour range
-                            if (dist < 1.4) {
-                                onPourRef.current(id, otherId);
-                                poured = true;
-                            }
-                        }
-                    });
-
                     const containerData = containers.find(c => c.id === id);
                     if (containerData?.initialPosition) {
                         // Return to shelf
@@ -330,6 +385,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                             } else {
                                 group.position.y = targetY;
                                 onMoveRef.current(id, [group.position.x, targetY, group.position.z]);
+                                audioManager.playGlassClink();
                             }
                         };
                         animateDrop();
@@ -343,6 +399,9 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerdown', onPointerDown);
         window.addEventListener('pointerup', onPointerUp);
+        // Prevent context menu on right click
+        const onContextMenu = (e: Event) => e.preventDefault();
+        window.addEventListener('contextmenu', onContextMenu);
 
         const animate = () => {
             requestAnimationFrame(animate);
@@ -392,6 +451,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             window.removeEventListener('pointermove', onPointerMove);
             window.removeEventListener('pointerdown', onPointerDown);
             window.removeEventListener('pointerup', onPointerUp);
+            window.removeEventListener('contextmenu', onContextMenu);
             mountRef.current?.removeChild(renderer.domElement);
             renderer.dispose();
         };

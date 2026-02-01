@@ -6,9 +6,12 @@ import { ContainerState, ChatMessage, ContainerType } from './types';
 import { ChemistryEngine } from './systems/ChemistryEngine';
 import { CHEMICALS, HEATER_POSITION } from './constants';
 import { GeminiService } from './services/geminiService';
+import { audioManager } from './utils/AudioManager';
+import { QuestManager } from './systems/QuestManager';
 
 const App: React.FC = () => {
     const aiServiceRef = useRef<GeminiService | null>(null);
+    const questManagerRef = useRef<QuestManager | null>(null);
     const reactionTimeoutRef = useRef<number | null>(null);
 
     const initialContainers: ContainerState[] = [
@@ -41,10 +44,27 @@ const App: React.FC = () => {
         aiServiceRef.current = service;
         setChatHistory(service.getHistory());
 
+        const qm = new QuestManager();
+        qm.onQuestComplete = (quest) => {
+             audioManager.playSuccess();
+             service.chat(`[SYSTEM ALERT: QUEST COMPLETED] ${quest.rewardMessage}`);
+        };
+        questManagerRef.current = qm;
+
         return () => {
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
         };
     }, []);
+
+    // Check Quests Loop
+    useEffect(() => {
+        const interval = setInterval(() => {
+             if (questManagerRef.current) {
+                 questManagerRef.current.check(containers, lastReaction);
+             }
+        }, 500);
+        return () => clearInterval(interval);
+    }, [containers, lastReaction]);
 
     // Simulation Loop (Heating/Cooling + Kinetics)
     useEffect(() => {
@@ -188,6 +208,10 @@ const App: React.FC = () => {
             setLastEffect(mixResult.reaction.effect || null);
             setLastEffectPos(target.position);
 
+            // Audio Effects
+            if (mixResult.reaction.effect === 'explosion') audioManager.playExplosion();
+            else if (mixResult.reaction.effect === 'bubbles' || mixResult.reaction.effect === 'foam') audioManager.playFizz();
+
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
             reactionTimeoutRef.current = window.setTimeout(() => {
                 setLastReaction(null);
@@ -215,6 +239,7 @@ const App: React.FC = () => {
     };
 
     const handleSpawn = (chemId: string) => {
+        audioManager.playGlassClink();
         const isBeaker = chemId === 'BEAKER';
         const isTestTube = chemId === 'TEST_TUBE';
 
@@ -281,6 +306,7 @@ const App: React.FC = () => {
                 containers={containers}
                 chatHistory={chatHistory}
                 isAiLoading={isAiLoading}
+                quests={questManagerRef.current?.getQuests() || []}
                 onSpawn={handleSpawn}
                 onReset={handleReset}
                 onUserChat={handleUserChat}

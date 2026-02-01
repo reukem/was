@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CHEMICALS, REACTION_REGISTRY } from '../constants';
 import { ContainerState, ChatMessage } from '../types';
+import { audioManager } from '../utils/AudioManager';
+import { Quest } from '../systems/QuestManager';
 
 interface LabUIProps {
     lastReaction: string | null;
@@ -8,6 +10,7 @@ interface LabUIProps {
     chatHistory: ChatMessage[];
     aiFeedback?: string; // Legacy prop, kept for compatibility if needed
     isAiLoading: boolean;
+    quests: Quest[];
     onSpawn: (chemId: string) => void;
     onReset: () => void;
     onUserChat: (msg: string) => void;
@@ -72,11 +75,12 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
     );
 };
 
-const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onUserChat }) => {
+const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, isAiLoading, quests, onSpawn, onReset, onUserChat }) => {
     const [chatInput, setChatInput] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false); // Collapsed by default
+    const [isQuestLogOpen, setIsQuestLogOpen] = useState(true);
     const [isMuted, setIsMuted] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -115,7 +119,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
 
             {/* --- HEADER --- */}
             <div className="flex justify-between items-start pointer-events-auto z-50">
-                <div className="flex flex-col">
+                <div className="flex flex-col gap-2">
                     <div className="bg-slate-900/90 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10 shadow-xl">
                         <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent tracking-tighter">
                             CHEMIC-AI
@@ -124,6 +128,32 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                             Research Environment // v4.2.1
                         </p>
                     </div>
+
+                    {/* QUEST LOG */}
+                    <div className={`transition-all duration-300 ${isQuestLogOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 overflow-hidden'}`}>
+                        <div className="bg-slate-900/80 backdrop-blur-md border border-amber-500/20 rounded-xl p-3 shadow-lg">
+                            <div className="flex justify-between items-center mb-2 border-b border-white/10 pb-1">
+                                <span className="text-amber-400 font-bold text-[10px] uppercase tracking-widest">Current Tasks</span>
+                                <button onClick={() => setIsQuestLogOpen(false)} className="text-slate-500 hover:text-white">✕</button>
+                            </div>
+                            <div className="space-y-2">
+                                {quests.map(q => (
+                                    <div key={q.id} className={`text-xs p-2 rounded border ${q.isCompleted ? 'bg-emerald-900/20 border-emerald-500/30 text-emerald-300 line-through opacity-50' : 'bg-slate-800/50 border-white/5 text-slate-300'}`}>
+                                        <p className="font-bold mb-0.5">{q.title}</p>
+                                        <p className="text-[9px] text-slate-400">{q.description}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    {!isQuestLogOpen && (
+                        <button
+                            onClick={() => setIsQuestLogOpen(true)}
+                            className="bg-amber-500/10 text-amber-400 border border-amber-500/30 p-2 rounded-lg text-xs font-bold uppercase tracking-wider backdrop-blur-md hover:bg-amber-500/20 transition-all text-left w-fit"
+                        >
+                            📋 Tasks ({quests.filter(q => !q.isCompleted).length})
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -155,6 +185,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                     <div className="grid grid-cols-2 gap-2">
                         <button
                             onClick={() => onSpawn('BEAKER')}
+                            onMouseEnter={() => audioManager.playUIHover()}
                             className="group p-3 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm"
                         >
                             <span className="text-xs font-bold text-slate-200">Beaker</span>
@@ -162,6 +193,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                         </button>
                         <button
                             onClick={() => onSpawn('TEST_TUBE')}
+                            onMouseEnter={() => audioManager.playUIHover()}
                             className="group p-3 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm"
                         >
                             <span className="text-xs font-bold text-slate-200">Test Tube</span>
@@ -176,6 +208,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                         <button
                             key={chem.id}
                             onClick={() => onSpawn(chem.id)}
+                            onMouseEnter={() => audioManager.playUIHover()}
                             className="group relative p-3 rounded-lg bg-slate-950/30 hover:bg-slate-800/60 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-sm shadow-sm"
                         >
                             <div className="flex justify-between items-center mb-1">
