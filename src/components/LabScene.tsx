@@ -132,6 +132,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
     const onPourRef = useRef(onPour);
 
     const [isSceneReady, setIsSceneReady] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         onMoveRef.current = onMove;
@@ -192,293 +193,288 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
     useEffect(() => {
         if (!mountRef.current) return;
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050b14);
-        sceneRef.current = scene;
+        try {
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050b14);
+            sceneRef.current = scene;
 
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, 8, 12);
-        cameraRef.current = camera;
+            const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 8, 12);
+            cameraRef.current = camera;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        mountRef.current.appendChild(renderer.domElement);
-        rendererRef.current = renderer;
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            mountRef.current.appendChild(renderer.domElement);
+            rendererRef.current = renderer;
 
-        const pmremGenerator = new THREE.PMREMGenerator(renderer);
-        scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-        pmremGenerator.dispose();
+            // FIX: Ensure renderer is ready before using PMREM for Environment Map
+            try {
+                const pmremGenerator = new THREE.PMREMGenerator(renderer);
+                const envMap = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
+                scene.environment = envMap;
+                scene.background = envMap; // Avoid black void
+                pmremGenerator.dispose();
+            } catch (e) {
+                console.error("Failed to generate PMREM:", e);
+                scene.background = new THREE.Color(0x111827);
+            }
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controlsRef.current = controls;
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controlsRef.current = controls;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-        const spotLight = new THREE.SpotLight(0xffffff, 200);
-        spotLight.position.set(5, 10, 5);
-        spotLight.castShadow = true;
-        scene.add(spotLight);
-        const rectLight = new THREE.DirectionalLight(0x38bdf8, 2.0);
-        rectLight.position.set(-5, 5, -5);
-        scene.add(rectLight);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            const spotLight = new THREE.SpotLight(0xffffff, 200);
+            spotLight.position.set(5, 10, 5);
+            spotLight.castShadow = true;
+            scene.add(spotLight);
+            const rectLight = new THREE.DirectionalLight(0x38bdf8, 2.0);
+            rectLight.position.set(-5, 5, -5);
+            scene.add(rectLight);
 
-        scene.add(createTable());
+            scene.add(createTable());
 
-        // Heater
-        const heater = createHeaterMesh();
-        heater.position.set(...HEATER_POSITION);
-        scene.add(heater);
+            // Heater
+            const heater = createHeaterMesh();
+            heater.position.set(...HEATER_POSITION);
+            scene.add(heater);
 
-        const shelf = new THREE.Mesh(
-            new THREE.BoxGeometry(10, 0.1, 2.5),
-            new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 })
-        );
-        shelf.position.set(0, 0.5, -3.5);
-        shelf.receiveShadow = true;
-        scene.add(shelf);
+            const shelf = new THREE.Mesh(
+                new THREE.BoxGeometry(10, 0.1, 2.5),
+                new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 })
+            );
+            shelf.position.set(0, 0.5, -3.5);
+            shelf.receiveShadow = true;
+            scene.add(shelf);
 
-        // Analyzer Machine
-        const analyzer = createAnalyzerMachine();
-        analyzer.group.position.set(4, 0, 1.5);
-        analyzer.group.userData.id = 'ANALYZER_MACHINE';
-        scene.add(analyzer.group);
-        analyzerRef.current = analyzer;
-        meshesRef.current.set('ANALYZER_MACHINE', analyzer.group);
+            // Analyzer Machine
+            const analyzer = createAnalyzerMachine();
+            analyzer.group.position.set(4, 0, 1.5);
+            analyzer.group.userData.id = 'ANALYZER_MACHINE';
+            scene.add(analyzer.group);
+            analyzerRef.current = analyzer;
+            meshesRef.current.set('ANALYZER_MACHINE', analyzer.group);
 
-        effectSystemRef.current = new EffectSystem(scene);
+            effectSystemRef.current = new EffectSystem(scene);
 
-        const onPointerMove = (event: PointerEvent) => {
-            pointer.current.x = (event.clientX / window.innerWidth) * 2 - 1;
-            pointer.current.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            const onPointerMove = (event: PointerEvent) => {
+                pointer.current.x = (event.clientX / window.innerWidth) * 2 - 1;
+                pointer.current.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-            if (draggedItem.current && cameraRef.current) {
-                raycaster.current.setFromCamera(pointer.current, cameraRef.current);
-                const target = new THREE.Vector3();
-                raycaster.current.ray.intersectPlane(plane.current, target);
+                if (draggedItem.current && cameraRef.current) {
+                    raycaster.current.setFromCamera(pointer.current, cameraRef.current);
+                    const target = new THREE.Vector3();
+                    raycaster.current.ray.intersectPlane(plane.current, target);
 
-                if (target) {
-                    const group = meshesRef.current.get(draggedItem.current.id);
-                    if (group) {
-                        // If holding right click (pouring), we want to hold position steady or control it differently?
-                        // Actually, draggedItem moves with mouse.
-                        // But if right click is down, we tilt.
+                    if (target) {
+                        const group = meshesRef.current.get(draggedItem.current.id);
+                        if (group) {
+                            group.position.copy(target.add(draggedItem.current.offset));
+                            group.position.y = Math.max(0.2, THREE.MathUtils.lerp(group.position.y, 2.5, 0.2));
 
-                        group.position.copy(target.add(draggedItem.current.offset));
-                        group.position.y = Math.max(0.2, THREE.MathUtils.lerp(group.position.y, 2.5, 0.2));
-
-                        if (isRightClickDown.current && draggedItem.current.isPouring) {
-                            // Find target below
-                             meshesRef.current.forEach((otherGroup, otherId) => {
-                                if (draggedItem.current?.id !== otherId && otherId !== 'ANALYZER_MACHINE') {
-                                    if (group.position.distanceTo(otherGroup.position) < 1.4) {
-                                        // Tilt towards it
-                                        group.rotation.z = -Math.PI / 4;
-                                        group.position.y += 0.5; // Lift up slightly to clear rim
+                            if (isRightClickDown.current && draggedItem.current.isPouring) {
+                                 meshesRef.current.forEach((otherGroup, otherId) => {
+                                    if (draggedItem.current?.id !== otherId && otherId !== 'ANALYZER_MACHINE') {
+                                        if (group.position.distanceTo(otherGroup.position) < 1.4) {
+                                            group.rotation.z = -Math.PI / 4;
+                                            group.position.y += 0.5;
+                                        }
                                     }
-                                }
-                            });
-                        } else {
-                            group.rotation.set(0, 0, 0);
+                                });
+                            } else {
+                                group.rotation.set(0, 0, 0);
+                            }
                         }
                     }
                 }
-            }
-        };
+            };
 
-        const onPointerDown = (event: PointerEvent) => {
-            if (!cameraRef.current) return;
+            const onPointerDown = (event: PointerEvent) => {
+                if (!cameraRef.current) return;
 
-            if (event.button === 2) {
-                isRightClickDown.current = true;
-                if (draggedItem.current) {
-                    draggedItem.current.isPouring = true;
-                    // Start pour loop
-                    if (!pourInterval.current) {
-                        pourInterval.current = window.setInterval(() => {
-                            if (draggedItem.current && isRightClickDown.current) {
-                                const id = draggedItem.current.id;
-                                const group = meshesRef.current.get(id);
-                                if (group) {
-                                    meshesRef.current.forEach((otherGroup, otherId) => {
-                                        if (id !== otherId && otherId !== 'ANALYZER_MACHINE') {
-                                            const dist = group.position.distanceTo(otherGroup.position);
-                                            // Pour range
-                                            if (dist < 1.4) {
-                                                onPourRef.current(id, otherId);
-                                                audioManager.playPour(0.1); // Short bursts
+                if (event.button === 2) {
+                    isRightClickDown.current = true;
+                    if (draggedItem.current) {
+                        draggedItem.current.isPouring = true;
+                        if (!pourInterval.current) {
+                            pourInterval.current = window.setInterval(() => {
+                                if (draggedItem.current && isRightClickDown.current) {
+                                    const id = draggedItem.current.id;
+                                    const group = meshesRef.current.get(id);
+                                    if (group) {
+                                        meshesRef.current.forEach((otherGroup, otherId) => {
+                                            if (id !== otherId && otherId !== 'ANALYZER_MACHINE') {
+                                                const dist = group.position.distanceTo(otherGroup.position);
+                                                if (dist < 1.4) {
+                                                    onPourRef.current(id, otherId);
+                                                    audioManager.playPour(0.1);
+                                                }
                                             }
-                                        }
-                                    });
+                                        });
+                                    }
                                 }
-                            }
-                        }, 200); // Pour every 200ms while holding
+                            }, 200);
+                        }
+                    }
+                    return;
+                }
+
+                raycaster.current.setFromCamera(pointer.current, cameraRef.current);
+                const objects = Array.from(meshesRef.current.values());
+                const intersects = raycaster.current.intersectObjects(objects, true);
+
+                if (intersects.length > 0) {
+                    let target = intersects[0].object;
+                    while(target.parent && !target.userData.id) target = target.parent;
+
+                    if (target && target.userData.id) {
+                        if (event.button === 0) {
+                            controls.enabled = false;
+                            const id = target.userData.id;
+                            const offset = target.position.clone().sub(intersects[0].point);
+                            offset.y = 0;
+                            draggedItem.current = { id, offset, originalPos: target.position.clone() };
+                            audioManager.playGlassClink();
+                        }
                     }
                 }
-                return;
-            }
+            };
 
-            raycaster.current.setFromCamera(pointer.current, cameraRef.current);
-            const objects = Array.from(meshesRef.current.values());
-            const intersects = raycaster.current.intersectObjects(objects, true);
-
-            if (intersects.length > 0) {
-                let target = intersects[0].object;
-                while(target.parent && !target.userData.id) target = target.parent;
-
-                if (target && target.userData.id) {
-                    // Start Drag
-                    if (event.button === 0) { // Left Click
-                        controls.enabled = false;
-                        const id = target.userData.id;
-                        const offset = target.position.clone().sub(intersects[0].point);
-                        offset.y = 0;
-                        draggedItem.current = { id, offset, originalPos: target.position.clone() };
-                        audioManager.playGlassClink();
+            const onPointerUp = (event: PointerEvent) => {
+                 if (event.button === 2) {
+                    isRightClickDown.current = false;
+                    if (draggedItem.current) draggedItem.current.isPouring = false;
+                    if (pourInterval.current) {
+                        clearInterval(pourInterval.current);
+                        pourInterval.current = null;
                     }
-                }
-            }
-        };
-
-        const onPointerUp = (event: PointerEvent) => {
-             if (event.button === 2) {
-                isRightClickDown.current = false;
-                if (draggedItem.current) draggedItem.current.isPouring = false;
-                if (pourInterval.current) {
-                    clearInterval(pourInterval.current);
-                    pourInterval.current = null;
-                }
-                // Reset rotation
-                if (draggedItem.current) {
-                    const group = meshesRef.current.get(draggedItem.current.id);
-                    if (group) group.rotation.set(0, 0, 0);
-                }
-                return;
-            }
-
-            if (draggedItem.current && event.button === 0) {
-                const id = draggedItem.current.id;
-                const group = meshesRef.current.get(id);
-                if (group) {
-                    const containerData = containers.find(c => c.id === id);
-                    if (containerData?.initialPosition) {
-                        // Return to shelf
-                        const targetPos = new THREE.Vector3(...containerData.initialPosition);
-                        const animateReturn = () => {
-                             if (!group) return;
-                             group.position.lerp(targetPos, 0.1);
-                             if (group.position.distanceTo(targetPos) > 0.05) {
-                                 requestAnimationFrame(animateReturn);
-                             } else {
-                                 group.position.copy(targetPos);
-                                 onMoveRef.current(id, [targetPos.x, targetPos.y, targetPos.z]);
-                             }
-                        };
-                        animateReturn();
-                    } else {
-                        // Drop to table
-                        const targetY = 0.11;
-                        const animateDrop = () => {
-                            if (!group) return;
-                            if (group.position.y > targetY + 0.01) {
-                                group.position.y = THREE.MathUtils.lerp(group.position.y, targetY, 0.2);
-                                requestAnimationFrame(animateDrop);
-                            } else {
-                                group.position.y = targetY;
-                                onMoveRef.current(id, [group.position.x, targetY, group.position.z]);
-                                audioManager.playGlassClink();
-                            }
-                        };
-                        animateDrop();
+                    if (draggedItem.current) {
+                        const group = meshesRef.current.get(draggedItem.current.id);
+                        if (group) group.rotation.set(0, 0, 0);
                     }
+                    return;
                 }
-                draggedItem.current = null;
-                controls.enabled = true;
-            }
-        };
 
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerdown', onPointerDown);
-        window.addEventListener('pointerup', onPointerUp);
-        // Prevent context menu on right click
-        const onContextMenu = (e: Event) => e.preventDefault();
-        window.addEventListener('contextmenu', onContextMenu);
-
-        const animate = () => {
-            requestAnimationFrame(animate);
-            controls.update();
-            effectSystemRef.current?.update();
-
-            // Camera Shake
-            if (shakeIntensity.current > 0) {
-                const shake = shakeIntensity.current;
-                camera.position.x += (Math.random() - 0.5) * shake * 0.5;
-                camera.position.y += (Math.random() - 0.5) * shake * 0.5;
-                camera.position.z += (Math.random() - 0.5) * shake * 0.5;
-                shakeIntensity.current *= 0.9; // Decay
-                if (shakeIntensity.current < 0.01) shakeIntensity.current = 0;
-            }
-
-            if (analyzerRef.current) {
-                let foundChem = null;
-                let foundTemp = 25;
-                const analyzerGroup = analyzerRef.current.group;
-
-                // Get world position of the probe tip
-                const probeTipWorld = new THREE.Vector3(0, -0.6, 0.5); // Local offset of probe tip
-                probeTipWorld.applyMatrix4(analyzerGroup.matrixWorld);
-
-                containers.forEach(c => {
-                    // Check if vessel is close enough to probe tip
-                    const cPos = new THREE.Vector3(...c.position);
-                    // Vessel is roughly at y=0.11, height ~1.2
-                    // Probe tip is at ~0.5 height relative to machine center
-
-                    // Simple distance check to probe tip
-                    if (probeTipWorld.distanceTo(cPos) < 0.8 && c.contents) {
-                        foundChem = c.contents.chemicalId;
-                        foundTemp = c.contents.temperature || 25;
+                if (draggedItem.current && event.button === 0) {
+                    const id = draggedItem.current.id;
+                    const group = meshesRef.current.get(id);
+                    if (group) {
+                        const containerData = containers.find(c => c.id === id);
+                        if (containerData?.initialPosition) {
+                            const targetPos = new THREE.Vector3(...containerData.initialPosition);
+                            const animateReturn = () => {
+                                 if (!group) return;
+                                 group.position.lerp(targetPos, 0.1);
+                                 if (group.position.distanceTo(targetPos) > 0.05) {
+                                     requestAnimationFrame(animateReturn);
+                                 } else {
+                                     group.position.copy(targetPos);
+                                     onMoveRef.current(id, [targetPos.x, targetPos.y, targetPos.z]);
+                                 }
+                            };
+                            animateReturn();
+                        } else {
+                            const targetY = 0.11;
+                            const animateDrop = () => {
+                                if (!group) return;
+                                if (group.position.y > targetY + 0.01) {
+                                    group.position.y = THREE.MathUtils.lerp(group.position.y, targetY, 0.2);
+                                    requestAnimationFrame(animateDrop);
+                                } else {
+                                    group.position.y = targetY;
+                                    onMoveRef.current(id, [group.position.x, targetY, group.position.z]);
+                                    audioManager.playGlassClink();
+                                }
+                            };
+                            animateDrop();
+                        }
                     }
-                });
+                    draggedItem.current = null;
+                    controls.enabled = true;
+                }
+            };
 
-                // Play scan sound if state changed to active
-                if (foundChem && analyzerRef.current.userData?.lastState !== 'SCANNING') {
-                    audioManager.playScan();
-                    analyzerRef.current.userData = { lastState: 'SCANNING' };
-                } else if (!foundChem) {
-                    analyzerRef.current.userData = { lastState: 'IDLE' };
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerdown', onPointerDown);
+            window.addEventListener('pointerup', onPointerUp);
+            const onContextMenu = (e: Event) => e.preventDefault();
+            window.addEventListener('contextmenu', onContextMenu);
+
+            const animate = () => {
+                requestAnimationFrame(animate);
+                controls.update();
+                effectSystemRef.current?.update();
+
+                if (shakeIntensity.current > 0) {
+                    const shake = shakeIntensity.current;
+                    camera.position.x += (Math.random() - 0.5) * shake * 0.5;
+                    camera.position.y += (Math.random() - 0.5) * shake * 0.5;
+                    camera.position.z += (Math.random() - 0.5) * shake * 0.5;
+                    shakeIntensity.current *= 0.9;
+                    if (shakeIntensity.current < 0.01) shakeIntensity.current = 0;
                 }
 
-                updateAnalyzerDisplay(foundChem, foundTemp);
-            }
+                if (analyzerRef.current) {
+                    let foundChem = null;
+                    let foundTemp = 25;
+                    const analyzerGroup = analyzerRef.current.group;
+                    const probeTipWorld = new THREE.Vector3(0, -0.6, 0.5);
+                    probeTipWorld.applyMatrix4(analyzerGroup.matrixWorld);
 
-            renderer.render(scene, camera);
-        };
-        animate();
+                    containers.forEach(c => {
+                        const cPos = new THREE.Vector3(...c.position);
+                        if (probeTipWorld.distanceTo(cPos) < 0.8 && c.contents) {
+                            foundChem = c.contents.chemicalId;
+                            foundTemp = c.contents.temperature || 25;
+                        }
+                    });
 
-        const handleResize = () => {
-            if (!cameraRef.current || !rendererRef.current) return;
-            cameraRef.current.aspect = window.innerWidth / window.innerHeight;
-            cameraRef.current.updateProjectionMatrix();
-            rendererRef.current.setSize(window.innerWidth, window.innerHeight);
-        };
-        window.addEventListener('resize', handleResize);
+                    if (foundChem && analyzerRef.current.userData?.lastState !== 'SCANNING') {
+                        audioManager.playScan();
+                        analyzerRef.current.userData = { lastState: 'SCANNING' };
+                    } else if (!foundChem) {
+                        analyzerRef.current.userData = { lastState: 'IDLE' };
+                    }
 
-        setIsSceneReady(true);
+                    updateAnalyzerDisplay(foundChem, foundTemp);
+                }
 
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            window.removeEventListener('pointermove', onPointerMove);
-            window.removeEventListener('pointerdown', onPointerDown);
-            window.removeEventListener('pointerup', onPointerUp);
-            window.removeEventListener('contextmenu', onContextMenu);
-            mountRef.current?.removeChild(renderer.domElement);
-            renderer.dispose();
-        };
+                renderer.render(scene, camera);
+            };
+            animate();
+
+            const handleResize = () => {
+                if (!cameraRef.current || !rendererRef.current) return;
+                cameraRef.current.aspect = window.innerWidth / window.innerHeight;
+                cameraRef.current.updateProjectionMatrix();
+                rendererRef.current.setSize(window.innerWidth, window.innerHeight);
+            };
+            window.addEventListener('resize', handleResize);
+
+            setIsSceneReady(true);
+
+            // Cleanup function closure
+            return () => {
+                window.removeEventListener('resize', handleResize);
+                window.removeEventListener('pointermove', onPointerMove);
+                window.removeEventListener('pointerdown', onPointerDown);
+                window.removeEventListener('pointerup', onPointerUp);
+                window.removeEventListener('contextmenu', onContextMenu);
+                if (mountRef.current && renderer.domElement) {
+                    mountRef.current.removeChild(renderer.domElement);
+                }
+                renderer.dispose();
+            };
+
+        } catch (err) {
+            console.error("Three.js Init Error:", err);
+            setError("Failed to initialize 3D Engine. Your browser might not support WebGL.");
+        }
     }, []);
 
     useEffect(() => {
@@ -627,6 +623,17 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             }
         });
     }, [containers, isSceneReady]);
+
+    if (error) {
+        return (
+            <div className="w-full h-full flex items-center justify-center bg-slate-950 text-red-500 font-mono p-8 text-center border border-red-900">
+                <div>
+                    <h2 className="text-xl font-bold mb-2">CRITICAL SYSTEM FAILURE</h2>
+                    <p>{error}</p>
+                </div>
+            </div>
+        );
+    }
 
     return <div ref={mountRef} className="w-full h-full relative" />;
 };
