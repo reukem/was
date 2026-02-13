@@ -270,7 +270,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                         </div>
                         <div className="text-left">
                             <div className="text-xs font-bold text-indigo-300">Comm Link</div>
-                            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Professor Gemini</div>
+                            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Professor Lucy</div>
                         </div>
                     </button>
                 )}
@@ -282,14 +282,14 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                         <div className="flex items-center justify-between p-4 border-b border-white/5 bg-slate-800/30 cursor-pointer" onClick={() => setIsChatOpen(false)}>
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-lg shadow-inner border border-white/5">
-                                    🎓
+                                    👩‍🔬
                                 </div>
                                 <div>
-                                    <h3 className="text-white font-bold text-xs tracking-tight">Professor Gemini</h3>
+                                    <h3 className="text-white font-bold text-xs tracking-tight">Professor Lucy</h3>
                                     <div className="flex items-center gap-1.5">
                                         <div className={`w-1.5 h-1.5 rounded-full ${isAiLoading ? 'bg-amber-400 animate-bounce' : 'bg-emerald-500'}`}></div>
                                         <span className="text-[8px] text-slate-400 font-mono uppercase tracking-widest">
-                                            {isAiLoading ? 'ANALYZING...' : 'ONLINE'}
+                                            {isAiLoading ? 'THINKING...' : 'ONLINE :3'}
                                         </span>
                                     </div>
                                 </div>
