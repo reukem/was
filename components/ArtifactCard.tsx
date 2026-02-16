@@ -44,10 +44,11 @@ const ArtifactCard = React.memo(({
                         </pre>
                     </div>
                 )}
+                {/* SECURITY: sandbox attribute without allow-same-origin to prevent XSS/access to parent context */}
                 <iframe 
                     srcDoc={artifact.html} 
                     title={artifact.id} 
-                    sandbox="allow-scripts allow-forms allow-modals allow-popups allow-presentation allow-same-origin"
+                    sandbox="allow-scripts allow-forms allow-modals allow-popups allow-presentation"
                     className="artifact-iframe"
                 />
             </div>
