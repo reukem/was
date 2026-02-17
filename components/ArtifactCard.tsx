@@ -44,10 +44,12 @@ const ArtifactCard = React.memo(({
                         </pre>
                     </div>
                 )}
+                {/* Sentinel: Removed allow-same-origin to prevent sandbox escape.
+                    Combine allow-scripts + allow-same-origin allows the iframe to access the parent DOM. */}
                 <iframe 
                     srcDoc={artifact.html} 
                     title={artifact.id} 
-                    sandbox="allow-scripts allow-forms allow-modals allow-popups allow-presentation allow-same-origin"
+                    sandbox="allow-scripts allow-forms allow-modals allow-popups allow-presentation"
                     className="artifact-iframe"
                 />
             </div>
