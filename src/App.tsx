@@ -202,7 +202,7 @@ const App: React.FC = () => {
         setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
     }, []);
 
-    const handlePour = useCallback(async (sourceId: string, targetId: string) => {
+    const handlePour = useCallback(async (sourceId: string, targetId: string, amountOverride?: number) => {
         const source = containers.find(c => c.id === sourceId);
         const target = containers.find(c => c.id === targetId);
 
@@ -211,17 +211,21 @@ const App: React.FC = () => {
         // Restriction: Can only pour INTO a Vessel (Beaker/TestTube)
         if (target.type !== 'beaker' && target.type !== 'test_tube') return;
 
-        // Restriction: Can only pour FROM a Source or another Vessel
-        const isSourceItem = ['bottle', 'jar', 'rock', 'paper_wrap'].includes(source.type);
-
         const sourceChem = CHEMICALS[source.contents.chemicalId];
 
         // Logic: Pour amount depends on type
-        // If it's a 'rock' type source (e.g. Sodium Chunk), we drop a specific amount (0.3 volume unit)
-        // If it's liquid/powder, we pour up to 0.2
-        const amountToPour = (source.type === 'rock' || sourceChem.type === 'solid') ? 0.3 : Math.min(0.2, source.contents.volume);
+        // If it's a 'rock' type source, we drop a fixed chunk (unless continuous pouring is requested, but rocks usually drop whole)
+        // If it's liquid/powder, use the override (dt based) or a default chunk
+        let amountToPour = amountOverride || 0.2;
 
-        if (amountToPour <= 0) return;
+        // Special case: Rocks/Solids usually drop in chunks, but if we want smooth pouring of powder, allow override
+        if ((source.type === 'rock' || sourceChem.type === 'solid') && !amountOverride) {
+            amountToPour = 0.3;
+        } else {
+             amountToPour = Math.min(amountToPour, source.contents.volume);
+        }
+
+        if (amountToPour <= 0.0001) return;
 
         const targetChemId = target.contents ? target.contents.chemicalId : 'H2O';
         const targetVol = target.contents ? target.contents.volume : 0;
@@ -244,7 +248,7 @@ const App: React.FC = () => {
                     const newVol = Math.max(0, c.contents!.volume - amountToPour);
                     return {
                         ...c,
-                        contents: newVol < 0.05 ? null : { ...c.contents!, volume: newVol }
+                        contents: newVol < 0.001 ? null : { ...c.contents!, volume: newVol }
                     };
                 }
                 // Update Target
@@ -273,31 +277,34 @@ const App: React.FC = () => {
         });
 
         if (mixResult.reaction) {
-            setLastReaction(mixResult.reaction.message);
-            setLastEffect(mixResult.reaction.effect || null);
-            setLastEffectPos(target.position);
+            // Debounce Reaction Effects (Don't spam if same reaction continues)
+            setLastReaction(prev => {
+                if (prev === mixResult.reaction!.message) return prev;
 
-            // Audio Effects
-            if (mixResult.reaction.effect === 'explosion') audioManager.playExplosion();
-            else if (mixResult.reaction.effect === 'bubbles' || mixResult.reaction.effect === 'foam') audioManager.playFizz();
+                // New Reaction Event
+                setLastEffect(mixResult.reaction!.effect || null);
+                setLastEffectPos(target.position);
 
-            if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
-            reactionTimeoutRef.current = window.setTimeout(() => {
-                setLastReaction(null);
-                setLastEffect(null);
-                setLastEffectPos(null);
-            }, 6000);
+                // Audio Effects
+                if (mixResult.reaction!.effect === 'explosion') audioManager.playExplosion();
+                else if (mixResult.reaction!.effect === 'bubbles' || mixResult.reaction!.effect === 'foam') audioManager.playFizz();
 
-            if (aiServiceRef.current) {
-                setIsAiLoading(true);
-                setIsChatOpen(true); // Auto-open chat
-                const detail = `Đã trộn ${CHEMICALS[source.contents.chemicalId].name} (${source.contents.chemicalId}) vào ${CHEMICALS[targetChemId].name} (${targetChemId}). Tạo ra ${mixResult.reaction.productName}.`;
-                const kineticNote = mixResult.activeReaction ? ` Phản ứng diễn ra trong ${(mixResult.activeReaction.duration / 1000).toFixed(1)}s.` : '';
+                if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
+                reactionTimeoutRef.current = window.setTimeout(() => {
+                    setLastReaction(null);
+                    setLastEffect(null);
+                    setLastEffectPos(null);
+                }, 6000);
 
-                // Trigger Socratic Method
-                await aiServiceRef.current.chat(`[OBSERVATION] ${detail}${kineticNote}`);
-                setIsAiLoading(false);
-            }
+                if (aiServiceRef.current) {
+                    // We don't await here to avoid blocking the render loop
+                    const detail = `Đã trộn ${CHEMICALS[source.contents.chemicalId].name} (${source.contents.chemicalId}) vào ${CHEMICALS[targetChemId].name} (${targetChemId}). Tạo ra ${mixResult.reaction!.productName}.`;
+                    const kineticNote = mixResult.activeReaction ? ` Phản ứng diễn ra trong ${(mixResult.activeReaction.duration / 1000).toFixed(1)}s.` : '';
+                    setIsChatOpen(true);
+                    aiServiceRef.current.chat(`[OBSERVATION] ${detail}${kineticNote}`).catch(() => {});
+                }
+                return mixResult.reaction!.message;
+            });
         }
     }, [containers]);
 

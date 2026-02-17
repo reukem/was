@@ -130,8 +130,9 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
     const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0));
 
     const isRightClickDown = useRef(false);
-    const pourInterval = useRef<number | null>(null);
+    const pourStreamRef = useRef<THREE.Mesh | null>(null);
     const containersRef = useRef(containers);
+    const lastTimeRef = useRef(Date.now());
 
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
@@ -296,38 +297,30 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             analyzerRef.current = analyzer;
             meshesRef.current.set('ANALYZER_MACHINE', analyzer.group);
 
+            // Pour Stream Mesh (VFX)
+            // Geometry aligned with Z-axis to work with lookAt()
+            const streamGeo2 = new THREE.CylinderGeometry(0.015, 0.015, 1, 8);
+            streamGeo2.rotateX(-Math.PI / 2); // Rotate to align along Z-axis
+            streamGeo2.translate(0, 0, 0.5); // Move origin to start of cylinder (0 to 1 on Z)
+
+            const streamMat = new THREE.MeshPhysicalMaterial({
+                color: 0x33aaff,
+                transparent: true,
+                opacity: 0.6,
+                transmission: 0.8,
+                roughness: 0.1
+            });
+            const streamMesh = new THREE.Mesh(streamGeo2, streamMat);
+            streamMesh.visible = false;
+            scene.add(streamMesh);
+            pourStreamRef.current = streamMesh;
+
             effectSystemRef.current = new EffectSystem(scene);
 
             const onPointerMove = (event: PointerEvent) => {
                 pointer.current.x = (event.clientX / window.innerWidth) * 2 - 1;
                 pointer.current.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-                if (draggedItem.current && cameraRef.current) {
-                    raycaster.current.setFromCamera(pointer.current, cameraRef.current);
-                    const target = new THREE.Vector3();
-                    raycaster.current.ray.intersectPlane(plane.current, target);
-
-                    if (target) {
-                        const group = meshesRef.current.get(draggedItem.current.id);
-                        if (group) {
-                            group.position.copy(target.add(draggedItem.current.offset));
-                            group.position.y = Math.max(0.2, THREE.MathUtils.lerp(group.position.y, 2.5, 0.2));
-
-                            if (isRightClickDown.current && draggedItem.current.isPouring) {
-                                 meshesRef.current.forEach((otherGroup, otherId) => {
-                                    if (draggedItem.current?.id !== otherId && otherId !== 'ANALYZER_MACHINE') {
-                                        if (group.position.distanceTo(otherGroup.position) < 1.4) {
-                                            group.rotation.z = -Math.PI / 4;
-                                            group.position.y += 0.5;
-                                        }
-                                    }
-                                });
-                            } else {
-                                group.rotation.set(0, 0, 0);
-                            }
-                        }
-                    }
-                }
+                // Movement logic is now handled in animate loop for smooth lerping
             };
 
             const onPointerDown = (event: PointerEvent) => {
@@ -337,25 +330,6 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                     isRightClickDown.current = true;
                     if (draggedItem.current) {
                         draggedItem.current.isPouring = true;
-                        if (!pourInterval.current) {
-                            pourInterval.current = window.setInterval(() => {
-                                if (draggedItem.current && isRightClickDown.current) {
-                                    const id = draggedItem.current.id;
-                                    const group = meshesRef.current.get(id);
-                                    if (group) {
-                                        meshesRef.current.forEach((otherGroup, otherId) => {
-                                            if (id !== otherId && otherId !== 'ANALYZER_MACHINE') {
-                                                const dist = group.position.distanceTo(otherGroup.position);
-                                                if (dist < 1.4) {
-                                                    onPourRef.current(id, otherId);
-                                                    audioManager.playPour(0.1);
-                                                }
-                                            }
-                                        });
-                                    }
-                                }
-                            }, 200);
-                        }
                     }
                     return;
                 }
@@ -389,14 +363,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                  if (event.button === 2) {
                     isRightClickDown.current = false;
                     if (draggedItem.current) draggedItem.current.isPouring = false;
-                    if (pourInterval.current) {
-                        clearInterval(pourInterval.current);
-                        pourInterval.current = null;
-                    }
-                    if (draggedItem.current) {
-                        const group = meshesRef.current.get(draggedItem.current.id);
-                        if (group) group.rotation.set(0, 0, 0);
-                    }
+                    // Reset rotation logic is handled in animate loop via lerp
                     return;
                 }
 
@@ -446,9 +413,125 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             window.addEventListener('contextmenu', onContextMenu);
 
             const animate = () => {
+                const now = Date.now();
+                const dt = Math.min((now - lastTimeRef.current) / 1000, 0.1); // Cap dt at 0.1s
+                lastTimeRef.current = now;
+
                 requestAnimationFrame(animate);
                 controls.update();
                 effectSystemRef.current?.update();
+
+                // --- Handle Dragging & Pouring Kinematics ---
+                if (draggedItem.current && cameraRef.current) {
+                    raycaster.current.setFromCamera(pointer.current, cameraRef.current);
+                    const mouseTarget = new THREE.Vector3();
+                    raycaster.current.ray.intersectPlane(plane.current, mouseTarget);
+
+                    if (mouseTarget) {
+                        const group = meshesRef.current.get(draggedItem.current.id);
+                        if (group) {
+                            let targetPos = mouseTarget.add(draggedItem.current.offset);
+                            let targetRotZ = 0;
+                            let pourTargetId: string | null = null;
+
+                            // Pouring Logic
+                            if (isRightClickDown.current && draggedItem.current.isPouring) {
+                                // Find closest target
+                                let closestDist = Infinity;
+                                let closestId: string | null = null;
+                                let closestPos: THREE.Vector3 | null = null;
+
+                                meshesRef.current.forEach((otherGroup, otherId) => {
+                                    if (draggedItem.current?.id !== otherId && otherId !== 'ANALYZER_MACHINE') {
+                                        const dist = group.position.distanceTo(otherGroup.position);
+                                        if (dist < 1.5 && dist < closestDist) {
+                                            closestDist = dist;
+                                            closestId = otherId;
+                                            closestPos = otherGroup.position.clone();
+                                        }
+                                    }
+                                });
+
+                                if (closestId && closestPos) {
+                                    pourTargetId = closestId;
+                                    // SMART ALIGNMENT: Offset source to be above target
+                                    // We want the source to be slightly to the left/right and above
+                                    const direction = new THREE.Vector3().subVectors(closestPos, group.position);
+                                    direction.y = 0;
+
+                                    // Fixed offset relative to target: Up 1.2, Left 0.6
+                                    targetPos = closestPos.clone().add(new THREE.Vector3(-0.6, 1.2, 0));
+                                    targetRotZ = -Math.PI / 2.5; // Tilt ~70 degrees
+                                }
+                            }
+
+                            // Apply Kinematics (Lerp)
+                            // Smooth follow mouse or snap to pour position
+                            group.position.lerp(targetPos, 10 * dt);
+                            group.rotation.z = THREE.MathUtils.lerp(group.rotation.z, targetRotZ, 10 * dt);
+                            // Also tilt container slightly when dragging fast? Optional.
+
+                            // Handle Pour Physics & VFX
+                            if (pourTargetId && Math.abs(group.rotation.z - targetRotZ) < 0.5) {
+                                const sourceC = containersRef.current.find(c => c.id === draggedItem.current?.id);
+                                const targetC = containersRef.current.find(c => c.id === pourTargetId);
+
+                                if (sourceC && sourceC.contents && (sourceC.contents.volume > 0 || sourceC.type === 'rock')) {
+                                    // 1. Calculate Flow
+                                    const flowAmount = 0.5 * dt; // 0.5 units per second
+                                    onPourRef.current(sourceC.id, pourTargetId, flowAmount);
+
+                                    // 2. Render Stream
+                                    if (pourStreamRef.current) {
+                                        pourStreamRef.current.visible = true;
+
+                                        // Calc Start Point (Lip)
+                                        // Approx local offset for lip based on container type
+                                        const lipLocal = new THREE.Vector3(0.5, 1.1, 0); // Default Beaker
+                                        if (sourceC.type === 'test_tube') lipLocal.set(0.15, 1.1, 0);
+                                        else if (sourceC.type === 'bottle') lipLocal.set(0.2, 0.9, 0);
+
+                                        const startWorld = lipLocal.applyMatrix4(group.matrixWorld);
+
+                                        // Calc End Point (Target Surface)
+                                        let targetHeight = 0.1; // Base
+                                        if (targetC && targetC.contents) {
+                                            // Beaker height is roughly volume * 1.0
+                                            targetHeight += targetC.contents.volume * 0.8;
+                                        }
+                                        const targetWorld = meshesRef.current.get(pourTargetId)!.position.clone();
+                                        targetWorld.y += targetHeight;
+
+                                        // Position Stream
+                                        pourStreamRef.current.position.copy(startWorld);
+                                        pourStreamRef.current.lookAt(targetWorld);
+
+                                        // Scale Stream (Length)
+                                        // Since geometry is Z-aligned and unit length 1, we scale Z to match distance
+                                        const length = startWorld.distanceTo(targetWorld);
+                                        pourStreamRef.current.scale.set(1, 1, length);
+
+                                        // Color Stream
+                                        const mat = pourStreamRef.current.material as THREE.MeshPhysicalMaterial;
+                                        mat.color.set(sourceC.contents.color);
+                                        mat.emissive.set(sourceC.contents.color);
+                                        mat.emissiveIntensity = 0.5;
+
+                                        // Audio Pitch Shift based on fill level?
+                                        // Simple trigger
+                                        if (Math.random() < 0.1) audioManager.playPour(0.1);
+                                    }
+                                } else {
+                                    if (pourStreamRef.current) pourStreamRef.current.visible = false;
+                                }
+                            } else {
+                                if (pourStreamRef.current) pourStreamRef.current.visible = false;
+                            }
+                        }
+                    }
+                } else {
+                     if (pourStreamRef.current) pourStreamRef.current.visible = false;
+                }
 
                 if (shakeIntensity.current > 0) {
                     const shake = shakeIntensity.current;
