@@ -36,6 +36,9 @@ const App: React.FC = () => {
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [isAiLoading, setIsAiLoading] = useState(false);
 
+    const [isHeaterOn, setIsHeaterOn] = useState(false);
+    const isHeaterOnRef = useRef(false);
+
     useEffect(() => {
         const service = new GeminiService();
         service.onHistoryUpdate = (history) => {
@@ -107,7 +110,7 @@ const App: React.FC = () => {
                 let newTemp = updatedContents.temperature || 25;
 
                 // If close to heater position
-                if (dist < 0.5) {
+                if (dist < 0.5 && isHeaterOnRef.current) {
                     // Heating up (faster if smaller volume?)
                     newTemp = Math.min(800, newTemp + 2.5);
                 } else {
@@ -127,6 +130,16 @@ const App: React.FC = () => {
             }));
         }, 50); // 20Hz physics/kinetics loop for smoother color shifts
         return () => clearInterval(interval);
+    }, []);
+
+    const handleToggleHeater = useCallback(() => {
+        setIsHeaterOn(prev => {
+            const newState = !prev;
+            isHeaterOnRef.current = newState;
+            if (newState) audioManager.playGasHiss();
+            else audioManager.stopGasHiss();
+            return newState;
+        });
     }, []);
 
     const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
@@ -300,6 +313,8 @@ const App: React.FC = () => {
                 lastEffectPos={lastEffectPos}
                 onMove={handleMoveContainer}
                 onPour={handlePour}
+                isHeaterOn={isHeaterOn}
+                onToggleHeater={handleToggleHeater}
             />
             <LabUI
                 lastReaction={lastReaction}

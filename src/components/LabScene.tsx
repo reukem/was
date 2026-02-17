@@ -73,7 +73,7 @@ const createAnalyzerMachine = () => {
     const probe = new THREE.Mesh(probeGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 1.0 }));
     // Add collision volume to probe for better detection
     const collider = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
-    collider.translate(0, -0.3, 0.5);
+    collider.position.set(0, -0.3, 0.5);
     collider.userData.type = 'PROBE_SENSOR';
     group.add(collider);
     group.add(probe);
@@ -105,18 +105,21 @@ interface LabSceneProps {
     lastEffectPos?: [number, number, number] | null;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
+    isHeaterOn?: boolean;
+    onToggleHeater?: () => void;
 }
 
-const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectPos, onMove, onPour }) => {
+const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectPos, onMove, onPour, isHeaterOn, onToggleHeater }) => {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
     const controlsRef = useRef<OrbitControls | null>(null);
 
-    const meshesRef = useRef<Map<string, THREE.Group>>(new Map());
+    const meshesRef = useRef<Map<string, THREE.Object3D>>(new Map());
     const liquidsRef = useRef<Map<string, THREE.Mesh>>(new Map());
     const analyzerRef = useRef<{ group: THREE.Group, texture: THREE.CanvasTexture, canvas: HTMLCanvasElement } | null>(null);
+    const heaterRef = useRef<{ mesh: THREE.Object3D, light: THREE.PointLight } | null>(null);
     const effectSystemRef = useRef<EffectSystem | null>(null);
     const shakeIntensity = useRef(0);
 
@@ -127,6 +130,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
 
     const isRightClickDown = useRef(false);
     const pourInterval = useRef<number | null>(null);
+    const containersRef = useRef(containers);
 
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
@@ -137,7 +141,8 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
     useEffect(() => {
         onMoveRef.current = onMove;
         onPourRef.current = onPour;
-    }, [onMove, onPour]);
+        containersRef.current = containers;
+    }, [onMove, onPour, containers]);
 
     // Handle Effects
     useEffect(() => {
@@ -163,6 +168,29 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             effectSystemRef.current?.createSparkles(position, '#ffd700', 20);
         }
     }, [lastEffect, lastEffectPos]);
+
+    // Handle Heater Visuals
+    useEffect(() => {
+        if (!heaterRef.current) return;
+        const { mesh, light } = heaterRef.current;
+
+        light.intensity = isHeaterOn ? 2.0 : 0;
+
+        mesh.traverse((child) => {
+            if (child instanceof THREE.Mesh && child.material) {
+                 const m = child.material as THREE.MeshStandardMaterial;
+                 if ('emissive' in m) {
+                     if (isHeaterOn) {
+                         m.emissive.setHex(0xff2200);
+                         m.emissiveIntensity = 2.0;
+                     } else {
+                         m.emissive.setHex(0x000000);
+                         m.emissiveIntensity = 0;
+                     }
+                 }
+            }
+        });
+    }, [isHeaterOn]);
 
     const updateAnalyzerDisplay = (chemId: string | null, temp?: number) => {
         if (!analyzerRef.current) return;
@@ -242,7 +270,14 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             // Heater
             const heater = createHeaterMesh();
             heater.position.set(...HEATER_POSITION);
+            heater.userData.id = 'HEATER';
             scene.add(heater);
+            meshesRef.current.set('HEATER', heater);
+
+            const heaterLight = new THREE.PointLight(0xff4400, 0, 5);
+            heaterLight.position.set(HEATER_POSITION[0], HEATER_POSITION[1] + 0.5, HEATER_POSITION[2]);
+            scene.add(heaterLight);
+            heaterRef.current = { mesh: heater, light: heaterLight };
 
             const shelf = new THREE.Mesh(
                 new THREE.BoxGeometry(10, 0.1, 2.5),
@@ -334,6 +369,10 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
 
                     if (target && target.userData.id) {
                         if (event.button === 0) {
+                            if (target.userData.id === 'HEATER') {
+                                onToggleHeater?.();
+                                return;
+                            }
                             controls.enabled = false;
                             const id = target.userData.id;
                             const offset = target.position.clone().sub(intersects[0].point);
@@ -419,6 +458,17 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                     if (shakeIntensity.current < 0.01) shakeIntensity.current = 0;
                 }
 
+                // Boiling Bubbles
+                containersRef.current.forEach(c => {
+                    if (c.contents && c.contents.temperature && c.contents.temperature > 100) {
+                         if (Math.random() < 0.2) {
+                             const pos = new THREE.Vector3(...c.position);
+                             pos.y += 0.5;
+                             effectSystemRef.current?.createBubbles(pos, c.contents.color, 1);
+                         }
+                    }
+                });
+
                 if (analyzerRef.current) {
                     let foundChem = null;
                     let foundTemp = 25;
@@ -426,7 +476,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                     const probeTipWorld = new THREE.Vector3(0, -0.6, 0.5);
                     probeTipWorld.applyMatrix4(analyzerGroup.matrixWorld);
 
-                    containers.forEach(c => {
+                    containersRef.current.forEach(c => {
                         const cPos = new THREE.Vector3(...c.position);
                         if (probeTipWorld.distanceTo(cPos) < 0.8 && c.contents) {
                             foundChem = c.contents.chemicalId;

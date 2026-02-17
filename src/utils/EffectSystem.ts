@@ -173,6 +173,37 @@ export class EffectSystem {
         }
     }
 
+    createBubbles(position: THREE.Vector3, color: string | number, count: number = 5) {
+        const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.6 });
+        const sphereGeo = new THREE.SphereGeometry(0.05, 8, 8); // Low poly bubbles
+
+        for(let i=0; i<count; i++) {
+            const mesh = new THREE.Mesh(sphereGeo, mat.clone());
+            // Random offset in circle
+            const r = 0.2 * Math.sqrt(Math.random());
+            const theta = Math.random() * 2 * Math.PI;
+            mesh.position.set(
+                position.x + r * Math.cos(theta),
+                position.y + Math.random() * 0.1,
+                position.z + r * Math.sin(theta)
+            );
+
+            this.scene.add(mesh);
+
+            this.particles.push({
+                mesh,
+                velocity: new THREE.Vector3(0, 0.5 + Math.random() * 0.5, 0), // Rise up
+                life: 0,
+                maxLife: 60, // 1 second roughly
+                type: 'bubble',
+                colorStart: new THREE.Color(color),
+                colorEnd: new THREE.Color(0xffffff),
+                scaleStart: 0.5 + Math.random() * 0.5, // Relative scale to geometry
+                scaleEnd: 0.1, // Pop
+            });
+        }
+    }
+
     update() {
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
@@ -196,6 +227,9 @@ export class EffectSystem {
                 }
             } else if (p.type === 'smoke') {
                 p.velocity.multiplyScalar(0.98); // Drag
+            } else if (p.type === 'bubble') {
+                p.velocity.x += (Math.random() - 0.5) * 0.02; // Wobble
+                p.velocity.z += (Math.random() - 0.5) * 0.02;
             }
 
             // Visuals

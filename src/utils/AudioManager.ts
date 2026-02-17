@@ -4,6 +4,8 @@
 export class AudioManager {
     private ctx: AudioContext | null = null;
     private masterGain: GainNode | null = null;
+    private hissSource: AudioBufferSourceNode | null = null;
+    private hissGain: GainNode | null = null;
 
     constructor() {
         try {
@@ -209,6 +211,64 @@ export class AudioManager {
 
         osc.start();
         osc.stop(this.ctx.currentTime + 0.1);
+    }
+
+    playGasHiss() {
+        if (!this.ctx || !this.masterGain) return;
+        this.ensureContext();
+
+        if (this.hissSource) return; // Already playing
+
+        const bufferSize = this.ctx.sampleRate * 2.0; // 2 seconds loop
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let lastOut = 0;
+        for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            data[i] = (lastOut + (0.02 * white)) / 1.02; // Pink noise approx
+            lastOut = data[i];
+            data[i] *= 3.5;
+        }
+
+        this.hissSource = this.ctx.createBufferSource();
+        this.hissSource.buffer = buffer;
+        this.hissSource.loop = true;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+
+        this.hissGain = this.ctx.createGain();
+        this.hissGain.gain.setValueAtTime(0, this.ctx.currentTime);
+        this.hissGain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 0.5);
+
+        this.hissSource.connect(filter);
+        filter.connect(this.hissGain);
+        this.hissGain.connect(this.masterGain);
+
+        this.hissSource.start();
+    }
+
+    stopGasHiss() {
+        if (!this.ctx || !this.hissSource || !this.hissGain) return;
+
+        const stopTime = this.ctx.currentTime + 0.5;
+        this.hissGain.gain.cancelScheduledValues(this.ctx.currentTime);
+        this.hissGain.gain.setValueAtTime(this.hissGain.gain.value, this.ctx.currentTime);
+        this.hissGain.gain.linearRampToValueAtTime(0, stopTime);
+
+        this.hissSource.stop(stopTime);
+        // Clean up references after stop
+        setTimeout(() => {
+            if (this.hissSource) {
+                 this.hissSource.disconnect();
+                 this.hissSource = null;
+            }
+            if (this.hissGain) {
+                 this.hissGain.disconnect();
+                 this.hissGain = null;
+            }
+        }, 600);
     }
 }
 
