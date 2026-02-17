@@ -43,6 +43,12 @@ const App: React.FC = () => {
     const [molecularMode, setMolecularMode] = useState<'dissolve' | 'neutralization' | 'precipitation' | 'generic'>('generic');
     const [isExamMode, setIsExamMode] = useState(false);
 
+    // Performance Mode State
+    const [isPerformanceMode, setIsPerformanceMode] = useState(false);
+
+    // Whiteboard State
+    const [whiteboardContent, setWhiteboardContent] = useState<string | null>(null);
+
     const [isHeaterOn, setIsHeaterOn] = useState(false);
     const isHeaterOnRef = useRef(false);
 
@@ -51,13 +57,11 @@ const App: React.FC = () => {
         service.onHistoryUpdate = (history) => {
             setChatHistory([...history]);
 
-            // Check for Molecular Trigger in the latest message
+            // Check for Triggers in the latest message
             const lastMsg = history[history.length - 1];
             if (lastMsg && lastMsg.role === 'model') {
+                // Molecular View Trigger
                 if (lastMsg.text.includes('[TRIGGER_MOLECULAR_VIEW]')) {
-                    // Determine mode based on context or simple heuristic
-                    // Ideally AI should output [TRIGGER_MOLECULAR_VIEW:dissolve]
-                    // But for now let's just default to 'dissolve' or infer from lastReaction
                     if (lastMsg.text.toLowerCase().includes('nacl') || lastMsg.text.toLowerCase().includes('muối')) {
                         setMolecularMode('dissolve');
                     } else if (lastMsg.text.toLowerCase().includes('trung hòa') || lastMsg.text.toLowerCase().includes('hcl')) {
@@ -66,6 +70,14 @@ const App: React.FC = () => {
                         setMolecularMode('generic');
                     }
                     setIsMolecularViewOpen(true);
+                }
+
+                // Whiteboard Trigger
+                const wbMatch = lastMsg.text.match(/\[TRIGGER_WHITEBOARD:\s*(.*?)\]/);
+                if (wbMatch && wbMatch[1]) {
+                    setWhiteboardContent(wbMatch[1]);
+                    // Optionally open chat if not open?
+                    // setIsChatOpen(true);
                 }
             }
         };
@@ -228,6 +240,10 @@ const App: React.FC = () => {
             }
             return c;
         }));
+    }, []);
+
+    const handleTogglePerformance = useCallback(() => {
+        setIsPerformanceMode(prev => !prev);
     }, []);
 
     // --- DRIP LOOP (BURETTE) ---
@@ -477,6 +493,7 @@ const App: React.FC = () => {
         setLastReaction(null);
         setLastEffect(null);
         setLastEffectPos(null);
+        setWhiteboardContent(null);
         if (aiServiceRef.current) {
             aiServiceRef.current.startNewChat();
         }
@@ -485,6 +502,7 @@ const App: React.FC = () => {
     const handleStartExam = () => {
         setIsExamMode(true);
         setLastReaction(null);
+        setWhiteboardContent(null);
 
         // Setup Exam Scene
         const samples = [
@@ -545,6 +563,8 @@ const App: React.FC = () => {
                 onToggleValve={handleToggleValve}
                 isHeaterOn={isHeaterOn}
                 onToggleHeater={handleToggleHeater}
+                isPerformanceMode={isPerformanceMode}
+                whiteboardContent={whiteboardContent}
             />
             <LabUI
                 lastReaction={lastReaction}
@@ -560,6 +580,8 @@ const App: React.FC = () => {
                 onStartExam={handleStartExam}
                 isExamMode={isExamMode}
                 onUserChat={handleUserChat}
+                isPerformanceMode={isPerformanceMode}
+                onTogglePerformance={handleTogglePerformance}
             />
             {isMolecularViewOpen && (
                 <MolecularView mode={molecularMode} onClose={() => setIsMolecularViewOpen(false)} />

@@ -35,6 +35,11 @@ export class GeminiService {
     - Tag này sẽ kích hoạt chế độ xem phân tử 3D cho học sinh.
     - Ví dụ: "Các phân tử nước đang bao vây ion Na+ và Cl- đó! Nhìn kìa! ^^ [TRIGGER_MOLECULAR_VIEW]"
 
+    HỆ THỐNG BẢNG TRẮNG (WHITEBOARD):
+    - Khi bạn nhắc đến một phương trình hóa học cụ thể, BẮT BUỘC phải dùng tag [TRIGGER_WHITEBOARD: <phương trình>] để viết nó lên bảng.
+    - Ví dụ: "Nhìn nè, phản ứng trung hòa xảy ra như vầy: [TRIGGER_WHITEBOARD: HCl + NaOH -> NaCl + H2O]"
+    - Hãy chắc chắn phương trình được cân bằng nhé!
+
     BỐI CẢNH HIỆN TẠI:
     Học sinh đang thực hiện thí nghiệm trong môi trường 3D. Bạn là giọng nói hướng dẫn từ máy phân tích.
     `;
@@ -69,7 +74,7 @@ export class GeminiService {
             return "Chào cưng! Cô là Giáo sư Lucy đây! :3 Mạng hơi lag xíu nhưng cô vẫn ở đây quan sát nha! Đang làm thí nghiệm gì đó? ^^";
         }
         if (msg.includes("nacl") || msg.includes("muối")) {
-            return "Muối ăn (NaCl) đó! Tinh thể lập phương đẹp xỉu. ^^ Em có biết tại sao nó tan trong nước hông?";
+            return "Muối ăn (NaCl) đó! Tinh thể lập phương đẹp xỉu. ^^ Em có biết tại sao nó tan trong nước hông? [TRIGGER_WHITEBOARD: NaCl -> Na+ + Cl-]";
         }
         if (msg.includes("nổ") || msg.includes("boom")) {
             return "Á á á! Nổ rồi kìa! 💥 Cẩn thận chút đi trời ơi! 3: Em có sao hông?";

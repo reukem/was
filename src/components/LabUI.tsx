@@ -3,6 +3,7 @@ import { CHEMICALS, REACTION_REGISTRY } from '../constants';
 import { ContainerState, ChatMessage } from '../types';
 import { audioManager } from '../utils/AudioManager';
 import { Quest } from '../systems/QuestManager';
+import { generateReport } from '../utils/ReportGenerator';
 
 interface LabUIProps {
     lastReaction: string | null;
@@ -19,6 +20,8 @@ interface LabUIProps {
     onStartExam?: () => void;
     isExamMode?: boolean;
     onUserChat: (msg: string) => void;
+    isPerformanceMode: boolean;
+    onTogglePerformance: () => void;
 }
 
 const formatScientificText = (text: string) => {
@@ -75,7 +78,11 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
     );
 };
 
-const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, isAiLoading, quests, safetyScore, isChatOpen, onToggleChat, onSpawn, onReset, onStartExam, isExamMode, onUserChat }) => {
+const LabUI: React.FC<LabUIProps> = ({
+    lastReaction, containers, chatHistory, isAiLoading, quests, safetyScore,
+    isChatOpen, onToggleChat, onSpawn, onReset, onStartExam, isExamMode, onUserChat,
+    isPerformanceMode, onTogglePerformance
+}) => {
     const [chatInput, setChatInput] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
@@ -89,6 +96,21 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
             onUserChat(chatInput);
             setChatInput('');
         }
+    };
+
+    const handleExportReport = () => {
+        const name = prompt("Nhập tên học sinh:", "Nguyễn Văn A");
+        if (!name) return;
+        const className = prompt("Nhập lớp:", "12A1");
+
+        generateReport({
+            studentName: name,
+            className: className || "___",
+            date: new Date().toLocaleDateString('vi-VN'),
+            safetyScore: safetyScore || 0,
+            quests: quests,
+            transcript: chatHistory
+        });
     };
 
     useEffect(() => {
@@ -130,6 +152,22 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                                 {isExamMode ? 'GIÁM SÁT KÍCH HOẠT' : 'QUANTUM REALITY ENGINE'}
                             </p>
                         </div>
+                    </div>
+
+                    {/* SETTINGS / TOGGLES */}
+                    <div className="flex gap-2">
+                        {/* Graphics Toggle */}
+                        <button
+                            onClick={onTogglePerformance}
+                            className={`px-4 py-2 rounded-xl border backdrop-blur-md transition-all text-[10px] font-bold uppercase tracking-wider flex items-center gap-2
+                                ${isPerformanceMode
+                                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                                    : 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.2)]'
+                                }`}
+                            title={isPerformanceMode ? "Chế độ Hiệu Năng (Thấp)" : "Chế độ Đồ Họa Đỉnh Cao (AAA)"}
+                        >
+                            <span>{isPerformanceMode ? '⚡ FAST' : '💎 AAA'}</span>
+                        </button>
                     </div>
 
                     {/* SAFETY SCORE */}
@@ -177,6 +215,13 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                         </button>
                     )}
                     <button
+                        onClick={handleExportReport}
+                        className="bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-400 hover:text-emerald-300 w-14 h-14 rounded-2xl border border-emerald-500/20 transition-all font-bold text-xl backdrop-blur-xl shadow-lg hover:shadow-emerald-900/20 hover:-translate-y-0.5 flex items-center justify-center"
+                        title="Xuất Báo Cáo"
+                    >
+                        🖨️
+                    </button>
+                    <button
                         onClick={() => setIsNotebookOpen(true)}
                         className="bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-400 hover:text-indigo-300 w-14 h-14 rounded-2xl border border-indigo-500/20 transition-all font-bold text-xl backdrop-blur-xl shadow-lg hover:shadow-indigo-900/20 hover:-translate-y-0.5 flex items-center justify-center"
                         title="Mở Sổ Tay"
@@ -194,7 +239,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
 
             {/* --- SIDEBAR (Compound Database) --- */}
             {!isExamMode && (
-            <div className={`absolute left-6 top-48 bottom-24 w-72 pointer-events-auto transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) z-40 ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0'}`}>
+            <div className={`absolute left-6 top-64 bottom-24 w-72 pointer-events-auto transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) z-40 ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0'}`}>
                 <div className="flex justify-between items-center mb-3 px-1">
                     <h2 className="text-slate-500 font-black text-[10px] uppercase tracking-[0.2em] drop-shadow-md">KHO HÓA CHẤT</h2>
                     <button onClick={() => setIsSidebarOpen(false)} className="text-slate-600 hover:text-white transition-colors">✕</button>
@@ -261,7 +306,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
             {!isSidebarOpen && !isExamMode && (
                 <button
                     onClick={() => setIsSidebarOpen(true)}
-                    className="absolute left-6 top-48 pointer-events-auto bg-[#0f172a]/80 p-4 rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all shadow-xl z-40 hover:scale-105"
+                    className="absolute left-6 top-64 pointer-events-auto bg-[#0f172a]/80 p-4 rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all shadow-xl z-40 hover:scale-105"
                 >
                     <span className="writing-vertical text-[10px] font-black uppercase tracking-[0.3em]">Kho</span>
                 </button>

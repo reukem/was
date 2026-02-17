@@ -2,46 +2,73 @@ import * as THREE from 'three';
 
 // --- MATERIALS ---
 
-export const createGlassMaterial = () => {
-    return new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
-        metalness: 0.1,
-        roughness: 0.02, // Ultra smooth
-        transmission: 0.98, // Slight opacity to catch light
-        thickness: 2.0,  // Thicker for more refraction
-        ior: 1.5,
-        reflectivity: 0.5,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.0,
-        transparent: true,
-        side: THREE.FrontSide,
-        envMapIntensity: 3.0, // Strong reflections
-        attenuationColor: 0xe0f2fe, // Slight blue tint
-        attenuationDistance: 1.0,
-        depthWrite: false, // Prevent z-fighting with liquid
-    });
+export const createGlassMaterial = (quality: 'high' | 'low' = 'high') => {
+    if (quality === 'high') {
+        return new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            metalness: 0.1,
+            roughness: 0.02, // Ultra smooth
+            transmission: 0.98, // Slight opacity to catch light
+            thickness: 2.0,  // Thicker for more refraction
+            ior: 1.5,
+            reflectivity: 0.5,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.0,
+            transparent: true,
+            side: THREE.FrontSide,
+            envMapIntensity: 3.0, // Strong reflections
+            attenuationColor: 0xe0f2fe, // Slight blue tint
+            attenuationDistance: 1.0,
+            depthWrite: false, // Prevent z-fighting with liquid
+        });
+    } else {
+        // Performance Mode: Standard transparent material (no transmission/refraction calculation)
+        return new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            metalness: 0.1,
+            roughness: 0.1,
+            transparent: true,
+            opacity: 0.3, // Simple alpha blending
+            side: THREE.FrontSide,
+            envMapIntensity: 1.0,
+            depthWrite: false
+        });
+    }
 };
 
-export const createLiquidMaterial = (color: THREE.ColorRepresentation, activeReaction?: boolean) => {
-    // High-vis "Sci-Fi" Liquid with Glow
+export const createLiquidMaterial = (color: THREE.ColorRepresentation, activeReaction?: boolean, quality: 'high' | 'low' = 'high') => {
     const baseColor = new THREE.Color(color);
-    // Calculate emissive color based on active reaction (or heat)
-    // For now, base emissive is the color itself but dimmed
     const emissiveColor = baseColor.clone().multiplyScalar(activeReaction ? 0.8 : 0.2);
 
-    return new THREE.MeshPhysicalMaterial({
-        color: baseColor,
-        metalness: 0.1,
-        roughness: 0.2, // Liquids are slightly rough/turbulent
-        transmission: 0.6, // Semi-transparent
-        thickness: 0.5,
-        ior: 1.333, // Water IOR
-        transparent: true,
-        emissive: emissiveColor,
-        emissiveIntensity: activeReaction ? 1.5 : 0.4, // Glows intensely during reaction
-        side: THREE.DoubleSide,
-        envMapIntensity: 1.0
-    });
+    if (quality === 'high') {
+        // High-vis "Sci-Fi" Liquid with Glow & Refraction
+        return new THREE.MeshPhysicalMaterial({
+            color: baseColor,
+            metalness: 0.1,
+            roughness: 0.2, // Liquids are slightly rough/turbulent
+            transmission: 0.6, // Semi-transparent
+            thickness: 0.5,
+            ior: 1.333, // Water IOR
+            transparent: true,
+            emissive: emissiveColor,
+            emissiveIntensity: activeReaction ? 1.5 : 0.4, // Glows intensely during reaction
+            side: THREE.DoubleSide,
+            envMapIntensity: 1.0
+        });
+    } else {
+        // Performance Mode: Standard material
+        return new THREE.MeshStandardMaterial({
+            color: baseColor,
+            metalness: 0.0,
+            roughness: 0.3,
+            transparent: true,
+            opacity: 0.8, // Simple opacity
+            emissive: emissiveColor,
+            emissiveIntensity: activeReaction ? 1.0 : 0.2,
+            side: THREE.DoubleSide,
+            envMapIntensity: 0.5
+        });
+    }
 };
 
 export const createMetalMaterial = (color: THREE.ColorRepresentation, roughness: number = 0.3) => {

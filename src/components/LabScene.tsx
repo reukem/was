@@ -1,18 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei';
-import { EffectComposer, Bloom, DepthOfField, Vignette, Noise } from '@react-three/postprocessing';
+import { OrbitControls, Environment, Text } from '@react-three/drei';
+import { EffectComposer, Bloom, DepthOfField, Vignette } from '@react-three/postprocessing';
 import { createTable, createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh } from '../utils/threeHelpers';
 import { EffectSystem } from '../utils/EffectSystem';
 import { audioManager } from '../utils/AudioManager';
-import { ContainerState } from '../types';
-import { CHEMICALS, HEATER_POSITION } from '../constants';
+import { ContainerState, CHEMICALS, HEATER_POSITION } from '../constants'; // Fixed import to use constants properly if needed, but CHEMICALS is usually exported from constants
 
-// --- GEOMETRY FACTORIES (Local to avoid circular deps if moved) ---
-// Kept locally as they were in the previous file or imported.
-// We will rely on imports from threeHelpers for consistency.
+// Re-importing CHEMICALS if it was in constants, assuming path '../constants' is correct based on previous file.
+// Checking previous file content... it imported { CHEMICALS, HEATER_POSITION } from '../constants'.
+// Ensure we keep that.
 
+// --- GEOMETRY FACTORIES (Local) ---
 const createTestTubeGeometry = () => {
     const points = [];
     points.push(new THREE.Vector2(0, 0));
@@ -22,7 +22,7 @@ const createTestTubeGeometry = () => {
     }
     points.push(new THREE.Vector2(0.15, 1.2));
     points.push(new THREE.Vector2(0.18, 1.2));
-    return new THREE.LatheGeometry(points, 32); // Higher detail
+    return new THREE.LatheGeometry(points, 32);
 };
 
 const createBottleGeometry = () => {
@@ -95,6 +95,36 @@ const createAnalyzerMachine = () => {
     return { group, texture, canvas };
 };
 
+// 3D Whiteboard Component
+const Whiteboard: React.FC<{ content: string | null }> = ({ content }) => {
+    if (!content) return null;
+    return (
+        <group position={[0, 2.8, -3.4]}>
+            {/* Board Frame */}
+            <mesh receiveShadow position={[0, 0, -0.05]}>
+                <boxGeometry args={[4.2, 1.2, 0.1]} />
+                <meshStandardMaterial color="#334155" metalness={0.5} roughness={0.5} />
+            </mesh>
+            {/* White Surface */}
+            <mesh receiveShadow>
+                <planeGeometry args={[4, 1]} />
+                <meshStandardMaterial color="#ffffff" roughness={0.2} metalness={0.1} />
+            </mesh>
+            {/* Text */}
+            <Text
+                position={[0, 0, 0.01]}
+                fontSize={0.25}
+                color="#000000"
+                anchorX="center"
+                anchorY="middle"
+                maxWidth={3.8}
+            >
+                {content}
+            </Text>
+        </group>
+    );
+};
+
 interface LabSceneProps {
     containers: ContainerState[];
     lastEffect: string | null;
@@ -105,16 +135,19 @@ interface LabSceneProps {
     onToggleValve?: (id: string) => void;
     isHeaterOn?: boolean;
     onToggleHeater?: () => void;
+    isPerformanceMode?: boolean;
+    whiteboardContent?: string | null;
 }
 
-// Internal component managing the Three.js Logic
-const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectPos, explodedContainerId, onMove, onPour, onToggleValve, isHeaterOn, onToggleHeater }) => {
-    const { scene, camera, gl, pointer, raycaster } = useThree();
+const LabLogic: React.FC<LabSceneProps> = ({
+    containers, lastEffect, lastEffectPos, explodedContainerId,
+    onMove, onPour, onToggleValve, isHeaterOn, onToggleHeater, isPerformanceMode
+}) => {
+    const { scene, camera, gl, raycaster } = useThree();
 
-    // Refs for imperative management
+    // Refs
     const meshesRef = useRef<Map<string, THREE.Object3D>>(new Map());
     const liquidsRef = useRef<Map<string, THREE.Mesh>>(new Map());
-    const audioNodesRef = useRef<Map<string, { boiling: THREE.PositionalAudio | null, reaction: THREE.PositionalAudio | null }>>(new Map());
     const analyzerRef = useRef<{ group: THREE.Group, texture: THREE.CanvasTexture, canvas: HTMLCanvasElement } | null>(null);
     const heaterRef = useRef<{ mesh: THREE.Object3D, light: THREE.PointLight } | null>(null);
     const effectSystemRef = useRef<EffectSystem | null>(null);
@@ -126,29 +159,44 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
     const pourStreamRef = useRef<THREE.Mesh | null>(null);
     const containersRef = useRef(containers);
 
-    // Callbacks ref
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
 
-    // Sync Props
     useEffect(() => {
         onMoveRef.current = onMove;
         onPourRef.current = onPour;
         containersRef.current = containers;
     }, [onMove, onPour, containers]);
 
-    // Init Scene Objects (Once)
+    // Handle Performance Mode Change: Clear cache to force rebuild
     useEffect(() => {
-        // Audio
+        // We need to remove all container meshes so they get recreated with correct material quality
+        meshesRef.current.forEach((group, id) => {
+            if (id !== 'ANALYZER_MACHINE' && id !== 'HEATER') {
+                scene.remove(group);
+            }
+        });
+        // Clear maps but keep Analyzer/Heater
+        const analyzer = meshesRef.current.get('ANALYZER_MACHINE');
+        const heater = meshesRef.current.get('HEATER');
+        meshesRef.current.clear();
+        liquidsRef.current.clear();
+
+        if (analyzer) meshesRef.current.set('ANALYZER_MACHINE', analyzer);
+        if (heater) meshesRef.current.set('HEATER', heater);
+
+        // Note: The main loop/effect below will regenerate them because `meshesRef.get(id)` will return undefined.
+    }, [isPerformanceMode, scene]);
+
+    // Init Scene Objects
+    useEffect(() => {
         const listener = new THREE.AudioListener();
         camera.add(listener);
         audioManager.setListener(listener);
 
-        // Lab Table
         const table = createTable();
         scene.add(table);
 
-        // Heater
         const heater = createHeaterMesh();
         heater.position.set(...HEATER_POSITION);
         heater.userData.id = 'HEATER';
@@ -160,7 +208,6 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         scene.add(heaterLight);
         heaterRef.current = { mesh: heater, light: heaterLight };
 
-        // Shelf
         const shelf = new THREE.Mesh(
             new THREE.BoxGeometry(10, 0.1, 2.5),
             new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 })
@@ -169,7 +216,6 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         shelf.receiveShadow = true;
         scene.add(shelf);
 
-        // Analyzer
         const analyzer = createAnalyzerMachine();
         analyzer.group.position.set(4, 0, 1.5);
         analyzer.group.userData.id = 'ANALYZER_MACHINE';
@@ -177,7 +223,6 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         analyzerRef.current = analyzer;
         meshesRef.current.set('ANALYZER_MACHINE', analyzer.group);
 
-        // Pour Stream VFX
         const streamGeo = new THREE.CylinderGeometry(0.015, 0.015, 1, 8);
         streamGeo.rotateX(-Math.PI / 2);
         streamGeo.translate(0, 0, 0.5);
@@ -197,7 +242,6 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
 
         effectSystemRef.current = new EffectSystem(scene);
 
-        // Cleanup
         return () => {
             camera.remove(listener);
             scene.remove(table);
@@ -205,27 +249,22 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             scene.remove(shelf);
             if (analyzerRef.current) scene.remove(analyzerRef.current.group);
             scene.remove(streamMesh);
-        };
-    }, [scene, camera]);
 
-    // Input Handling (Pointer)
+            // Clean up all containers
+            meshesRef.current.forEach((g) => scene.remove(g));
+            meshesRef.current.clear();
+        };
+    }, [scene, camera]); // Run once
+
+    // Input Handling
     useEffect(() => {
         const onPointerDown = (event: PointerEvent) => {
-             // R3F handles pointer coords in state, but we are attaching global listener for now to gl canvas
-             // Actually, we can use the raycaster from useFrame or here?
-             // Let's rely on standard logic but use the event to get coords if not using R3F events
-             // Better: Use `raycaster` from useThree() which is updated by R3F!
-
              if (event.button === 2) {
                  isRightClickDown.current = true;
                  if (draggedItem.current) draggedItem.current.isPouring = true;
                  return;
              }
-
-             // Raycaster is updated by R3F every frame based on pointer
-             // So we just check intersections
              const intersects = raycaster.intersectObjects(scene.children, true);
-
              if (intersects.length > 0) {
                  let target = intersects[0].object;
                  while(target.parent && !target.userData.id) target = target.parent;
@@ -241,10 +280,7 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                             if (buretteId) onToggleValve?.(buretteId);
                             return;
                         }
-
-                        // Drag logic
                         const id = target.userData.id;
-                        // Use the intersection point for offset
                         const offset = target.position.clone().sub(intersects[0].point);
                         offset.y = 0;
                         draggedItem.current = { id, offset, originalPos: target.position.clone() };
@@ -263,12 +299,9 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             if (draggedItem.current && event.button === 0) {
                 const id = draggedItem.current.id;
                 const group = meshesRef.current.get(id);
-                // Drop Logic
                 if (group) {
                     const containerData = containersRef.current.find(c => c.id === id);
                     const targetY = (containerData?.type === 'bottle' || containerData?.type === 'jar') ? 0.56 : 0.11;
-
-                    // Simple drop (no animation loop needed inside UseFrame if we just set target and let physics handle? No, explicit drop)
                     group.position.y = targetY;
                     onMoveRef.current(id, [group.position.x, targetY, group.position.z]);
                     audioManager.playGlassClink();
@@ -277,12 +310,10 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             }
         };
 
-        // Context Menu
         const onContextMenu = (e: Event) => e.preventDefault();
-
         const canvasEl = gl.domElement;
         canvasEl.addEventListener('pointerdown', onPointerDown);
-        window.addEventListener('pointerup', onPointerUp); // Window to catch release outside canvas
+        window.addEventListener('pointerup', onPointerUp);
         window.addEventListener('contextmenu', onContextMenu);
 
         return () => {
@@ -292,8 +323,7 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         };
     }, [gl, raycaster, scene, onToggleHeater, onToggleValve]);
 
-
-    // Helper to update Analyzer
+    // Update Analyzer Helper
     const updateAnalyzerDisplay = (chemId: string | null, temp?: number) => {
         if (!analyzerRef.current) return;
         const ctx = analyzerRef.current.canvas.getContext('2d');
@@ -320,25 +350,20 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         analyzerRef.current.texture.needsUpdate = true;
     };
 
-
     // Main Loop
     useFrame((state, delta) => {
         const dt = Math.min(delta, 0.1);
         effectSystemRef.current?.update();
 
-        // Shake Camera
         if (shakeIntensity.current > 0) {
             const shake = shakeIntensity.current;
             camera.position.x += (Math.random() - 0.5) * shake * 0.2;
             camera.position.y += (Math.random() - 0.5) * shake * 0.2;
             shakeIntensity.current *= 0.9;
             if (shakeIntensity.current < 0.01) shakeIntensity.current = 0;
-            // Note: Camera resets needed? OrbitControls might fight this.
-            // In R3F, OrbitControls updates camera in its own useFrame.
-            // We just add noise.
         }
 
-        // Dragging & Pouring
+        // Dragging & Pouring Logic
         if (draggedItem.current) {
             const mouseTarget = new THREE.Vector3();
             raycaster.ray.intersectPlane(plane.current, mouseTarget);
@@ -376,22 +401,19 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                     group.position.lerp(targetPos, 10 * dt);
                     group.rotation.z = THREE.MathUtils.lerp(group.rotation.z, targetRotZ, 10 * dt);
 
-                    // Pour Stream
                     if (pourTargetId && Math.abs(group.rotation.z - targetRotZ) < 0.5) {
                         const sourceC = containersRef.current.find(c => c.id === draggedItem.current?.id);
                         if (sourceC && sourceC.contents && (sourceC.contents.volume > 0 || sourceC.type === 'rock')) {
                              onPourRef.current(sourceC.id, pourTargetId, 0.5 * dt);
-
                              if (pourStreamRef.current) {
                                  pourStreamRef.current.visible = true;
-
                                  const lipLocal = new THREE.Vector3(0.5, 1.1, 0);
                                  if (sourceC.type === 'test_tube') lipLocal.set(0.15, 1.1, 0);
                                  else if (sourceC.type === 'bottle') lipLocal.set(0.2, 0.9, 0);
 
                                  const startWorld = lipLocal.applyMatrix4(group.matrixWorld);
                                  const targetWorld = meshesRef.current.get(pourTargetId)!.position.clone();
-                                 targetWorld.y += 0.5; // Approx target height
+                                 targetWorld.y += 0.5;
 
                                  pourStreamRef.current.position.copy(startWorld);
                                  pourStreamRef.current.lookAt(targetWorld);
@@ -416,8 +438,7 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
              if (pourStreamRef.current) pourStreamRef.current.visible = false;
         }
 
-        // Bubbles & Analyzer Logic
-        // ... (Similar to before)
+        // Bubbles & Analyzer
         containersRef.current.forEach(c => {
              if (c.contents && c.contents.temperature && c.contents.temperature > 100) {
                   if (Math.random() < 0.2) {
@@ -456,7 +477,7 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             const flashLight = new THREE.PointLight(0xffaa00, 10, 20);
             flashLight.position.copy(position).add(new THREE.Vector3(0, 1, 0));
             scene.add(flashLight);
-            setTimeout(() => scene.remove(flashLight), 500); // Simple timeout for cleanup
+            setTimeout(() => scene.remove(flashLight), 500);
         } else if (lastEffect === 'sparkles') {
             effectSystemRef.current?.createSparkles(position, '#ffd700', 20);
         }
@@ -485,7 +506,8 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
 
     // Container Sync (Create/Remove Meshes)
     useEffect(() => {
-        // Remove deleted
+        const quality = isPerformanceMode ? 'low' : 'high';
+
         meshesRef.current.forEach((group, id) => {
             if (id !== 'ANALYZER_MACHINE' && id !== 'HEATER' && !containers.find(c => c.id === id)) {
                 scene.remove(group);
@@ -494,7 +516,6 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             }
         });
 
-        // Create/Update
         containers.forEach(container => {
             let group = meshesRef.current.get(container.id);
             let liquidMesh = liquidsRef.current.get(container.id);
@@ -511,41 +532,41 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 group.userData.id = container.id;
                 let mesh;
 
-                // --- Mesh Creation Logic from previous file ---
+                // Pass quality to material creators
                 if (container.type === 'beaker') {
-                    mesh = new THREE.Mesh(createBeakerGeometry(0.5, 1.2), createGlassMaterial());
+                    mesh = new THREE.Mesh(createBeakerGeometry(0.5, 1.2), createGlassMaterial(quality));
                     mesh.renderOrder = 2;
                     group.add(mesh);
                     const liquidGeo = new THREE.CylinderGeometry(0.46, 0.46, 1, 32);
                     liquidGeo.translate(0, 0.5, 0);
-                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
+                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff, false, quality));
                     liquidMesh.scale.set(1, 0.01, 1);
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
                 } else if (container.type === 'test_tube') {
-                    mesh = new THREE.Mesh(createTestTubeGeometry(), createGlassMaterial());
+                    mesh = new THREE.Mesh(createTestTubeGeometry(), createGlassMaterial(quality));
                     mesh.renderOrder = 2;
                     group.add(mesh);
                     const liquidGeo = new THREE.CylinderGeometry(0.13, 0.13, 1.1, 16);
                     liquidGeo.translate(0, 0.5, 0);
-                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
+                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff, false, quality));
                     liquidMesh.scale.set(1, 0.01, 1);
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
                 } else if (container.type === 'bottle') {
-                    mesh = new THREE.Mesh(createBottleGeometry(), createGlassMaterial());
+                    mesh = new THREE.Mesh(createBottleGeometry(), createGlassMaterial(quality));
                     group.add(mesh);
                     const liquidGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.5, 24);
                     liquidGeo.translate(0, 0.3, 0);
                     const contents = container.contents ? CHEMICALS[container.contents.chemicalId] : null;
                     const color = contents ? contents.color : 0xffffff;
-                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(color));
+                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(color, false, quality));
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
                 } else if (container.type === 'jar') {
-                    mesh = new THREE.Mesh(createJarGeometry(), createGlassMaterial());
+                    mesh = new THREE.Mesh(createJarGeometry(), createGlassMaterial(quality));
                     group.add(mesh);
                     if (container.contents) {
                         const mound = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color: container.contents.color, roughness: 1.0 }));
@@ -566,11 +587,11 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                     group.add(stand);
                     const buretteGeo = createBuretteGeometry();
                     buretteGeo.translate(0, 1.8, -0.2);
-                    mesh = new THREE.Mesh(buretteGeo, createGlassMaterial());
+                    mesh = new THREE.Mesh(buretteGeo, createGlassMaterial(quality));
                     group.add(mesh);
                     const liquidGeo = new THREE.CylinderGeometry(0.05, 0.05, 1, 16);
                     liquidGeo.translate(0, 0.5, 0);
-                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
+                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff, false, quality));
                     liquidMesh.position.set(0, 1.95, -0.2);
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
@@ -593,12 +614,12 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 group.position.set(...container.position);
             }
 
-            // Sync Position if not dragging
+            // Sync Position
             if (draggedItem.current?.id !== container.id) {
                 group.position.lerp(new THREE.Vector3(...container.position), 0.2);
             }
 
-            // Update Liquid Visuals
+            // Update Liquid
             if (liquidMesh && container.contents) {
                 liquidMesh.visible = true;
                 let targetScaleY = 0;
@@ -614,11 +635,10 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 }
                 liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
 
-                const mat = liquidMesh.material as THREE.MeshPhysicalMaterial;
+                const mat = liquidMesh.material as THREE.MeshStandardMaterial; // Use Standard for safety in casting
                 const baseColor = new THREE.Color(container.contents.color);
                 const temp = container.contents.temperature || 25;
 
-                // Emissive / Glow
                 if (temp > 100 || container.contents.activeReaction) {
                     const heatFactor = Math.min((temp - 25) / 500, 1.0);
                     const reactionGlow = container.contents.activeReaction ? 0.8 : 0;
@@ -636,28 +656,26 @@ const LabLogic: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 liquidMesh.visible = false;
             }
         });
-    }, [containers, scene]);
+    }, [containers, scene, isPerformanceMode]); // Added isPerformanceMode
 
     return null;
 }
 
-// --- MAIN EXPORT ---
 const LabScene: React.FC<LabSceneProps> = (props) => {
     return (
         <div className="w-full h-full">
             <Canvas
                 shadows
-                dpr={[1, 2]}
+                dpr={[1, props.isPerformanceMode ? 1.5 : 2]}
                 camera={{ position: [0, 8, 12], fov: 45 }}
                 gl={{
-                    antialias: false, // Postprocessing handles AA usually, or we use SMAA
+                    antialias: false,
                     toneMapping: THREE.ACESFilmicToneMapping,
                     toneMappingExposure: 1.0
                 }}
             >
                 <color attach="background" args={['#050b14']} />
 
-                {/* Module 1: Environment & Lighting */}
                 <Environment preset="city" blur={0.7} background />
 
                 <ambientLight intensity={0.2} />
@@ -680,29 +698,33 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
 
                 <LabLogic {...props} />
 
+                {/* 3D Whiteboard */}
+                <Whiteboard content={props.whiteboardContent || null} />
+
                 <OrbitControls makeDefault dampingFactor={0.05} />
 
-                {/* Module 3: Post-Processing */}
-                <EffectComposer disableNormalPass>
-                    {/* Bloom for glowing liquids and heater */}
-                    <Bloom
-                        luminanceThreshold={1.0}
-                        mipmapBlur
-                        intensity={1.2}
-                        radius={0.6}
-                    />
-                    <DepthOfField
-                        target={[0, 0, 0]}
-                        focalLength={0.02}
-                        bokehScale={3}
-                        height={480}
-                    />
-                    <Vignette
-                        eskil={false}
-                        offset={0.1}
-                        darkness={0.6}
-                    />
-                </EffectComposer>
+                {/* Post-Processing: Disabled in Performance Mode */}
+                {!props.isPerformanceMode && (
+                    <EffectComposer disableNormalPass>
+                        <Bloom
+                            luminanceThreshold={1.0}
+                            mipmapBlur
+                            intensity={1.2}
+                            radius={0.6}
+                        />
+                        <DepthOfField
+                            target={[0, 0, 0]}
+                            focalLength={0.02}
+                            bokehScale={3}
+                            height={480}
+                        />
+                        <Vignette
+                            eskil={false}
+                            offset={0.1}
+                            darkness={0.6}
+                        />
+                    </EffectComposer>
+                )}
             </Canvas>
         </div>
     );
