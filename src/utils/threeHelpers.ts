@@ -36,24 +36,34 @@ export const createGlassMaterial = (quality: 'high' | 'low' = 'high') => {
     }
 };
 
-export const createLiquidMaterial = (color: THREE.ColorRepresentation, activeReaction?: boolean, quality: 'high' | 'low' = 'high') => {
+export const createLiquidMaterial = (
+    color: THREE.ColorRepresentation,
+    activeReaction?: boolean,
+    quality: 'high' | 'low' = 'high',
+    attenuationDistance: number = 0.5
+) => {
     const baseColor = new THREE.Color(color);
     const emissiveColor = baseColor.clone().multiplyScalar(activeReaction ? 0.8 : 0.2);
 
     if (quality === 'high') {
-        // High-vis "Sci-Fi" Liquid with Glow & Refraction
+        // High-vis "Sci-Fi" Liquid with Glow & Refraction & Beer-Lambert Law (Attenuation)
+        // Adjust attenuation color to be a darker/richer version of the base color
+        const attColor = baseColor.clone().offsetHSL(0, 0.2, -0.2);
+
         return new THREE.MeshPhysicalMaterial({
-            color: baseColor,
+            color: 0xffffff, // With attenuation, base color is white
             metalness: 0.1,
-            roughness: 0.2, // Liquids are slightly rough/turbulent
-            transmission: 0.6, // Semi-transparent
-            thickness: 0.5,
-            ior: 1.333, // Water IOR
+            roughness: 0.2,
+            transmission: 0.95, // High transmission for volume rendering
+            thickness: 1.5,
+            ior: 1.333,
             transparent: true,
             emissive: emissiveColor,
-            emissiveIntensity: activeReaction ? 1.5 : 0.4, // Glows intensely during reaction
+            emissiveIntensity: activeReaction ? 1.5 : 0.1,
             side: THREE.DoubleSide,
-            envMapIntensity: 1.0
+            envMapIntensity: 1.0,
+            attenuationColor: attColor,
+            attenuationDistance: attenuationDistance // Dynamic based on liquid density/type
         });
     } else {
         // Performance Mode: Standard material
@@ -62,7 +72,7 @@ export const createLiquidMaterial = (color: THREE.ColorRepresentation, activeRea
             metalness: 0.0,
             roughness: 0.3,
             transparent: true,
-            opacity: 0.8, // Simple opacity
+            opacity: 0.8,
             emissive: emissiveColor,
             emissiveIntensity: activeReaction ? 1.0 : 0.2,
             side: THREE.DoubleSide,
@@ -80,6 +90,31 @@ export const createMetalMaterial = (color: THREE.ColorRepresentation, roughness:
     });
 };
 
+// --- PROCEDURAL TEXTURES (Module 3) ---
+
+export const createNoiseTexture = () => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+        const imageData = ctx.createImageData(size, size);
+        for (let i = 0; i < imageData.data.length; i += 4) {
+            const val = Math.floor(Math.random() * 255);
+            imageData.data[i] = val;     // R
+            imageData.data[i+1] = val;   // G
+            imageData.data[i+2] = val;   // B
+            imageData.data[i+3] = 255;   // A
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    return texture;
+};
+
 // --- GEOMETRY ---
 
 export const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
@@ -91,13 +126,40 @@ export const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2)
     points.push(new THREE.Vector2(radius + 0.04, height)); // Rim
     points.push(new THREE.Vector2(radius + 0.04, height - 0.02)); // Inner rim
     points.push(new THREE.Vector2(radius - 0.02, height - 0.05)); // Inner wall start
-    // Note: Lathe geometry creates a shell. If we want realistic refraction, we need proper thickness modeling.
-    // But for performance/simplicity, a single lathe is often enough if materials handle backface culling correctly.
-    // However, MeshPhysicalMaterial with transmission works best on closed volumes.
-    // Let's close the volume by returning to center at the top? No, open top.
-    // For "thickness" property to work well, the back face must be rendered or geometry must be double-sided in a way.
-    // R3F handles this well usually.
-    return new THREE.LatheGeometry(points, 64); // Higher segment count for smoothness
+    return new THREE.LatheGeometry(points, 64);
+};
+
+export const createMeniscusGeometry = (radius: number, height: number) => {
+    // Module 2: Meniscus Curve
+    // A solid cylinder but the top vertices curve up near the edge
+    const points = [];
+    // Bottom center
+    points.push(new THREE.Vector2(0, 0));
+    // Bottom edge
+    points.push(new THREE.Vector2(radius, 0));
+    // Side
+    points.push(new THREE.Vector2(radius, height));
+    // Meniscus Top Edge (curved up)
+    points.push(new THREE.Vector2(radius, height + 0.05));
+    // Meniscus Inner Curve (back down to height)
+    points.push(new THREE.Vector2(radius * 0.9, height));
+    // Center Top
+    points.push(new THREE.Vector2(0, height));
+
+    // Actually, Lathe makes a shell if not careful. We want a closed volume for liquid.
+    // Simpler: Use a cylinder and displace vertices?
+    // Or just points for Lathe that close the loop?
+    // Lathe revolves around Y.
+    // Points: (0,0) -> (R,0) -> (R, H_edge) -> (0, H_center) -> (0,0)
+
+    const meniscusPoints = [
+        new THREE.Vector2(0, 0),
+        new THREE.Vector2(radius, 0),
+        new THREE.Vector2(radius, height + 0.05), // Higher at edge
+        new THREE.Vector2(0, height) // Lower at center
+    ];
+
+    return new THREE.LatheGeometry(meniscusPoints, 32);
 };
 
 export const createRoughChunkGeometry = (radius: number = 0.3) => {
@@ -137,14 +199,12 @@ export const createTable = () => {
     const group = new THREE.Group();
 
     // Table Top (Detailed)
-    // Main slab with chamfered edges effect (simulated via multiple boxes or specific geometry, but Box is fine with PBR)
     const topGeo = new THREE.BoxGeometry(14, 0.25, 8);
     const topMat = new THREE.MeshStandardMaterial({
         color: 0x0f172a, // Slate 900
         roughness: 0.7,
         metalness: 0.4,
-        bumpScale: 0.02 // Simulated texture
-        // Note: We don't have texture assets, so rely on PBR properties
+        bumpScale: 0.02
     });
     const tableTop = new THREE.Mesh(topGeo, topMat);
     tableTop.receiveShadow = true;

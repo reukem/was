@@ -20,7 +20,7 @@ export const generateReport = (data: ReportData) => {
     const htmlContent = `
     <!DOCTYPE html>
     <html lang="vi">
-    <hh>
+    <head>
         <meta charset="UTF-8">
         <title>Báo Cáo Thực Hành Hóa Học</title>
         <style>
@@ -153,7 +153,7 @@ export const generateReport = (data: ReportData) => {
         <div class="section">
             <div class="section-title">II. NHẬT KÝ THÍ NGHIỆM (TRANSCRIPT)</div>
             <div class="transcript">
-                ${data.transcript.filter(m => m.role !== 'system').map(m => `
+                ${data.transcript.map(m => `
                     <div class="msg ${m.role}">
                         <div class="msg-role">${m.role === 'user' ? 'Học Sinh' : 'Giáo Sư Lucy'}</div>
                         <div>${m.text.replace(/\n/g, '<br>')}</div>

@@ -73,3 +73,12 @@ export interface ChatMessage {
     role: 'user' | 'model';
     text: string;
 }
+
+export interface Quest {
+    id: string;
+    title: string;
+    description: string;
+    isCompleted: boolean;
+    checkCondition: (containers: ContainerState[], lastReaction: string | null) => boolean;
+    rewardMessage: string;
+}

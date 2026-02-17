@@ -1,20 +1,11 @@
-import { ContainerState } from './types';
-
-export interface Quest {
-    id: string;
-    title: string;
-    description: string;
-    criteria: (containers: ContainerState[], lastReaction: string | null) => boolean;
-    isCompleted: boolean;
-    rewardMessage: string;
-}
+import { ContainerState, Quest } from '../types';
 
 export const QUESTS: Quest[] = [
     {
         id: 'orientation_pour',
         title: 'Thao Tác Cơ Bản',
         description: 'Đổ Nước Cất vào Cốc thủy tinh (Beaker). (Chuột phải + Giữ để rót)',
-        criteria: (containers, _) => {
+        checkCondition: (containers, _) => {
             // Find a beaker with water
             return containers.some(c =>
                 c.type === 'beaker' &&
@@ -30,7 +21,7 @@ export const QUESTS: Quest[] = [
         id: 'safety_neutralize',
         title: 'Quy Tắc An Toàn',
         description: 'Trung hòa Axit Clohidric (HCl) bằng Natri Hydroxit (NaOH).',
-        criteria: (_, lastReaction) => {
+        checkCondition: (_, lastReaction) => {
             return lastReaction?.includes('NaCl') || false; // Checked against translated reaction message
         },
         isCompleted: false,
@@ -40,7 +31,7 @@ export const QUESTS: Quest[] = [
         id: 'discovery_golden_rain',
         title: 'Mưa Vàng',
         description: 'Tổng hợp tinh thể Chì Iodua (PbNO3 + KI).',
-        criteria: (containers, _) => {
+        checkCondition: (containers, _) => {
             return containers.some(c => c.contents?.chemicalId === 'GOLDEN_RAIN');
         },
         isCompleted: false,
@@ -53,12 +44,15 @@ export class QuestManager {
     public onQuestComplete: ((quest: Quest) => void) | null = null;
 
     constructor() {
-        this.activeQuests = [...QUESTS];
+        // Deep copy needed to reset state on new game, but simple spread is shallow.
+        // For boolean toggle it's fine if we don't persist between sessions without reload.
+        // Actually, we should map to new objects.
+        this.activeQuests = QUESTS.map(q => ({...q}));
     }
 
     check(containers: ContainerState[], lastReaction: string | null) {
         this.activeQuests.forEach(quest => {
-            if (!quest.isCompleted && quest.criteria(containers, lastReaction)) {
+            if (!quest.isCompleted && quest.checkCondition(containers, lastReaction)) {
                 quest.isCompleted = true;
                 if (this.onQuestComplete) this.onQuestComplete(quest);
             }
