@@ -158,6 +158,28 @@ export const CHEMICALS: Record<string, Chemical> = {
         density: 1.0,
         description: 'Chất chỉ thị oxy hóa khử.'
     },
+    'PHENOLPHTHALEIN': {
+        id: 'PHENOLPHTHALEIN',
+        name: 'Phenolphthalein',
+        formula: 'C₂₀H₁₄O₄',
+        color: '#f8fafc', // Clear in acid
+        type: 'liquid',
+        meshStyle: 'flask',
+        ph: 7.0,
+        density: 1.28,
+        description: 'Chất chỉ thị pH. Chuyển hồng ở pH > 8.2.'
+    },
+    'PINK_INDICATOR': {
+        id: 'PINK_INDICATOR',
+        name: 'Dung dịch Bazơ (Có chỉ thị)',
+        formula: 'Mix',
+        color: '#db2777', // Pink 600
+        type: 'liquid',
+        meshStyle: 'flask',
+        ph: 9.0,
+        density: 1.0,
+        description: 'Dung dịch bazơ đã chuyển màu hồng.'
+    },
 
     // --- SOLIDS ---
     'SODIUM': {

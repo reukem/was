@@ -1,11 +1,14 @@
 // Synthesized Sound Generator to avoid external asset dependencies for this task
 // We will use Web Audio API oscillators to generate "good enough" placeholders
 
+import * as THREE from 'three';
+
 export class AudioManager {
     private ctx: AudioContext | null = null;
     private masterGain: GainNode | null = null;
     private hissSource: AudioBufferSourceNode | null = null;
     private hissGain: GainNode | null = null;
+    private listener: THREE.AudioListener | null = null;
 
     constructor() {
         try {
@@ -18,11 +21,107 @@ export class AudioManager {
         }
     }
 
+    setListener(listener: THREE.AudioListener) {
+        this.listener = listener;
+        // If we have a context from THREE, use it?
+        // THREE uses its own context usually. But we can share if we pass the context to THREE?
+        // Actually, THREE.AudioListener creates its own context if not provided, or uses THREE.AudioContext.
+        // Let's rely on our own context for UI sounds, but use the Listener for spatial sounds.
+        // Wait, THREE.PositionalAudio needs to be attached to the Listener's context.
+        if (listener.context !== this.ctx && this.ctx) {
+            // This is tricky. If we use THREE.PositionalAudio, we must use THREE's context.
+            // Let's adopt THREE's context as our main one if available.
+            this.ctx = listener.context;
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.value = 0.3;
+            this.masterGain.connect(this.ctx.destination);
+        }
+    }
+
     private ensureContext() {
         if (this.ctx && this.ctx.state === 'suspended') {
             this.ctx.resume();
         }
     }
+
+    // --- Spatial Audio Generators ---
+
+    createBoilingSound(mesh: THREE.Object3D): THREE.PositionalAudio | null {
+        if (!this.listener || !this.ctx) return null;
+
+        const sound = new THREE.PositionalAudio(this.listener);
+        const oscillator = this.ctx.createOscillator();
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 100; // Low rumble
+
+        // Modulate with noise for bubbles?
+        // Simple approach: Low frequency sine + gain modulation
+
+        // Create a buffer for bubbling noise
+        const bufferSize = this.ctx.sampleRate * 2.0;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() - 0.5) * 0.5;
+        }
+
+        const bufferSource = this.ctx.createBufferSource();
+        bufferSource.buffer = buffer;
+        bufferSource.loop = true;
+
+        // Filter
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 300;
+
+        sound.setNodeSource(bufferSource as any); // Type cast for ThreeJS compat
+        sound.setRefDistance(1);
+        sound.setRolloffFactor(2); // Sharp dropoff
+        sound.setVolume(0); // Start silent
+
+        // Connect graph locally inside the Audio object?
+        // THREE.PositionalAudio handles the panner. We just provide source.
+        // But we want a filter.
+        // bufferSource -> filter -> sound (panner) -> destination
+        // sound.setNodeSource connects source -> panner.
+        // To insert a filter, we might need to manually connect: source -> filter -> sound.gain -> panner...
+        // Easier: Just use the buffer source directly with setBuffer if we pre-process?
+        // Or just let it be raw noise for now.
+
+        mesh.add(sound);
+        bufferSource.start();
+        return sound;
+    }
+
+    createReactionSound(mesh: THREE.Object3D, type: 'fizz' | 'hum'): THREE.PositionalAudio | null {
+        if (!this.listener || !this.ctx) return null;
+
+        const sound = new THREE.PositionalAudio(this.listener);
+        const bufferSize = this.ctx.sampleRate * 2.0;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+
+        if (type === 'fizz') {
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = (Math.random() - 0.5) * 0.2; // High freq noise
+            }
+        } else {
+             for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.sin(i * 0.01) * 0.1 + (Math.random() - 0.5) * 0.05; // Hum
+            }
+        }
+
+        sound.setBuffer(buffer);
+        sound.setRefDistance(1);
+        sound.setLoop(true);
+        sound.setVolume(0);
+
+        mesh.add(sound);
+        if(!sound.isPlaying) sound.play();
+        return sound;
+    }
+
+    // --- UI / Global Sounds ---
 
     playGlassClink() {
         if (!this.ctx || !this.masterGain) return;

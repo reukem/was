@@ -165,6 +165,50 @@ export const createHeaterMesh = () => {
     return group;
 };
 
+export const createBuretteGeometry = () => {
+    // 50ml Burette (long thin tube)
+    const points = [];
+    points.push(new THREE.Vector2(0, 0));
+    points.push(new THREE.Vector2(0.02, 0)); // Tip
+    points.push(new THREE.Vector2(0.03, 0.1)); // Valve area
+    points.push(new THREE.Vector2(0.06, 0.15)); // Tube start
+    points.push(new THREE.Vector2(0.06, 2.5)); // Tube top
+    points.push(new THREE.Vector2(0.07, 2.5)); // Wall thickness
+    points.push(new THREE.Vector2(0.07, 0.15));
+    return new THREE.LatheGeometry(points, 24);
+};
+
+export const createStandGeometry = () => {
+    // Retort Stand
+    const group = new THREE.Group();
+
+    // Base
+    const base = new THREE.Mesh(
+        new THREE.BoxGeometry(0.8, 0.1, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 })
+    );
+    group.add(base);
+
+    // Rod
+    const rod = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.02, 0.02, 3.0),
+        new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 })
+    );
+    rod.position.set(0, 1.5, -0.2);
+    group.add(rod);
+
+    // Clamp
+    const clamp = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.03, 0.03, 0.3),
+        new THREE.MeshStandardMaterial({ color: 0x334155 })
+    );
+    clamp.rotation.z = Math.PI / 2;
+    clamp.position.set(0.15, 2.0, -0.2);
+    group.add(clamp);
+
+    return group;
+};
+
 export const createLabel = (text: string) => {
     const canvas = document.createElement('canvas');
     canvas.width = 256;

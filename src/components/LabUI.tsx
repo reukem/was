@@ -16,9 +16,12 @@ interface LabUIProps {
     onToggleChat: (isOpen: boolean) => void;
     onSpawn: (chemId: string) => void;
     onReset: () => void;
+    onStartExam?: () => void;
+    isExamMode?: boolean;
     onUserChat: (msg: string) => void;
 }
 
+// Helper for formatting chemical formulas
 const formatScientificText = (text: string) => {
     if (!text) return null;
     // Replace typical chemical numbers with subscripts
@@ -75,7 +78,7 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
     );
 };
 
-const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, isAiLoading, quests, safetyScore, isChatOpen, onToggleChat, onSpawn, onReset, onUserChat }) => {
+const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, isAiLoading, quests, safetyScore, isChatOpen, onToggleChat, onSpawn, onReset, onStartExam, isExamMode, onUserChat }) => {
     const [chatInput, setChatInput] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
@@ -124,12 +127,12 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
             {/* --- HEADER --- */}
             <div className="flex justify-between items-start pointer-events-auto z-50">
                 <div className="flex flex-col gap-2">
-                    <div className="bg-slate-900/90 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10 shadow-xl">
-                        <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent tracking-tighter">
-                            CHEMIC-AI
+                    <div className={`bg-slate-900/90 backdrop-blur-md px-6 py-4 rounded-2xl border ${isExamMode ? 'border-red-500/50 shadow-red-900/20' : 'border-white/10'} shadow-xl transition-all`}>
+                        <h1 className={`text-3xl font-black bg-gradient-to-r ${isExamMode ? 'from-red-500 to-orange-500' : 'from-blue-400 to-indigo-500'} bg-clip-text text-transparent tracking-tighter`}>
+                            {isExamMode ? 'CHEMIC-EXAM' : 'CHEMIC-AI'}
                         </h1>
-                        <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-[0.3em] font-medium">
-                            Môi Trường Nghiên Cứu // v4.2.1
+                        <p className={`text-[10px] ${isExamMode ? 'text-red-400' : 'text-slate-400'} mt-1 uppercase tracking-[0.3em] font-medium`}>
+                            {isExamMode ? 'CHẾ ĐỘ THI CỬ // GIÁM SÁT KÍCH HOẠT' : 'Môi Trường Nghiên Cứu // v4.2.1'}
                         </p>
                     </div>
 
@@ -169,6 +172,14 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                 </div>
 
                 <div className="flex items-center gap-3">
+                    {!isExamMode && onStartExam && (
+                         <button
+                            onClick={onStartExam}
+                            className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 hover:text-amber-300 px-5 py-3 rounded-xl border border-amber-500/20 transition-all font-bold text-[10px] uppercase tracking-widest backdrop-blur-md shadow-lg animate-pulse"
+                        >
+                            Bắt Đầu Thi
+                        </button>
+                    )}
                     <button
                         onClick={() => setIsNotebookOpen(true)}
                         className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 hover:text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/20 transition-all font-bold text-xl backdrop-blur-md shadow-lg"
@@ -180,12 +191,13 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                         onClick={onReset}
                         className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-5 py-3 rounded-xl border border-red-500/20 transition-all font-bold text-[10px] uppercase tracking-widest backdrop-blur-md shadow-lg"
                     >
-                        Làm Sạch Bàn
+                        {isExamMode ? 'Thoát Chế Độ Thi' : 'Làm Sạch Bàn'}
                     </button>
                 </div>
             </div>
 
             {/* --- SIDEBAR (Compound Database) --- */}
+            {!isExamMode && (
             <div className={`absolute left-6 top-36 bottom-24 w-64 pointer-events-auto transition-transform duration-300 ease-in-out z-40 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[120%]'}`}>
                 <div className="flex justify-between items-center mb-2 px-2">
                     <h2 className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] drop-shadow-md">Kho Hóa Chất</h2>
@@ -210,6 +222,17 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                         >
                             <span className="text-xs font-bold text-slate-200">Ống Nghiệm</span>
                             <p className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">Mẫu thử</p>
+                        </button>
+                        <button
+                            onClick={() => onSpawn('BURETTE')}
+                            onMouseEnter={() => audioManager.playUIHover()}
+                            className="group p-3 col-span-2 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm flex items-center justify-between"
+                        >
+                            <div>
+                                <span className="text-xs font-bold text-slate-200">Buret Chuẩn Độ</span>
+                                <p className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">50ml • Chính xác cao</p>
+                            </div>
+                            <span className="text-xl">🧪</span>
                         </button>
                     </div>
 
@@ -237,8 +260,9 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                     ))}
                 </div>
             </div>
+            )}
 
-            {!isSidebarOpen && (
+            {!isSidebarOpen && !isExamMode && (
                 <button
                     onClick={() => setIsSidebarOpen(true)}
                     className="absolute left-6 top-36 pointer-events-auto bg-slate-900/80 p-3 rounded-xl border border-white/10 text-indigo-400 hover:text-white transition-all shadow-lg z-40"
@@ -253,7 +277,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                     <div className="animate-in fade-in zoom-in duration-500 slide-in-from-bottom-8 bg-slate-900/90 backdrop-blur-3xl border border-orange-500/30 p-8 rounded-[2rem] shadow-2xl text-center max-w-lg">
                         <p className="text-orange-400 font-bold text-[10px] uppercase tracking-[0.2em] mb-3">Phát Hiện Phản Ứng</p>
                         <p className="text-white text-md font-medium leading-relaxed tracking-tight shadow-sm">
-                            {formatScientificText(lastReaction)}
+                            {isExamMode ? 'Phản ứng đã xảy ra! Quan sát hiện tượng và ghi lại.' : formatScientificText(lastReaction)}
                         </p>
                     </div>
                 )}

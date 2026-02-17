@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import LabScene from './components/LabScene';
 import LabUI from './components/LabUI';
+import MolecularView from './components/MolecularView';
 import { ContainerState, ChatMessage, ContainerType } from './types';
 import { ChemistryEngine } from './systems/ChemistryEngine';
 import { CHEMICALS, HEATER_POSITION } from './constants';
@@ -38,6 +39,9 @@ const App: React.FC = () => {
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const [isMolecularViewOpen, setIsMolecularViewOpen] = useState(false);
+    const [molecularMode, setMolecularMode] = useState<'dissolve' | 'neutralization' | 'precipitation' | 'generic'>('generic');
+    const [isExamMode, setIsExamMode] = useState(false);
 
     const [isHeaterOn, setIsHeaterOn] = useState(false);
     const isHeaterOnRef = useRef(false);
@@ -46,6 +50,24 @@ const App: React.FC = () => {
         const service = new GeminiService();
         service.onHistoryUpdate = (history) => {
             setChatHistory([...history]);
+
+            // Check for Molecular Trigger in the latest message
+            const lastMsg = history[history.length - 1];
+            if (lastMsg && lastMsg.role === 'model') {
+                if (lastMsg.text.includes('[TRIGGER_MOLECULAR_VIEW]')) {
+                    // Determine mode based on context or simple heuristic
+                    // Ideally AI should output [TRIGGER_MOLECULAR_VIEW:dissolve]
+                    // But for now let's just default to 'dissolve' or infer from lastReaction
+                    if (lastMsg.text.toLowerCase().includes('nacl') || lastMsg.text.toLowerCase().includes('muối')) {
+                        setMolecularMode('dissolve');
+                    } else if (lastMsg.text.toLowerCase().includes('trung hòa') || lastMsg.text.toLowerCase().includes('hcl')) {
+                        setMolecularMode('neutralization');
+                    } else {
+                        setMolecularMode('generic');
+                    }
+                    setIsMolecularViewOpen(true);
+                }
+            }
         };
         aiServiceRef.current = service;
         setChatHistory(service.getHistory());
@@ -198,6 +220,91 @@ const App: React.FC = () => {
         });
     }, []);
 
+    const handleToggleValve = useCallback((id: string) => {
+        audioManager.playGlassClink();
+        setContainers(prev => prev.map(c => {
+            if (c.id === id) {
+                return { ...c, isValveOpen: !c.isValveOpen };
+            }
+            return c;
+        }));
+    }, []);
+
+    // --- DRIP LOOP (BURETTE) ---
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setContainers(prev => {
+                const burettes = prev.filter(c => c.type === 'burette' && c.isValveOpen && c.contents && c.contents.volume > 0);
+                if (burettes.length === 0) return prev;
+
+                let changed = false;
+                const nextContainers = prev.map(c => ({...c}));
+
+                burettes.forEach(buretteSource => {
+                    const sourceIdx = nextContainers.findIndex(c => c.id === buretteSource.id);
+                    if (sourceIdx === -1) return;
+
+                    const source = nextContainers[sourceIdx];
+                    if (!source.contents || source.contents.volume <= 0) return;
+
+                    // Physics: dV/dt = -k * sqrt(h)
+                    // h is proportional to volume
+                    const flowRate = 0.01 * Math.sqrt(source.contents.volume);
+                    const dripAmount = Math.min(flowRate, source.contents.volume);
+
+                    // Find target
+                    const tipPos = new THREE.Vector3(source.position[0], source.position[1] + 1.8, source.position[2] - 0.2);
+
+                    const targetIdx = nextContainers.findIndex(t => {
+                        if (t.id === source.id) return false;
+                        if (t.type !== 'beaker') return false;
+                        const dx = Math.abs(t.position[0] - tipPos.x);
+                        const dz = Math.abs(t.position[2] - tipPos.z);
+                        // Check if beaker is below tip
+                        return dx < 0.4 && dz < 0.4 && t.position[1] < tipPos.y;
+                    });
+
+                    if (targetIdx !== -1) {
+                        const target = nextContainers[targetIdx];
+                        // MIX
+                        const targetChemId = target.contents ? target.contents.chemicalId : 'H2O';
+                        const targetVol = target.contents ? target.contents.volume : 0;
+                        const targetTemp = target.contents?.temperature || 25;
+
+                        const mixResult = ChemistryEngine.mix(
+                            targetChemId, targetVol,
+                            source.contents.chemicalId, dripAmount,
+                            targetTemp
+                        );
+
+                        // Update Target
+                        const isReactionProduct = !!mixResult.reaction;
+                        nextContainers[targetIdx] = {
+                            ...target,
+                            contents: {
+                                chemicalId: mixResult.resultId,
+                                volume: Math.min(1.0, targetVol + dripAmount),
+                                color: mixResult.resultColor,
+                                temperature: isReactionProduct ? (mixResult.reaction?.temperature || targetTemp) : targetTemp,
+                                activeReaction: mixResult.activeReaction
+                            }
+                        };
+                    }
+
+                    // Drain Source
+                    nextContainers[sourceIdx] = {
+                        ...source,
+                        contents: { ...source.contents, volume: source.contents.volume - dripAmount }
+                    };
+                    changed = true;
+                });
+
+                return changed ? nextContainers : prev;
+            });
+        }, 100); // 10Hz Drip Loop
+        return () => clearInterval(interval);
+    }, []);
+
     const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
         setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
     }, []);
@@ -320,9 +427,11 @@ const App: React.FC = () => {
         audioManager.playGlassClink();
         const isBeaker = chemId === 'BEAKER';
         const isTestTube = chemId === 'TEST_TUBE';
+        const isBurette = chemId === 'BURETTE';
 
         const newId = isBeaker ? `beaker-${Date.now()}` :
                       isTestTube ? `tube-${Date.now()}` :
+                      isBurette ? `burette-${Date.now()}` :
                       `source_${chemId}_${Date.now()}`;
 
         const chem = CHEMICALS[chemId];
@@ -330,6 +439,7 @@ const App: React.FC = () => {
 
         if (isBeaker) containerType = 'beaker';
         else if (isTestTube) containerType = 'test_tube';
+        else if (isBurette) containerType = 'burette';
         else {
             // Determine source type based on chemical properties
             if (chem.meshStyle === 'rock' || chem.id === 'SODIUM' || chem.id === 'POTASSIUM' || chem.id === 'IRON') {
@@ -342,8 +452,8 @@ const App: React.FC = () => {
         }
 
         const x = (Math.random() - 0.5) * 6;
-        const y = (containerType === 'beaker' || containerType === 'test_tube') ? 0.11 : 0.56;
-        const z = (containerType === 'beaker' || containerType === 'test_tube') ? (Math.random() * 2) : -3.5;
+        const y = (containerType === 'beaker' || containerType === 'test_tube' || containerType === 'burette') ? 0.11 : 0.56;
+        const z = (containerType === 'beaker' || containerType === 'test_tube' || containerType === 'burette') ? (Math.random() * 2) : -3.5;
 
         setContainers(prev => [
             ...prev,
@@ -351,9 +461,10 @@ const App: React.FC = () => {
                 id: newId,
                 type: containerType,
                 position: [x, y, z],
-                initialPosition: (containerType === 'beaker' || containerType === 'test_tube') ? undefined : [x, y, z],
+                initialPosition: (containerType === 'beaker' || containerType === 'test_tube' || containerType === 'burette') ? undefined : [x, y, z],
                 contents: (isBeaker || isTestTube)
                     ? null
+                    : isBurette ? { chemicalId: 'HCl', volume: 1.0, color: '#fef08a', temperature: 25 } // Default fill burette with HCl
                     : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 },
                 label: chem ? chem.name : undefined
             }
@@ -361,12 +472,64 @@ const App: React.FC = () => {
     };
 
     const handleReset = () => {
+        setIsExamMode(false);
         setContainers(initialContainers);
         setLastReaction(null);
         setLastEffect(null);
         setLastEffectPos(null);
         if (aiServiceRef.current) {
             aiServiceRef.current.startNewChat();
+        }
+    };
+
+    const handleStartExam = () => {
+        setIsExamMode(true);
+        setLastReaction(null);
+
+        // Setup Exam Scene
+        const samples = [
+            { id: 'HCl', label: 'Mẫu Thử A' },
+            { id: 'NaOH', label: 'Mẫu Thử B' },
+            { id: 'H2O', label: 'Mẫu Thử C' }
+        ].sort(() => Math.random() - 0.5); // Shuffle
+
+        const newContainers: ContainerState[] = [];
+
+        // Spawn Samples
+        samples.forEach((s, idx) => {
+            newContainers.push({
+                id: `exam_sample_${idx}`,
+                type: 'beaker',
+                position: [(idx - 1) * 1.5, 0.11, 0],
+                contents: {
+                    chemicalId: s.id,
+                    volume: 0.4,
+                    color: '#ffffff', // Mask color to clear/white for difficulty? Or keep original?
+                    // HCl is yellowish, NaOH clear, H2O clear.
+                    // To make it harder, force all to clear?
+                    // No, let slight visual cues exist. But HCl is actually clear in pure form usually.
+                    // The app uses yellow for HCl. Let's keep it but maybe desaturate?
+                    // Let's rely on standard colors.
+                    temperature: 25
+                },
+                label: s.label
+            });
+        });
+
+        // Spawn Tools (Phenolphthalein)
+        newContainers.push({
+            id: 'exam_indicator',
+            type: 'bottle',
+            position: [2.5, 0.56, 1.0],
+            contents: { chemicalId: 'PHENOLPHTHALEIN', volume: 1.0, color: '#f8fafc', temperature: 25 },
+            label: 'Phenolphthalein'
+        });
+
+        setContainers(newContainers);
+
+        if (aiServiceRef.current) {
+            const solutionMap = samples.map(s => `${s.label}=${s.id}`).join(', ');
+            aiServiceRef.current.chat(`[SYSTEM: EXAM MODE STARTED. SAMPLES: ${solutionMap}. DO NOT REVEAL IDENTITY. GUIDE STUDENT TO USE INDICATORS.]`);
         }
     };
 
@@ -379,6 +542,7 @@ const App: React.FC = () => {
                 explodedContainerId={explodedContainerId}
                 onMove={handleMoveContainer}
                 onPour={handlePour}
+                onToggleValve={handleToggleValve}
                 isHeaterOn={isHeaterOn}
                 onToggleHeater={handleToggleHeater}
             />
@@ -393,8 +557,13 @@ const App: React.FC = () => {
                 onToggleChat={setIsChatOpen}
                 onSpawn={handleSpawn}
                 onReset={handleReset}
+                onStartExam={handleStartExam}
+                isExamMode={isExamMode}
                 onUserChat={handleUserChat}
             />
+            {isMolecularViewOpen && (
+                <MolecularView mode={molecularMode} onClose={() => setIsMolecularViewOpen(false)} />
+            )}
         </div>
     );
 };

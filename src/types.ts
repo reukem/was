@@ -1,6 +1,6 @@
 export type ChemicalType = 'liquid' | 'solid' | 'gas';
 export type MeshStyle = 'flask' | 'rock' | 'crystal' | 'mound' | 'canister';
-export type ContainerType = 'beaker' | 'test_tube' | 'bottle' | 'jar' | 'rock' | 'paper_wrap';
+export type ContainerType = 'beaker' | 'test_tube' | 'bottle' | 'jar' | 'rock' | 'paper_wrap' | 'burette';
 
 export interface ReactionResult {
     productName: string;
@@ -55,6 +55,7 @@ export interface ContainerState {
     contents: ContainerContents | null;
     label?: string;
     isOnHeater?: boolean;
+    isValveOpen?: boolean; // For Burette
 }
 
 export interface ReactionEntry {

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { createTable, createBeakerGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh } from '../utils/threeHelpers';
+import { createTable, createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh } from '../utils/threeHelpers';
 import { EffectSystem } from '../utils/EffectSystem';
 import { audioManager } from '../utils/AudioManager';
 import { ContainerState } from '../types';
@@ -106,11 +106,12 @@ interface LabSceneProps {
     explodedContainerId?: string | null;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
+    onToggleValve?: (id: string) => void;
     isHeaterOn?: boolean;
     onToggleHeater?: () => void;
 }
 
-const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectPos, explodedContainerId, onMove, onPour, isHeaterOn, onToggleHeater }) => {
+const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectPos, explodedContainerId, onMove, onPour, onToggleValve, isHeaterOn, onToggleHeater }) => {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -119,6 +120,7 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
 
     const meshesRef = useRef<Map<string, THREE.Object3D>>(new Map());
     const liquidsRef = useRef<Map<string, THREE.Mesh>>(new Map());
+    const audioNodesRef = useRef<Map<string, { boiling: THREE.PositionalAudio | null, reaction: THREE.PositionalAudio | null }>>(new Map());
     const analyzerRef = useRef<{ group: THREE.Group, texture: THREE.CanvasTexture, canvas: HTMLCanvasElement } | null>(null);
     const heaterRef = useRef<{ mesh: THREE.Object3D, light: THREE.PointLight } | null>(null);
     const effectSystemRef = useRef<EffectSystem | null>(null);
@@ -231,6 +233,11 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
             const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
             camera.position.set(0, 8, 12);
             cameraRef.current = camera;
+
+            // --- SPATIAL AUDIO SETUP ---
+            const listener = new THREE.AudioListener();
+            camera.add(listener);
+            audioManager.setListener(listener);
 
             const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -346,6 +353,12 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                         if (event.button === 0) {
                             if (target.userData.id === 'HEATER') {
                                 onToggleHeater?.();
+                                return;
+                            }
+                            if (target.userData.type === 'burette_valve') {
+                                // Toggle Valve
+                                const buretteId = target.parent?.userData.id;
+                                if (buretteId) onToggleValve?.(buretteId);
                                 return;
                             }
                             controls.enabled = false;
@@ -620,6 +633,13 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 sceneRef.current?.remove(group);
                 meshesRef.current.delete(id);
                 liquidsRef.current.delete(id);
+                // Clean audio nodes
+                const nodes = audioNodesRef.current.get(id);
+                if (nodes) {
+                    if (nodes.boiling && nodes.boiling.isPlaying) nodes.boiling.stop();
+                    if (nodes.reaction && nodes.reaction.isPlaying) nodes.reaction.stop();
+                    audioNodesRef.current.delete(id);
+                }
             }
         });
 
@@ -706,6 +726,41 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                     mesh = new THREE.Mesh(geo, mat);
                     mesh.castShadow = true;
                     group.add(mesh);
+
+                } else if (container.type === 'burette') {
+                    // Stand
+                    const stand = createStandGeometry();
+                    group.add(stand);
+
+                    // Glass Tube
+                    const buretteGeo = createBuretteGeometry();
+                    // Move up to hang from clamp
+                    buretteGeo.translate(0, 1.8, -0.2);
+                    mesh = new THREE.Mesh(buretteGeo, createGlassMaterial());
+                    group.add(mesh);
+
+                    // Liquid inside Burette
+                    const liquidGeo = new THREE.CylinderGeometry(0.05, 0.05, 2.3, 16);
+                    liquidGeo.translate(0, 1.15 + 1.8, -0.2); // Center of cylinder
+                    // Actually, let's pivot at bottom (1.8 + 0.15 = 1.95) for scale
+                    const liquidGeo2 = new THREE.CylinderGeometry(0.05, 0.05, 1, 16);
+                    liquidGeo2.translate(0, 0.5, 0);
+                    liquidMesh = new THREE.Mesh(liquidGeo2, createLiquidMaterial(0xffffff));
+                    liquidMesh.position.set(0, 1.95, -0.2);
+                    // Add to group
+                    group.add(liquidMesh);
+                    liquidsRef.current.set(container.id, liquidMesh);
+
+                    // Valve Handle (Interactable)
+                    const valveGeo = new THREE.BoxGeometry(0.1, 0.04, 0.04);
+                    const valve = new THREE.Mesh(valveGeo, new THREE.MeshStandardMaterial({ color: 0xff0000 }));
+                    valve.position.set(0, 1.9, -0.2);
+                    valve.userData.type = 'burette_valve';
+                    group.add(valve);
+
+                    // Store valve reference if needed, or rely on container.isValveOpen
+                    valve.userData.isOpen = container.isValveOpen;
+                    if (container.isValveOpen) valve.rotation.z = Math.PI / 2;
                 }
 
                 if (mesh) {
@@ -734,16 +789,59 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 group.position.lerp(new THREE.Vector3(...container.position), 0.2);
             }
 
-            // Update Liquid Visuals for Vessels
-            if (liquidMesh && (container.type === 'beaker' || container.type === 'test_tube')) {
+            // Update Liquid Visuals for Vessels & Burette
+            if (liquidMesh) {
                 if (container.contents) {
                     liquidMesh.visible = true;
-                    const targetScaleY = Math.max(0.01, container.contents.volume * (container.type === 'test_tube' ? 1.0 : 1.15));
+                    let targetScaleY = 0;
+
+                    if (container.type === 'burette') {
+                         targetScaleY = container.contents.volume * 2.3; // Height factor
+                         // Update Valve Visual
+                         const valve = group?.children.find(c => c.userData.type === 'burette_valve');
+                         if (valve) {
+                             valve.rotation.z = container.isValveOpen ? Math.PI / 2 : 0;
+                             (valve.material as THREE.MeshStandardMaterial).color.setHex(container.isValveOpen ? 0x00ff00 : 0xff0000);
+                         }
+                    } else {
+                         targetScaleY = Math.max(0.01, container.contents.volume * (container.type === 'test_tube' ? 1.0 : 1.15));
+                    }
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
 
                     const mat = liquidMesh.material as THREE.MeshPhysicalMaterial;
                     const baseColor = new THREE.Color(container.contents.color);
                     const temp = container.contents.temperature || 25;
+
+                    // --- SPATIAL AUDIO UPDATE ---
+                    let audioNode = audioNodesRef.current.get(container.id);
+                    if (!audioNode) {
+                        // Create nodes if not exist
+                        const boiling = audioManager.createBoilingSound(group!);
+                        const reaction = audioManager.createReactionSound(group!, 'fizz');
+                        audioNode = { boiling, reaction };
+                        audioNodesRef.current.set(container.id, audioNode);
+                    }
+
+                    // 1. Boiling Sound Logic
+                    if (temp > 95) {
+                        const boilVol = Math.min(1.0, (temp - 95) / 100);
+                        if (audioNode.boiling) {
+                            audioNode.boiling.setVolume(boilVol * 0.5);
+                            if (!audioNode.boiling.isPlaying) audioNode.boiling.play();
+                        }
+                    } else {
+                        if (audioNode.boiling) audioNode.boiling.setVolume(0);
+                    }
+
+                    // 2. Reaction Sound Logic
+                    if (container.contents.activeReaction) {
+                         if (audioNode.reaction) {
+                             audioNode.reaction.setVolume(0.4);
+                             if (!audioNode.reaction.isPlaying) audioNode.reaction.play();
+                         }
+                    } else {
+                         if (audioNode.reaction) audioNode.reaction.setVolume(0);
+                    }
 
                     if (temp > 100) {
                         const heatFactor = Math.min((temp - 100) / 500, 1);
@@ -763,6 +861,13 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
                 } else {
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2);
                     if (liquidMesh.scale.y < 0.01) liquidMesh.visible = false;
+
+                    // Stop sounds if empty
+                    const nodes = audioNodesRef.current.get(container.id);
+                    if (nodes) {
+                        if (nodes.boiling) nodes.boiling.setVolume(0);
+                        if (nodes.reaction) nodes.reaction.setVolume(0);
+                    }
                 }
             }
         });

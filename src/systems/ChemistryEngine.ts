@@ -105,6 +105,71 @@ export class ChemistryEngine {
         // 3. Realistic Dilution/Blending
         const resultColor = this.blendColors(c1.color, vol1, c2.color, vol2);
 
+        // --- TITRATION / INDICATOR LOGIC ---
+        // Check if Phenolphthalein is present in either reactant
+        const hasIndicator = [chemId1, chemId2].some(id => id === 'PHENOLPHTHALEIN' || id === 'PINK_INDICATOR');
+
+        if (hasIndicator) {
+            // Calculate approximate final pH
+            // Molarity approximation:
+            // [H+] = 10^(-pH)
+            // [OH-] = 10^(-(14-pH))
+            // Net moles H+ = (Vol1 * [H+]1) + (Vol2 * [H+]2) - (Vol1 * [OH-]1) - (Vol2 * [OH-]2)
+            // If Net > 0, Acidic. If Net < 0, Basic.
+
+            const getMolarBalance = (ph: number, vol: number) => {
+                const h = Math.pow(10, -ph);
+                const oh = Math.pow(10, -(14 - ph));
+                return (h - oh) * vol;
+            };
+
+            const balance = getMolarBalance(c1.ph, vol1) + getMolarBalance(c2.ph, vol2);
+            const totalVol = vol1 + vol2;
+
+            // Reconstruct pH (Roughly)
+            // If balance > 0 (Acidic), [H+] = balance / totalVol
+            // If balance < 0 (Basic), [OH-] = -balance / totalVol
+
+            let finalPH = 7.0;
+            if (Math.abs(balance) > 1e-10) {
+                if (balance > 0) {
+                    finalPH = -Math.log10(balance / totalVol);
+                } else {
+                    const ohConc = -balance / totalVol;
+                    const pOH = -Math.log10(ohConc);
+                    finalPH = 14 - pOH;
+                }
+            }
+
+            // Phenolphthalein Turn point: 8.2
+            if (finalPH >= 8.2) {
+                return {
+                    resultId: 'PINK_INDICATOR',
+                    resultColor: '#db2777', // Pink
+                    reaction: {
+                        productName: 'Dung dịch Bazơ (Hồng)',
+                        color: '#db2777',
+                        message: 'Môi trường Bazơ: Phenolphthalein chuyển màu hồng.'
+                    }
+                };
+            } else {
+                // Return to clear / dominant acid color
+                // If we went from Pink to Clear (Titration Endpoint)
+                const wasPink = chemId1 === 'PINK_INDICATOR' || chemId2 === 'PINK_INDICATOR';
+                const msg = wasPink ? 'Điểm Tương Đương! Dung dịch mất màu hồng.' : undefined;
+
+                return {
+                    resultId: 'PHENOLPHTHALEIN', // Or a neutral mix ID
+                    resultColor: finalPH < 7 ? '#fefce8' : '#f8fafc', // Slight yellow for acid, clear for neutral
+                    reaction: wasPink ? {
+                        productName: 'Dung dịch Trung Hòa',
+                        color: '#f8fafc',
+                        message: msg || ''
+                    } : undefined
+                };
+            }
+        }
+
         return {
             resultId: vol1 >= vol2 ? chemId1 : chemId2,
             resultColor: resultColor
