@@ -103,13 +103,14 @@ interface LabSceneProps {
     containers: ContainerState[];
     lastEffect: string | null;
     lastEffectPos?: [number, number, number] | null;
+    explodedContainerId?: string | null;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
     isHeaterOn?: boolean;
     onToggleHeater?: () => void;
 }
 
-const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectPos, onMove, onPour, isHeaterOn, onToggleHeater }) => {
+const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectPos, explodedContainerId, onMove, onPour, isHeaterOn, onToggleHeater }) => {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -542,6 +543,16 @@ const LabScene: React.FC<LabSceneProps> = ({ containers, lastEffect, lastEffectP
         containers.forEach(container => {
             let group = meshesRef.current.get(container.id);
             let liquidMesh = liquidsRef.current.get(container.id);
+
+            // Handle Exploded State (Shattered)
+            if (container.id === explodedContainerId) {
+                if (group) {
+                    group.visible = false;
+                }
+                return;
+            } else if (group) {
+                group.visible = true;
+            }
 
             if (!group) {
                 group = new THREE.Group();

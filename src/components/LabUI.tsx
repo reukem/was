@@ -11,6 +11,9 @@ interface LabUIProps {
     aiFeedback?: string; // Legacy prop, kept for compatibility if needed
     isAiLoading: boolean;
     quests: Quest[];
+    safetyScore?: number;
+    isChatOpen: boolean;
+    onToggleChat: (isOpen: boolean) => void;
     onSpawn: (chemId: string) => void;
     onReset: () => void;
     onUserChat: (msg: string) => void;
@@ -22,9 +25,6 @@ const formatScientificText = (text: string) => {
     const parts = text.split(/(\d+)/g);
     return parts.map((part, index) => {
         // Simple heuristic: if it's a number and previous part ends with a letter, subscript it
-        // This is basic, a regex might be better for specific chemical patterns,
-        // but for now we follow the user's intent.
-        // Actually, the user asked for Unicode subscripts or HTML tags.
         if (index % 2 === 1) {
             return <sub key={index} className="text-[0.7em] align-baseline">{part}</sub>;
         }
@@ -39,13 +39,13 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
             <div className="bg-slate-900 border border-indigo-500/30 rounded-2xl w-[600px] max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
                 <div className="p-4 border-b border-indigo-500/20 flex justify-between items-center bg-indigo-900/20">
                     <h2 className="text-xl font-black text-indigo-300 tracking-wider flex items-center gap-2">
-                        <span>📖</span> LABORATORY NOTES
+                        <span>📖</span> SỔ TAY PHÒNG THÍ NGHIỆM
                     </h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-2xl leading-none">&times;</button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar">
                     <p className="text-sm text-slate-400 mb-4 font-mono uppercase tracking-widest border-b border-white/5 pb-2">
-                        AUTHORIZED PERSONNEL ONLY. RECORDED REACTION PROTOCOLS.
+                        KHU VỰC HẠN CHẾ. DỮ LIỆU PHẢN ỨNG ĐÃ ĐƯỢC GHI LẠI.
                     </p>
                     <div className="space-y-4">
                         {REACTION_REGISTRY.map((reaction, idx) => (
@@ -75,11 +75,10 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
     );
 };
 
-const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, isAiLoading, quests, onSpawn, onReset, onUserChat }) => {
+const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, isAiLoading, quests, safetyScore, isChatOpen, onToggleChat, onSpawn, onReset, onUserChat }) => {
     const [chatInput, setChatInput] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
-    const [isChatOpen, setIsChatOpen] = useState(false); // Collapsed by default
     const [isQuestLogOpen, setIsQuestLogOpen] = useState(true);
     const [isMuted, setIsMuted] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -107,6 +106,11 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
             // Strip markdown/html for speech
             const cleanText = lastMsg.text.replace(/[*_`]/g, '');
             const utterance = new SpeechSynthesisUtterance(cleanText);
+            // Try to set Vietnamese voice if available
+            const voices = window.speechSynthesis.getVoices();
+            const viVoice = voices.find(v => v.lang.includes('vi'));
+            if (viVoice) utterance.voice = viVoice;
+
             utterance.rate = 1.0;
             utterance.pitch = 0.9;
             window.speechSynthesis.speak(utterance);
@@ -125,15 +129,23 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                             CHEMIC-AI
                         </h1>
                         <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-[0.3em] font-medium">
-                            Research Environment // v4.2.1
+                            Môi Trường Nghiên Cứu // v4.2.1
                         </p>
                     </div>
+
+                    {/* SAFETY SCORE */}
+                    {safetyScore !== undefined && (
+                        <div className={`px-4 py-2 rounded-xl border backdrop-blur-md shadow-lg transition-all ${safetyScore < 50 ? 'bg-red-900/80 border-red-500 animate-pulse' : 'bg-slate-900/80 border-emerald-500/30'}`}>
+                            <p className="text-[8px] uppercase tracking-widest text-slate-400 mb-0.5">Điểm An Toàn</p>
+                            <p className={`text-2xl font-black ${safetyScore < 50 ? 'text-red-400' : 'text-emerald-400'}`}>{safetyScore}%</p>
+                        </div>
+                    )}
 
                     {/* QUEST LOG */}
                     <div className={`transition-all duration-300 ${isQuestLogOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 overflow-hidden'}`}>
                         <div className="bg-slate-900/80 backdrop-blur-md border border-amber-500/20 rounded-xl p-3 shadow-lg">
                             <div className="flex justify-between items-center mb-2 border-b border-white/10 pb-1">
-                                <span className="text-amber-400 font-bold text-[10px] uppercase tracking-widest">Current Tasks</span>
+                                <span className="text-amber-400 font-bold text-[10px] uppercase tracking-widest">Nhiệm Vụ</span>
                                 <button onClick={() => setIsQuestLogOpen(false)} className="text-slate-500 hover:text-white">✕</button>
                             </div>
                             <div className="space-y-2">
@@ -151,7 +163,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                             onClick={() => setIsQuestLogOpen(true)}
                             className="bg-amber-500/10 text-amber-400 border border-amber-500/30 p-2 rounded-lg text-xs font-bold uppercase tracking-wider backdrop-blur-md hover:bg-amber-500/20 transition-all text-left w-fit"
                         >
-                            📋 Tasks ({quests.filter(q => !q.isCompleted).length})
+                            📋 Nhiệm Vụ ({quests.filter(q => !q.isCompleted).length})
                         </button>
                     )}
                 </div>
@@ -160,7 +172,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                     <button
                         onClick={() => setIsNotebookOpen(true)}
                         className="bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 hover:text-indigo-300 px-4 py-3 rounded-xl border border-indigo-500/20 transition-all font-bold text-xl backdrop-blur-md shadow-lg"
-                        title="Open Lab Notebook"
+                        title="Mở Sổ Tay"
                     >
                         📖
                     </button>
@@ -168,7 +180,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                         onClick={onReset}
                         className="bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 px-5 py-3 rounded-xl border border-red-500/20 transition-all font-bold text-[10px] uppercase tracking-widest backdrop-blur-md shadow-lg"
                     >
-                        Sterilize
+                        Làm Sạch Bàn
                     </button>
                 </div>
             </div>
@@ -176,7 +188,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
             {/* --- SIDEBAR (Compound Database) --- */}
             <div className={`absolute left-6 top-36 bottom-24 w-64 pointer-events-auto transition-transform duration-300 ease-in-out z-40 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[120%]'}`}>
                 <div className="flex justify-between items-center mb-2 px-2">
-                    <h2 className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] drop-shadow-md">Chemical Inventory</h2>
+                    <h2 className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] drop-shadow-md">Kho Hóa Chất</h2>
                     <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-white transition-colors">✕</button>
                 </div>
 
@@ -188,16 +200,16 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                             onMouseEnter={() => audioManager.playUIHover()}
                             className="group p-3 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm"
                         >
-                            <span className="text-xs font-bold text-slate-200">Beaker</span>
-                            <p className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">250ml Glass</p>
+                            <span className="text-xs font-bold text-slate-200">Cốc Thủy Tinh</span>
+                            <p className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">250ml</p>
                         </button>
                         <button
                             onClick={() => onSpawn('TEST_TUBE')}
                             onMouseEnter={() => audioManager.playUIHover()}
                             className="group p-3 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm"
                         >
-                            <span className="text-xs font-bold text-slate-200">Test Tube</span>
-                            <p className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">Sample Glass</p>
+                            <span className="text-xs font-bold text-slate-200">Ống Nghiệm</span>
+                            <p className="text-[8px] text-slate-500 mt-1 uppercase tracking-wider">Mẫu thử</p>
                         </button>
                     </div>
 
@@ -231,7 +243,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                     onClick={() => setIsSidebarOpen(true)}
                     className="absolute left-6 top-36 pointer-events-auto bg-slate-900/80 p-3 rounded-xl border border-white/10 text-indigo-400 hover:text-white transition-all shadow-lg z-40"
                 >
-                    <span className="writing-vertical text-xs font-bold uppercase tracking-widest">Inventory</span>
+                    <span className="writing-vertical text-xs font-bold uppercase tracking-widest">Kho</span>
                 </button>
             )}
 
@@ -239,7 +251,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none w-full flex justify-center z-30">
                 {lastReaction && (
                     <div className="animate-in fade-in zoom-in duration-500 slide-in-from-bottom-8 bg-slate-900/90 backdrop-blur-3xl border border-orange-500/30 p-8 rounded-[2rem] shadow-2xl text-center max-w-lg">
-                        <p className="text-orange-400 font-bold text-[10px] uppercase tracking-[0.2em] mb-3">Reaction Detected</p>
+                        <p className="text-orange-400 font-bold text-[10px] uppercase tracking-[0.2em] mb-3">Phát Hiện Phản Ứng</p>
                         <p className="text-white text-md font-medium leading-relaxed tracking-tight shadow-sm">
                             {formatScientificText(lastReaction)}
                         </p>
@@ -250,8 +262,8 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
             {/* --- FOOTER / STATUS BAR --- */}
             <div className="absolute bottom-6 left-0 w-full flex justify-center pointer-events-none z-30">
                 <div className="flex justify-center text-slate-500 text-[8px] font-mono gap-12 bg-slate-900/60 backdrop-blur-md py-3 px-10 rounded-full border border-white/5 pointer-events-auto shadow-inner">
-                    <span className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-emerald-500"/> SYSTEM_READY</span>
-                    <span>ENTITIES: {containers.length}</span>
+                    <span className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-emerald-500"/> HỆ_THỐNG_SẴN_SÀNG</span>
+                    <span>THỰC_THỂ: {containers.length}</span>
                     <span className="text-slate-400">GEMINI_ADVANCED_CORE</span>
                 </div>
             </div>
@@ -262,15 +274,15 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                 {/* Minimized Button "Comm Link" */}
                 {!isChatOpen && (
                     <button
-                        onClick={() => setIsChatOpen(true)}
+                        onClick={() => onToggleChat(true)}
                         className="bg-slate-900/90 backdrop-blur-xl border border-indigo-500/30 p-4 rounded-2xl shadow-2xl hover:bg-indigo-900/20 transition-all group flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4"
                     >
                         <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-xl shadow-xl border border-white/5 group-hover:scale-110 transition-transform">
                             🎓
                         </div>
                         <div className="text-left">
-                            <div className="text-xs font-bold text-indigo-300">Comm Link</div>
-                            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Professor Lucy</div>
+                            <div className="text-xs font-bold text-indigo-300">Liên Lạc</div>
+                            <div className="text-[10px] text-slate-500 uppercase tracking-wider">Giáo Sư Lucy</div>
                         </div>
                     </button>
                 )}
@@ -279,17 +291,17 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                 {isChatOpen && (
                     <div className="w-[24rem] h-[32rem] bg-slate-900/95 backdrop-blur-3xl border border-indigo-500/30 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-300">
                         {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-slate-800/30 cursor-pointer" onClick={() => setIsChatOpen(false)}>
+                        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-slate-800/30 cursor-pointer" onClick={() => onToggleChat(false)}>
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center text-lg shadow-inner border border-white/5">
                                     👩‍🔬
                                 </div>
                                 <div>
-                                    <h3 className="text-white font-bold text-xs tracking-tight">Professor Lucy</h3>
+                                    <h3 className="text-white font-bold text-xs tracking-tight">Giáo Sư Lucy</h3>
                                     <div className="flex items-center gap-1.5">
                                         <div className={`w-1.5 h-1.5 rounded-full ${isAiLoading ? 'bg-amber-400 animate-bounce' : 'bg-emerald-500'}`}></div>
                                         <span className="text-[8px] text-slate-400 font-mono uppercase tracking-widest">
-                                            {isAiLoading ? 'THINKING...' : 'ONLINE :3'}
+                                            {isAiLoading ? 'ĐANG SUY NGHĨ...' : 'TRỰC TUYẾN :3'}
                                         </span>
                                     </div>
                                 </div>
@@ -297,11 +309,11 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                             <button
                                 onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
                                 className="text-slate-400 hover:text-white p-2 transition-colors mr-1"
-                                title={isMuted ? "Unmute Voice" : "Mute Voice"}
+                                title={isMuted ? "Bật tiếng" : "Tắt tiếng"}
                             >
                                 {isMuted ? "🔇" : "🔊"}
                             </button>
-                            <button onClick={() => setIsChatOpen(false)} className="text-slate-400 hover:text-white p-2">✕</button>
+                            <button onClick={() => onToggleChat(false)} className="text-slate-400 hover:text-white p-2">✕</button>
                         </div>
 
                         {/* Messages */}
@@ -323,7 +335,7 @@ const LabUI: React.FC<LabUIProps> = ({ lastReaction, containers, chatHistory, is
                                     type="text"
                                     value={chatInput}
                                     onChange={(e) => setChatInput(e.target.value)}
-                                    placeholder="Ask the Professor..."
+                                    placeholder="Hỏi Giáo Sư..."
                                     className="w-full bg-slate-950/50 text-slate-200 text-xs px-4 py-3 rounded-xl border border-white/10 focus:border-indigo-500/50 focus:outline-none transition-all placeholder-slate-600 pr-10"
                                 />
                                 <button

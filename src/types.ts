@@ -20,6 +20,12 @@ export interface Chemical {
     ph: number;
     density: number;
     description: string;
+    thermalDecomposition?: {
+        product: string;
+        minTemperature: number;
+        effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+        message: string;
+    };
 }
 
 export interface ActiveReaction {
@@ -48,6 +54,7 @@ export interface ContainerState {
     initialPosition?: [number, number, number]; // Where it belongs on the shelf
     contents: ContainerContents | null;
     label?: string;
+    isOnHeater?: boolean;
 }
 
 export interface ReactionEntry {

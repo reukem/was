@@ -33,8 +33,11 @@ const App: React.FC = () => {
     const [lastReaction, setLastReaction] = useState<string | null>(null);
     const [lastEffect, setLastEffect] = useState<string | null>(null);
     const [lastEffectPos, setLastEffectPos] = useState<[number, number, number] | null>(null);
+    const [explodedContainerId, setExplodedContainerId] = useState<string | null>(null);
+    const [safetyScore, setSafetyScore] = useState(100);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [isAiLoading, setIsAiLoading] = useState(false);
+    const [isChatOpen, setIsChatOpen] = useState(false);
 
     const [isHeaterOn, setIsHeaterOn] = useState(false);
     const isHeaterOnRef = useRef(false);
@@ -100,21 +103,28 @@ const App: React.FC = () => {
                     }
                 }
 
-                // 2. Thermal Dynamics
-                // 2D Distance check (ignore Y height)
-                const dist = Math.sqrt(
+                // 2. Thermal Dynamics & Delayed Reactions
+                const distToHeater = Math.sqrt(
                     Math.pow(c.position[0] - HEATER_POSITION[0], 2) +
                     Math.pow(c.position[2] - HEATER_POSITION[2], 2)
                 );
 
+                // Snap to Heater Logic
+                const isOnHeater = distToHeater < 0.3;
+                if (isOnHeater && !c.isOnHeater) {
+                    // Snap position visually
+                    // We don't modify position here to avoid fighting controls,
+                    // but we mark it as 'on heater' for logic
+                    changed = true;
+                }
+
                 let newTemp = updatedContents.temperature || 25;
 
-                // If close to heater position
-                if (dist < 0.5 && isHeaterOnRef.current) {
-                    // Heating up (faster if smaller volume?)
-                    newTemp = Math.min(800, newTemp + 2.5);
+                // Heating Logic
+                if (isOnHeater && isHeaterOnRef.current) {
+                    newTemp = Math.min(1500, newTemp + 2.0); // Faster heating
                 } else {
-                    // Cooling down to room temp
+                    // Newton's Law of Cooling (Simplified)
                     if (newTemp > 25) newTemp = Math.max(25, newTemp - 0.5);
                 }
 
@@ -123,8 +133,54 @@ const App: React.FC = () => {
                     changed = true;
                 }
 
+                // 3. Check for Thermal Decomposition / Auto-Ignition
+                const chem = CHEMICALS[updatedContents.chemicalId];
+                if (chem && chem.thermalDecomposition) {
+                    if (newTemp >= chem.thermalDecomposition.minTemperature) {
+                        // TRIGGER DECOMPOSITION
+                        const decomp = chem.thermalDecomposition;
+                        updatedContents.chemicalId = decomp.product;
+                        updatedContents.color = CHEMICALS[decomp.product].color;
+
+                        // Side Effects
+                        setLastReaction(decomp.message);
+                        setLastEffect(decomp.effect || null);
+                        setLastEffectPos(c.position);
+
+                        if (decomp.effect === 'explosion') {
+                            audioManager.playExplosion();
+                            setExplodedContainerId(c.id);
+                            setSafetyScore(s => Math.max(0, s - 50));
+
+                            // AI Scolding
+                            if (aiServiceRef.current) {
+                                setIsChatOpen(true);
+                                aiServiceRef.current.chat(`[SYSTEM EVENT: EXPLOSION! The student caused a dangerous explosion. Scold them severely but playfully about lab safety rules in Vietnamese.]`);
+                            }
+
+                            // Reset shattered container after 5s
+                            setTimeout(() => {
+                                setExplodedContainerId(null);
+                                // Respawn or reset? Just hide visual damage for now.
+                                // Actually user wants "Fail-Safe Virtual Restart" for that beaker
+                                setContainers(prev => prev.map(con =>
+                                    con.id === c.id ? { ...con, contents: null, position: con.initialPosition || [0, 0.11, 0] } : con
+                                ));
+                            }, 5000);
+                        } else {
+                             audioManager.playFizz();
+                             if (aiServiceRef.current) {
+                                setIsChatOpen(true);
+                                aiServiceRef.current.chat(`[OBSERVATION] Phản ứng nhiệt phân thành công! ${chem.name} đã chuyển thành ${CHEMICALS[decomp.product].name}.`);
+                             }
+                        }
+
+                        changed = true;
+                    }
+                }
+
                 if (changed) {
-                    return { ...c, contents: updatedContents };
+                    return { ...c, contents: updatedContents, isOnHeater };
                 }
                 return c;
             }));
@@ -234,10 +290,12 @@ const App: React.FC = () => {
 
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
-                const detail = `Mixed ${source.contents.chemicalId} into ${targetChemId}. Produced ${mixResult.reaction.productName}.`;
-                // If it's a kinetic reaction, mention it
-                const kineticNote = mixResult.activeReaction ? ` The reaction is proceeding slowly over ${(mixResult.activeReaction.duration / 1000).toFixed(1)}s.` : '';
-                await aiServiceRef.current.chat(`[SYSTEM ALERT: EXPERIMENT PERFORMED] ${detail}${kineticNote}`);
+                setIsChatOpen(true); // Auto-open chat
+                const detail = `Đã trộn ${CHEMICALS[source.contents.chemicalId].name} (${source.contents.chemicalId}) vào ${CHEMICALS[targetChemId].name} (${targetChemId}). Tạo ra ${mixResult.reaction.productName}.`;
+                const kineticNote = mixResult.activeReaction ? ` Phản ứng diễn ra trong ${(mixResult.activeReaction.duration / 1000).toFixed(1)}s.` : '';
+
+                // Trigger Socratic Method
+                await aiServiceRef.current.chat(`[OBSERVATION] ${detail}${kineticNote}`);
                 setIsAiLoading(false);
             }
         }
@@ -311,6 +369,7 @@ const App: React.FC = () => {
                 containers={containers}
                 lastEffect={lastEffect}
                 lastEffectPos={lastEffectPos}
+                explodedContainerId={explodedContainerId}
                 onMove={handleMoveContainer}
                 onPour={handlePour}
                 isHeaterOn={isHeaterOn}
@@ -322,6 +381,9 @@ const App: React.FC = () => {
                 chatHistory={chatHistory}
                 isAiLoading={isAiLoading}
                 quests={questManagerRef.current?.getQuests() || []}
+                safetyScore={safetyScore}
+                isChatOpen={isChatOpen}
+                onToggleChat={setIsChatOpen}
                 onSpawn={handleSpawn}
                 onReset={handleReset}
                 onUserChat={handleUserChat}

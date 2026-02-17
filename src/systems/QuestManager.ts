@@ -12,8 +12,8 @@ export interface Quest {
 export const QUESTS: Quest[] = [
     {
         id: 'orientation_pour',
-        title: 'Basic Handling',
-        description: 'Pour Water into a Beaker. (Right-Click and Hold to pour)',
+        title: 'Thao Tác Cơ Bản',
+        description: 'Đổ Nước Cất vào Cốc thủy tinh (Beaker). (Chuột phải + Giữ để rót)',
         criteria: (containers, _) => {
             // Find a beaker with water
             return containers.some(c =>
@@ -24,27 +24,27 @@ export const QUESTS: Quest[] = [
             );
         },
         isCompleted: false,
-        rewardMessage: "Excellent. You have mastered basic fluid transfer."
+        rewardMessage: "Tuyệt vời. Bạn đã thành thạo kỹ thuật chuyển chất lỏng."
     },
     {
         id: 'safety_neutralize',
-        title: 'Safety Protocol',
-        description: 'Neutralize Hydrochloric Acid (HCl) with Sodium Hydroxide (NaOH).',
+        title: 'Quy Tắc An Toàn',
+        description: 'Trung hòa Axit Clohidric (HCl) bằng Natri Hydroxit (NaOH).',
         criteria: (_, lastReaction) => {
-            return lastReaction?.includes('Neutralization') || false;
+            return lastReaction?.includes('NaCl') || false; // Checked against translated reaction message
         },
         isCompleted: false,
-        rewardMessage: "Safety protocols observed. Acid neutralized successfully."
+        rewardMessage: "Quy tắc an toàn đã được tuân thủ. Axit đã được trung hòa."
     },
     {
         id: 'discovery_golden_rain',
-        title: 'Golden Rain',
-        description: 'Synthesize Lead Iodide crystals (PbNO3 + KI).',
+        title: 'Mưa Vàng',
+        description: 'Tổng hợp tinh thể Chì Iodua (PbNO3 + KI).',
         criteria: (containers, _) => {
             return containers.some(c => c.contents?.chemicalId === 'GOLDEN_RAIN');
         },
         isCompleted: false,
-        rewardMessage: "A spectacular precipitation! You have created Golden Rain."
+        rewardMessage: "Kết tủa ngoạn mục! Bạn đã tạo ra cơn Mưa Vàng."
     }
 ];
 

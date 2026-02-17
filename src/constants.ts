@@ -6,146 +6,146 @@ export const CHEMICALS: Record<string, Chemical> = {
     // --- LIQUIDS ---
     'H2O': {
         id: 'H2O',
-        name: 'Distilled Water',
+        name: 'Nước Cất',
         formula: 'H₂O',
         color: '#06b6d4',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 7.0,
         density: 1.0,
-        description: 'Universal solvent.'
+        description: 'Dung môi vạn năng.'
     },
     'HCl': {
         id: 'HCl',
-        name: 'Hydrochloric Acid',
+        name: 'Axit Clohidric',
         formula: 'HCl',
         color: '#fef08a',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 1.0,
         density: 1.18,
-        description: 'Strong mineral acid.'
+        description: 'Axit khoáng mạnh.'
     },
     'HNO3': {
         id: 'HNO3',
-        name: 'Nitric Acid',
+        name: 'Axit Nitric',
         formula: 'HNO₃',
         color: '#fde68a',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 1.0,
         density: 1.51,
-        description: 'Highly corrosive mineral acid.'
+        description: 'Axit khoáng ăn mòn mạnh.'
     },
     'H2SO4': {
         id: 'H2SO4',
-        name: 'Sulfuric Acid',
+        name: 'Axit Sulfuric',
         formula: 'H₂SO₄',
         color: '#fcd34d',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 0.5,
         density: 1.83,
-        description: 'Strong dehydrating acid.'
+        description: 'Axit háo nước mạnh.'
     },
     'H3PO4': {
         id: 'H3PO4',
-        name: 'Phosphoric Acid',
+        name: 'Axit Photphoric',
         formula: 'H₃PO₄',
         color: '#fbbf24',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 1.5,
         density: 1.88,
-        description: 'Weak mineral acid.'
+        description: 'Axit khoáng yếu.'
     },
     'NaOH': {
         id: 'NaOH',
-        name: 'Sodium Hydroxide',
+        name: 'Natri Hydroxit',
         formula: 'NaOH',
         color: '#e2e8f0',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 14.0,
         density: 1.5,
-        description: 'Caustic base.'
+        description: 'Bazơ ăn da.'
     },
     'NH3': {
         id: 'NH3',
-        name: 'Ammonia',
+        name: 'Amoniac',
         formula: 'NH₃',
         color: '#bae6fd',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 11.5,
         density: 0.73,
-        description: 'Pungent weak base.'
+        description: 'Bazơ yếu có mùi khai.'
     },
     'VINEGAR': {
         id: 'VINEGAR',
-        name: 'Acetic Acid',
+        name: 'Axit Axetic',
         formula: 'CH₃COOH',
         color: '#f8fafc',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 2.5,
         density: 1.05,
-        description: 'Weak organic acid.'
+        description: 'Axit hữu cơ yếu (Giấm).'
     },
     'BLEACH': {
         id: 'BLEACH',
-        name: 'Sodium Hypochlorite',
+        name: 'Natri Hypoclorit',
         formula: 'NaClO',
         color: '#fde047',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 12.5,
         density: 1.11,
-        description: 'Strong oxidizer.'
+        description: 'Chất tẩy rửa oxy hóa mạnh.'
     },
     'H2O2': {
         id: 'H2O2',
-        name: 'Hydrogen Peroxide',
+        name: 'Hydro Peroxit',
         formula: 'H₂O₂',
         color: '#e0f2fe',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 4.5,
         density: 1.45,
-        description: 'Strong oxidizer.'
+        description: 'Chất oxy hóa mạnh (Oxy già).'
     },
     'AgNO3': {
         id: 'AgNO3',
-        name: 'Silver Nitrate',
+        name: 'Bạc Nitrat',
         formula: 'AgNO₃',
         color: '#94a3b8',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 6.0,
         density: 4.35,
-        description: 'Photosensitive compound.'
+        description: 'Hợp chất nhạy sáng.'
     },
     'PbNO3': {
         id: 'PbNO3',
-        name: 'Lead(II) Nitrate',
+        name: 'Chì(II) Nitrat',
         formula: 'Pb(NO₃)₂',
         color: '#f8fafc',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 5.0,
         density: 4.53,
-        description: 'Toxic salt.'
+        description: 'Muối độc hại.'
     },
     'GLUCOSE': {
         id: 'GLUCOSE',
-        name: 'Glucose Solution',
+        name: 'Dung Dịch Glucose',
         formula: 'C₆H₁₂O₆(aq)',
         color: '#f8fafc',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 7.0,
         density: 1.54,
-        description: 'Sugar solution.'
+        description: 'Dung dịch đường.'
     },
     'INDIGO_CARMINE': {
         id: 'INDIGO_CARMINE',
@@ -156,231 +156,248 @@ export const CHEMICALS: Record<string, Chemical> = {
         meshStyle: 'flask',
         ph: 7.0,
         density: 1.0,
-        description: 'Redox indicator.'
+        description: 'Chất chỉ thị oxy hóa khử.'
     },
 
     // --- SOLIDS ---
     'SODIUM': {
         id: 'SODIUM',
-        name: 'Sodium',
+        name: 'Natri',
         formula: 'Na',
         color: '#e5e7eb', // White/Grey
         type: 'solid',
         meshStyle: 'rock',
         ph: 12.0,
         density: 0.97,
-        description: 'Soft, reactive alkali metal.'
+        description: 'Kim loại kiềm mềm, phản ứng mạnh.'
     },
     'POTASSIUM': {
         id: 'POTASSIUM',
-        name: 'Potassium',
+        name: 'Kali',
         formula: 'K',
         color: '#94a3b8',
         type: 'solid',
         meshStyle: 'rock',
         ph: 13.0,
         density: 0.86,
-        description: 'Highly reactive metal.'
+        description: 'Kim loại phản ứng rất mạnh.'
     },
     'MAGNESIUM': {
         id: 'MAGNESIUM',
-        name: 'Magnesium',
+        name: 'Magie',
         formula: 'Mg',
         color: '#e2e8f0',
         type: 'solid',
         meshStyle: 'rock',
         ph: 7.0,
         density: 1.74,
-        description: 'Lightweight alkaline earth metal.'
+        description: 'Kim loại kiềm thổ nhẹ.'
     },
     'CALCIUM_CARBONATE': {
         id: 'CALCIUM_CARBONATE',
-        name: 'Calcium Carbonate',
+        name: 'Canxi Cacbonat',
         formula: 'CaCO₃',
         color: '#f5f5f4',
         type: 'solid',
         meshStyle: 'mound',
         ph: 9.0,
         density: 2.71,
-        description: 'Chalk/Limestone.'
+        description: 'Đá vôi / Phấn.'
     },
     'SALT': {
         id: 'SALT',
-        name: 'Sodium Chloride',
+        name: 'Natri Clorua',
         formula: 'NaCl',
         color: '#ffffff',
         type: 'solid',
         meshStyle: 'crystal',
         ph: 7.0,
         density: 2.16,
-        description: 'Common salt.'
+        description: 'Muối ăn thông thường.'
     },
     'BAKING_SODA': {
         id: 'BAKING_SODA',
-        name: 'Sodium Bicarbonate',
+        name: 'Natri Bicarbonat',
         formula: 'NaHCO₃',
         color: '#ffffff',
         type: 'solid',
         meshStyle: 'mound',
         ph: 8.3,
         density: 2.2,
-        description: 'Baking soda.'
+        description: 'Bột nở (Baking soda).'
     },
     'COPPER': {
         id: 'COPPER',
-        name: 'Copper',
+        name: 'Đồng',
         formula: 'Cu',
         color: '#b45309',
         type: 'solid',
         meshStyle: 'rock',
         ph: 7.0,
         density: 8.96,
-        description: 'Reddish-orange metal.'
+        description: 'Kim loại màu đỏ cam.'
     },
     'IRON': {
         id: 'IRON',
-        name: 'Iron',
+        name: 'Sắt',
         formula: 'Fe',
         color: '#57534e',
         type: 'solid',
         meshStyle: 'rock',
         ph: 7.0,
         density: 7.87,
-        description: 'Ferromagnetic metal.'
+        description: 'Kim loại có từ tính.'
     },
     'ZINC': {
         id: 'ZINC',
-        name: 'Zinc',
+        name: 'Kẽm',
         formula: 'Zn',
         color: '#a1a1aa',
         type: 'solid',
         meshStyle: 'rock',
         ph: 7.0,
         density: 7.14,
-        description: 'Bluish-white metal.'
+        description: 'Kim loại màu trắng xanh.'
     },
     'ALUMINUM': {
         id: 'ALUMINUM',
-        name: 'Aluminum',
+        name: 'Nhôm',
         formula: 'Al',
         color: '#d1d5db',
         type: 'solid',
         meshStyle: 'rock',
         ph: 7.0,
         density: 2.70,
-        description: 'Silvery-white lightweight metal.'
+        description: 'Kim loại nhẹ màu trắng bạc.'
     },
     'Fe2O3': {
         id: 'Fe2O3',
-        name: 'Iron(III) Oxide',
+        name: 'Sắt(III) Oxit',
         formula: 'Fe₂O₃',
         color: '#7f1d1d',
         type: 'solid',
         meshStyle: 'mound',
         ph: 7.0,
         density: 5.24,
-        description: 'Rust / Hematite.'
+        description: 'Gỉ sắt / Hematit.'
     },
     'KI': {
         id: 'KI',
-        name: 'Potassium Iodide',
+        name: 'Kali Iodua',
         formula: 'KI',
         color: '#ffffff',
         type: 'solid',
         meshStyle: 'mound',
         ph: 7.0,
         density: 3.12,
-        description: 'Iodine salt catalyst.'
+        description: 'Muối iot xúc tác.'
     },
     'IODINE': {
         id: 'IODINE',
-        name: 'Iodine',
+        name: 'I-ốt',
         formula: 'I₂',
         color: '#4c1d95',
         type: 'solid',
         meshStyle: 'crystal',
         ph: 5.5,
         density: 4.93,
-        description: 'Lustrous purple-black nonmetal.'
+        description: 'Phi kim màu tím đen lấp lánh.'
     },
     'KMnO4': {
         id: 'KMnO4',
-        name: 'Potassium Permanganate',
+        name: 'Kali Permanganat',
         formula: 'KMnO₄',
         color: '#701a75',
         type: 'solid',
         meshStyle: 'crystal',
         ph: 7.0,
         density: 2.70,
-        description: 'Strong oxidizer (purple crystals).'
+        description: 'Thuốc tím (Oxy hóa mạnh).'
     },
     'GOLD': {
         id: 'GOLD',
-        name: 'Gold',
+        name: 'Vàng',
         formula: 'Au',
         color: '#fbbf24', // Golden yellow
         type: 'solid',
         meshStyle: 'rock',
         ph: 7.0,
         density: 19.3,
-        description: 'Noble metal.'
+        description: 'Kim loại quý.'
     },
 
     // --- GASES/OTHERS ---
     'CHLORINE': {
         id: 'CHLORINE',
-        name: 'Chlorine Gas',
+        name: 'Khí Clo',
         formula: 'Cl₂',
         color: '#bef264',
         type: 'gas',
         meshStyle: 'canister',
         ph: 4.0,
         density: 0.003,
-        description: 'Toxic gas.'
+        description: 'Khí độc màu vàng lục.'
     },
     'COPPER_SULFATE': {
         id: 'COPPER_SULFATE',
-        name: 'Copper(II) Sulfate',
+        name: 'Đồng(II) Sunfat',
         formula: 'CuSO₄',
         color: '#3b82f6',
         type: 'solid',
         meshStyle: 'crystal',
         ph: 4.0,
         density: 3.6,
-        description: 'Blue crystals.'
+        description: 'Tinh thể màu xanh lam.'
     },
     'MOLTEN_IRON': {
         id: 'MOLTEN_IRON',
-        name: 'Molten Iron',
+        name: 'Sắt Nóng Chảy',
         formula: 'Fe(l)',
         color: '#f59e0b',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 7.0,
         density: 6.98,
-        description: 'Superheated liquid iron.'
+        description: 'Sắt lỏng siêu nóng.'
     },
     'GOLDEN_RAIN': {
         id: 'GOLDEN_RAIN',
-        name: 'Lead(II) Iodide',
+        name: 'Chì(II) Iodua',
         formula: 'PbI₂',
         color: '#facc15', // Bright Yellow
         type: 'solid',
         meshStyle: 'crystal',
         ph: 7.0,
         density: 6.16,
-        description: 'Beautiful golden hexagonal crystals.'
+        description: 'Tinh thể lục giác vàng óng ánh.'
     },
     'TRAFFIC_RED': {
         id: 'TRAFFIC_RED',
-        name: 'Intermediate Red',
-        formula: 'Complex',
+        name: 'Đỏ trung gian',
+        formula: 'Phức chất',
         color: '#ef4444',
         type: 'liquid',
         meshStyle: 'flask',
         ph: 10.0,
         density: 1.0,
-        description: 'Transient state.'
+        description: 'Trạng thái chuyển tiếp.'
+    },
+    'THERMITE_MIX': {
+        id: 'THERMITE_MIX',
+        name: 'Bột Nhiệt Nhôm',
+        formula: 'Fe₂O₃ + 2Al',
+        color: '#9ca3af', // Greyish
+        type: 'solid',
+        meshStyle: 'mound',
+        ph: 7.0,
+        density: 3.0,
+        description: 'Hỗn hợp bột nhôm và oxit sắt. Cần nhiệt độ cao để kích hoạt.',
+        thermalDecomposition: {
+            product: 'MOLTEN_IRON',
+            minTemperature: 500,
+            effect: 'explosion',
+            message: 'Phản ứng nhiệt nhôm! Fe₂O₃ + 2Al → 2Fe + Al₂O₃. Nhiệt độ cực cao tạo ra sắt nóng chảy.'
+        }
     }
 };
 
@@ -391,7 +408,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#f8fafc',
         effect: 'explosion',
         temperature: 550,
-        message: 'Exothermic Reaction. 2Na + 2H₂O → 2NaOH + H₂. Rapid hydrogen expansion caused a thermal explosion.'
+        message: 'Phản ứng tỏa nhiệt mạnh. 2Na + 2H₂O → 2NaOH + H₂. Khí hydro giãn nở nhanh gây nổ nhiệt.'
     },
     {
         reactants: ['POTASSIUM', 'H2O'],
@@ -399,7 +416,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#d8b4fe',
         effect: 'explosion',
         temperature: 700,
-        message: 'Violent Reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a characteristic lilac flame before exploding.'
+        message: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa màu tím đặc trưng trước khi phát nổ.'
     },
     {
         reactants: ['MAGNESIUM', 'HCl'],
@@ -407,7 +424,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#e2e8f0',
         effect: 'bubbles',
         temperature: 60,
-        message: 'Single Displacement. Mg + 2HCl → MgCl₂ + H₂. Rapid evolution of Hydrogen gas bubbles.'
+        message: 'Phản ứng thế đơn giản. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro mạnh.'
     },
     {
         reactants: ['COPPER', 'HNO3'],
@@ -416,7 +433,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         effect: 'smoke',
         temperature: 80,
         duration: 3000,
-        message: 'Redox Reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Production of toxic brown Nitrogen Dioxide gas.'
+        message: 'Phản ứng Oxi hóa - Khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Tạo ra khí Nitơ Đioxit màu nâu đỏ độc hại.'
     },
     {
         reactants: ['CALCIUM_CARBONATE', 'VINEGAR'],
@@ -424,7 +441,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#f1f5f9',
         effect: 'bubbles',
         temperature: 20,
-        message: 'Acid-Carbonate Reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Effervescence of Carbon Dioxide.'
+        message: 'Phản ứng Axit - Muối Cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO₂.'
     },
     {
         reactants: ['CALCIUM_CARBONATE', 'HCl'],
@@ -432,7 +449,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#e2e8f0',
         effect: 'foam',
         temperature: 30,
-        message: 'Vigorous Decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Rapid fizzing.'
+        message: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.'
     },
     {
         reactants: ['BAKING_SODA', 'VINEGAR'],
@@ -440,7 +457,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#ffffff',
         effect: 'bubbles',
         temperature: 15,
-        message: 'Acid-Base Neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. CO₂ release.'
+        message: 'Trung hòa Axit - Bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng khí CO₂.'
     },
     {
         reactants: ['BLEACH', 'VINEGAR'],
@@ -448,7 +465,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#bef264',
         effect: 'smoke',
         temperature: 45,
-        message: 'HAZARD WARNING: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Generation of toxic Chlorine gas detected.'
+        message: 'CẢNH BÁO NGUY HIỂM: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Phát hiện khí Clo độc hại.'
     },
     {
         reactants: ['HCl', 'NaOH'],
@@ -456,7 +473,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#ffffff',
         effect: 'smoke',
         temperature: 95,
-        message: 'Neutralization. HCl + NaOH → NaCl + H₂O. Formation of saline solution with significant heat release.'
+        message: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt lớn.'
     },
     {
         reactants: ['SODIUM', 'CHLORINE'],
@@ -464,7 +481,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#ffffff',
         effect: 'fire',
         temperature: 800,
-        message: 'Synthesis. 2Na + Cl₂ → 2NaCl. Redox reaction producing Sodium Chloride.'
+        message: 'Tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxy hóa khử tạo muối ăn.'
     },
     {
         reactants: ['COPPER_SULFATE', 'NaOH'],
@@ -472,7 +489,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#1e3a8a',
         effect: 'bubbles',
         temperature: 30,
-        message: 'Precipitation. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Insoluble blue Copper(II) Hydroxide forms.'
+        message: 'Kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Tạo kết tủa Đồng(II) Hydroxit màu xanh lam.'
     },
     {
         reactants: ['H2O2', 'KI'],
@@ -481,16 +498,14 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         effect: 'foam',
         temperature: 90,
         duration: 4000,
-        message: 'Catalytic Decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction.'
+        message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi".'
     },
     {
         reactants: ['Fe2O3', 'ALUMINUM'],
-        product: 'MOLTEN_IRON',
-        resultColor: '#f59e0b',
-        effect: 'explosion',
-        temperature: 2500,
-        minTemperature: 500, // Requires activation energy (heater)
-        message: 'Thermite Reaction! Fe₂O₃ + 2Al → 2Fe + Al₂O₃. Extreme heat produces molten iron.'
+        product: 'THERMITE_MIX',
+        resultColor: '#9ca3af',
+        temperature: 25,
+        message: 'Tạo thành hỗn hợp nhiệt nhôm. Cần đun nóng để kích hoạt phản ứng.'
     },
     {
         reactants: ['AgNO3', 'SALT'],
@@ -498,7 +513,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#f8fafc',
         effect: 'smoke',
         temperature: 25,
-        message: 'Precipitation. AgNO₃ + NaCl → AgCl(s) + NaNO₃. Formation of white Silver Chloride precipitate.'
+        message: 'Kết tủa. AgNO₃ + NaCl → AgCl(s) + NaNO₃. Tạo kết tủa Bạc Clorua màu trắng.'
     },
     {
         reactants: ['ZINC', 'HCl'],
@@ -506,7 +521,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#e2e8f0',
         effect: 'bubbles',
         temperature: 40,
-        message: 'Single Displacement. Zn + 2HCl → ZnCl₂ + H₂. Hydrogen gas evolution.'
+        message: 'Phản ứng thế đơn giản. Zn + 2HCl → ZnCl₂ + H₂. Giải phóng khí Hydro.'
     },
     {
         reactants: ['IRON', 'H2SO4'],
@@ -514,7 +529,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#bef264',
         effect: 'bubbles',
         temperature: 50,
-        message: 'Redox. Fe + H₂SO₄ → FeSO₄ + H₂. Formation of Ferrous Sulfate and Hydrogen.'
+        message: 'Oxy hóa khử. Fe + H₂SO₄ → FeSO₄ + H₂. Tạo thành Sắt(II) Sunfat và Hydro.'
     },
     {
         reactants: ['NH3', 'HCl'],
@@ -522,7 +537,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         resultColor: '#f1f5f9',
         effect: 'smoke',
         temperature: 30,
-        message: 'Gas Phase Reaction. NH₃ + HCl → NH₄Cl. Formation of white Ammonium Chloride smoke.'
+        message: 'Phản ứng pha khí. NH₃ + HCl → NH₄Cl. Tạo khói trắng Amoni Clorua.'
     },
     // --- SHOWSTOPPERS ---
     {
@@ -532,7 +547,7 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         effect: 'sparkles',
         temperature: 30,
         duration: 5000, // Slow precipitation
-        message: 'Golden Rain! Pb(NO₃)₂ + 2KI → PbI₂ + 2KNO₃. Beautiful golden crystals of Lead Iodide precipitate.'
+        message: 'Mưa Vàng! Pb(NO₃)₂ + 2KI → PbI₂ + 2KNO₃. Kết tủa tinh thể Chì Iodua vàng óng tuyệt đẹp.'
     },
     {
         reactants: ['GLUCOSE', 'INDIGO_CARMINE'],
@@ -541,6 +556,6 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
         effect: 'bubbles',
         temperature: 25,
         duration: 4000,
-        message: 'Chemical Traffic Light. Oxidation state change causes color shift from Blue to Red (and eventually Yellow).'
+        message: 'Đèn Giao Thông Hóa Học. Sự thay đổi trạng thái oxy hóa làm đổi màu từ Xanh sang Đỏ (và cuối cùng là Vàng).'
     }
 ];

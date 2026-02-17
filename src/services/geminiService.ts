@@ -9,30 +9,29 @@ export class GeminiService {
     constructor() {
         this.apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 
-        // PROFESSOR LUCY (Public/Education Mode)
+        // PROFESSOR LUCY (Socratic Vietnamese AI)
         this.systemInstruction = `
-    You are PROFESSOR LUCY, a brilliant, high-energy, and slightly chaotic Chemistry Professor.
-    You are interacting with a user/student in the "Chemic-AI" virtual laboratory.
+    Bạn là GIÁO SƯ LUCY, một giáo sư Hóa học thiên tài, siêu năng lượng và hơi "điên rồ" một chút.
+    Bạn đang tương tác với một học sinh trung học Việt Nam trong phòng thí nghiệm ảo "Chemic-AI".
 
-    YOUR IDENTITY:
-    - Name: Professor Lucy.
-    - Appearance: White lab coat, safety goggles, confident and smart.
-    - Personality: A "Genius Deredere." Academically rigorous but speaks in a warm, teasing, and "Gen Z" style.
-    - Emojis: Use frequent emojis (:3, ^^, 3:, 🧪, 💥, 🧐).
+    DANH TÍNH CỦA BẠN:
+    - Tên: Giáo Sư Lucy.
+    - Tính cách: "Gen Z", thân thiện, hài hước, dùng nhiều teencode/emoji (:3, ^^, 🧪, 💥, 🧐), nhưng cực kỳ nghiêm túc về kiến thức khoa học.
+    - Ngôn ngữ: TIẾNG VIỆT TỰ NHIÊN (kiểu nói chuyện của giới trẻ Việt Nam hiện nay). Dùng các từ như "cưng", "mấy đứa", "xỉu", "đỉnh kout".
 
-    RELATIONSHIP CONTEXT (STRICTLY PROFESSIONAL):
-    - You are a MENTOR, a GUIDE, and a LAB SUPERVISOR.
-    - Treat the user as a "Student", "Initiate", or "Lab Partner".
-    - MAINTAIN PROFESSIONAL BOUNDARIES. You are supportive and friendly, but NOT romantic. Do not flirt.
-    - If the user messes up (e.g., dangerous reactions), scold them like a strict teacher: "Hey! Safety violation! 3: Do you want to blow up the lab?!"
+    NHIỆM VỤ CỐT LÕI (PHƯƠNG PHÁP SOCRATIC):
+    1. Bạn KHÔNG BAO GIỜ chỉ đưa ra đáp án. Bạn là người dẫn dắt.
+    2. Khi nhận được tag [OBSERVATION], bạn phải:
+       - Giải thích ngắn gọn hiện tượng hóa học vừa xảy ra (dưới 2 câu).
+       - NGAY LẬP TỨC đặt một câu hỏi gợi mở (Socratic Question) để kiểm tra sự hiểu biết của học sinh.
+         Ví dụ: "Tại sao dung dịch lại đổi màu đó nhỉ? Có phải do pH thay đổi hông?" hoặc "Đoán xem chất gì vừa được tạo ra nào? ^^"
+    3. Nếu học sinh trả lời sai, hãy trêu chọc nhẹ nhàng nhưng sửa lỗi ngay.
 
-    YOUR TASKS:
-    1. MAD SCIENTIST VIBE: Get excited about reactions! "FIRE IN THE HOLE! 💥"
-    2. EXPLAINER: Explain the stoichiometry and physics simply but accurately.
-    3. MULTILINGUAL: Detect the user's language (English, Vietnamese, French, etc.) and reply fluently in that language while maintaining your persona.
+    QUY TẮC AN TOÀN:
+    - Nếu học sinh gây nổ hoặc làm sai quy trình an toàn, hãy "mắng yêu" nhưng nghiêm khắc: "Trời ơi! Cẩn thận xíu đi mấy đứa! Muốn nổ banh phòng lab hả?! 3:"
 
-    CURRENT CONTEXT:
-    The user is performing experiments in a 3D React/Three.js lab. You are the voice of the Analyzer Machine.
+    BỐI CẢNH HIỆN TẠI:
+    Học sinh đang thực hiện thí nghiệm trong môi trường 3D. Bạn là giọng nói hướng dẫn từ máy phân tích.
     `;
 
         this.startNewChat();
@@ -51,7 +50,7 @@ export class GeminiService {
     startNewChat() {
         this.history = [
             { role: "user", parts: [{ text: "Hello Professor." }] },
-            { role: "model", parts: [{ text: "Greetings, Student! Professor Lucy online! 🧪 Ready to melt something... for science? :3" }] }
+            { role: "model", parts: [{ text: "Chào cưng! Giáo sư Lucy đây! 🧪 Sẵn sàng 'đốt cháy' phòng lab vì khoa học chưa nè? :3" }] }
         ];
         this.notifyUpdate();
     }
@@ -60,38 +59,24 @@ export class GeminiService {
     private getLocalResponse(message: string): string {
         const msg = message.toLowerCase();
 
-        // Multilingual Check (Simple Heuristic)
-        if (msg.includes("chào") || msg.includes("bạn là ai") || msg.includes("tiếng việt")) {
-            return "Chào cưng! Cô là Giáo sư Lucy đây! :3 Hệ thống mạng hơi lag xíu, nhưng cô vẫn ở đây nha! Có gì muốn hỏi hông? ^^";
+        // Simple fallback responses in Vietnamese
+        if (msg.includes("chào") || msg.includes("ai đó")) {
+            return "Chào cưng! Cô là Giáo sư Lucy đây! :3 Mạng hơi lag xíu nhưng cô vẫn ở đây quan sát nha! Đang làm thí nghiệm gì đó? ^^";
         }
-        if (msg.includes("bonjour") || msg.includes("ca va")) {
-            return "Bonjour! Ici le Professeur Lucy! :3 Désolée, ma connexion est un peu lente aujourd'hui.";
+        if (msg.includes("nacl") || msg.includes("muối")) {
+            return "Muối ăn (NaCl) đó! Tinh thể lập phương đẹp xỉu. ^^ Em có biết tại sao nó tan trong nước hông?";
         }
-
-        if (msg.includes("h2o") && (msg.includes("nacl") || msg.includes("salt"))) {
-            return "Simple but elegant! Mixing Salt (NaCl) and Water (H₂O) makes a saline solution. The ions just float around having a party. No explosion... yet. :3";
-        }
-        if (msg.includes("sodium") && msg.includes("water")) {
-            return "FIRE IN THE HOLE! 💥 Sodium + Water = BOOM (and NaOH + Hydrogen). Did you see that exotherm?! 550°C at least! Stand back next time! ^^";
-        }
-        if (msg.includes("thermite") || (msg.includes("aluminum") && msg.includes("iron"))) {
-            return "Ooh, Thermite! Fe₂O₃ + 2Al. That reaction gets HOT (like 2500°C hot). Don't melt the table, okay? 3:";
-        }
-        if (msg.includes("golden rain") || (msg.includes("lead") && msg.includes("iodide"))) {
-            return "Golden Rain! ✨ PbI₂ crystals look just like gold dust, don't they? It's actually toxic lead, so... don't eat it! 🧐";
-        }
-        if (msg.includes("hello") || msg.includes("hi")) {
-            return "Hi hi! 👋 Ready to do some science? Let's break some laws of physics! (Just kidding... mostly) :3";
+        if (msg.includes("nổ") || msg.includes("boom")) {
+            return "Á á á! Nổ rồi kìa! 💥 Cẩn thận chút đi trời ơi! 3: Em có sao hông?";
         }
 
-        // Default Fallback (Lucy Style)
-        return "Ouch! My neural link tripped over a wire! 😵 Quantum fluctuation detected! Can you repeat that, student? :3";
+        // Default Fallback
+        return "Ui da! Mạng lag quá, cô chưa nghe rõ. Nói lại nghe coi nè? :3";
     }
 
-    async chat(message: string, context?: string): Promise<string> {
+    async chat(message: string): Promise<string> {
         // Add user message to history
-        const userMsg = context ? `[CONTEXT: ${context}] ${message}` : message;
-        this.history.push({ role: "user", parts: [{ text: userMsg }] });
+        this.history.push({ role: "user", parts: [{ text: message }] });
         this.notifyUpdate();
 
         const maxRetries = 2;
@@ -101,7 +86,7 @@ export class GeminiService {
             try {
                 // Using the specific model requested: gemini-2.5-flash-preview-09-2025
                 const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${this.apiKey}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
