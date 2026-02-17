@@ -36,7 +36,7 @@ To start the application in development mode:
 npm run dev
 ```
 
-- Look for the URL in the terminal (usually `http://localhost:5173`).
+- Look for the URL in the terminal (usually `http://localhost:5173` or `3000`).
 - Ctrl+Click the link to open it in your browser.
 
 ## 5. Building for Production (Making a Game)
