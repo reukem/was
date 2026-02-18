@@ -1,0 +1,4 @@
+## 2026-02-18 - Client-Side API Key Injection
+**Vulnerability:** `vite.config.ts` was configured to inject `process.env.GEMINI_API_KEY` into the client-side bundle via the `define` property. This would expose the sensitive API key to anyone inspecting the frontend code if the environment variable was populated during the build.
+**Learning:** Boilerplate configurations often include environment variable injection for convenience, but for sensitive keys like AI service API keys, this is a critical security risk in client-side applications.
+**Prevention:** Strictly avoid injecting sensitive keys into client bundles. Use a backend proxy for API calls requiring secrets, or if client-side usage is absolutely necessary (e.g. prototyping), ensure keys are not baked into the build artifact by default and use runtime configuration or user input.
