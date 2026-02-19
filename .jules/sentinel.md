@@ -1,0 +1,4 @@
+## 2025-05-23 - Unintended API Key Exposure in Client Bundle
+**Vulnerability:** The `vite.config.ts` file was configured to inject the `GEMINI_API_KEY` into the client-side bundle via the `define` property. This would hardcode the secret into the JavaScript files distributed to users.
+**Learning:** Build tools like Vite can inadvertently expose secrets if `define` or similar features are used to pass server-side environment variables to the client. This is a common misconfiguration when developers want to access backend secrets in frontend code.
+**Prevention:** Avoid using `define` for sensitive keys. If client-side access is necessary (which is discouraged), use `import.meta.env` with keys prefixed by `VITE_` (and ensure they are not sensitive) or proxy requests through a backend service. Always review build configurations for secret injection.
