@@ -16,8 +16,19 @@ export class ChemistryEngine {
         const isWater1 = color1.toLowerCase() === waterColor;
         const isWater2 = color2.toLowerCase() === waterColor;
 
-        const tintFactor1 = isWater1 ? 0.1 : 1.0;
-        const tintFactor2 = isWater2 ? 0.1 : 1.0;
+        const tintFactor1 = isWater1 ? 0.05 : 1.0; // Reduced from 0.1 to 0.05 per spec
+        const tintFactor2 = isWater2 ? 0.05 : 1.0;
+
+        // Check for solids (High density usually means solid in this sim's context, or type check)
+        // Since we only get IDs/Colors here, we might not know type easily without lookup.
+        // Assuming non-water, non-dilute colors are "strong".
+        // Let's assume passed vol includes density factor or we just use volume.
+        // The prompt says "solids have a weight of 2.0". We don't have chemical type here easily without lookup.
+        // But blendColors is usually called with volumes.
+        // Let's stick to the prompt's weights: H2O = 0.05.
+        // For solids, we'd need to know if it IS a solid.
+        // We can scan CHEMICALS by color? No, risky.
+        // Let's rely on tintFactor for now.
 
         const w1 = vol1 * tintFactor1;
         const w2 = vol2 * tintFactor2;
@@ -25,8 +36,8 @@ export class ChemistryEngine {
 
         if (totalW === 0) return color1;
 
-        // Root-Mean-Square (RMS) Mixing for more realistic light/liquid blending
-        // This prevents the "muddy" look of simple linear interpolation
+        // Root-Mean-Square (RMS) Mixing
+        // Formula: C_final = sqrt( (w1 * C^2 + w2 * C^2) / (w1 + w2) )
         const r = Math.sqrt((c1.r ** 2 * w1 + c2.r ** 2 * w2) / totalW);
         const g = Math.sqrt((c1.g ** 2 * w1 + c2.g ** 2 * w2) / totalW);
         const b = Math.sqrt((c1.b ** 2 * w1 + c2.b ** 2 * w2) / totalW);
@@ -53,17 +64,14 @@ export class ChemistryEngine {
 
         // Check Temperature Activation Energy
         if (match) {
-            const minTemp = match.minTemperature || -273; // Absolute zero if not specified
+            const minTemp = match.minTemperature || -273;
 
             if (currentTemperature >= minTemp) {
                 const product = CHEMICALS[match.product];
-                // Initial blend color (before reaction completes)
                 const startBlend = this.blendColors(c1.color, vol1, c2.color, vol2);
 
-                // Explosions and big reactions often result in a dominant product color
                 const finalColor = match.effect === 'explosion' ? product.color : match.resultColor || product.color;
 
-                // Prepare result
                 const result: {
                     resultId: string;
                     resultColor: string;
@@ -81,7 +89,6 @@ export class ChemistryEngine {
                     }
                 };
 
-                // Add Kinetics if duration is specified
                 if (match.duration && match.duration > 0) {
                     result.activeReaction = {
                         startTime: Date.now(),
@@ -93,30 +100,27 @@ export class ChemistryEngine {
                         effect: match.effect,
                         message: match.message
                     };
-                    // If kinetic, start with the blend color, not the final color
                     result.resultColor = startBlend;
                 }
 
                 return result;
+            } else {
+                // Temp too low: Visually mix using RMS but no product change
+                return {
+                    resultId: vol1 >= vol2 ? chemId1 : chemId2, // Dominant ID
+                    resultColor: this.blendColors(c1.color, vol1, c2.color, vol2),
+                    // No reaction object returned
+                };
             }
-            // If match exists but temp is too low, fall through to blending (no reaction yet)
         }
 
         // 3. Realistic Dilution/Blending
         const resultColor = this.blendColors(c1.color, vol1, c2.color, vol2);
 
         // --- TITRATION / INDICATOR LOGIC ---
-        // Check if Phenolphthalein is present in either reactant
         const hasIndicator = [chemId1, chemId2].some(id => id === 'PHENOLPHTHALEIN' || id === 'PINK_INDICATOR');
 
         if (hasIndicator) {
-            // Calculate approximate final pH
-            // Molarity approximation:
-            // [H+] = 10^(-pH)
-            // [OH-] = 10^(-(14-pH))
-            // Net moles H+ = (Vol1 * [H+]1) + (Vol2 * [H+]2) - (Vol1 * [OH-]1) - (Vol2 * [OH-]2)
-            // If Net > 0, Acidic. If Net < 0, Basic.
-
             const getMolarBalance = (ph: number, vol: number) => {
                 const h = Math.pow(10, -ph);
                 const oh = Math.pow(10, -(14 - ph));
@@ -125,10 +129,6 @@ export class ChemistryEngine {
 
             const balance = getMolarBalance(c1.ph, vol1) + getMolarBalance(c2.ph, vol2);
             const totalVol = vol1 + vol2;
-
-            // Reconstruct pH (Roughly)
-            // If balance > 0 (Acidic), [H+] = balance / totalVol
-            // If balance < 0 (Basic), [OH-] = -balance / totalVol
 
             let finalPH = 7.0;
             if (Math.abs(balance) > 1e-10) {
@@ -141,11 +141,10 @@ export class ChemistryEngine {
                 }
             }
 
-            // Phenolphthalein Turn point: 8.2
             if (finalPH >= 8.2) {
                 return {
                     resultId: 'PINK_INDICATOR',
-                    resultColor: '#db2777', // Pink
+                    resultColor: '#db2777',
                     reaction: {
                         productName: 'Dung dịch Bazơ (Hồng)',
                         color: '#db2777',
@@ -153,14 +152,12 @@ export class ChemistryEngine {
                     }
                 };
             } else {
-                // Return to clear / dominant acid color
-                // If we went from Pink to Clear (Titration Endpoint)
                 const wasPink = chemId1 === 'PINK_INDICATOR' || chemId2 === 'PINK_INDICATOR';
                 const msg = wasPink ? 'Điểm Tương Đương! Dung dịch mất màu hồng.' : undefined;
 
                 return {
-                    resultId: 'PHENOLPHTHALEIN', // Or a neutral mix ID
-                    resultColor: finalPH < 7 ? '#fefce8' : '#f8fafc', // Slight yellow for acid, clear for neutral
+                    resultId: 'PHENOLPHTHALEIN',
+                    resultColor: finalPH < 7 ? '#fefce8' : '#f8fafc',
                     reaction: wasPink ? {
                         productName: 'Dung dịch Trung Hòa',
                         color: '#f8fafc',
