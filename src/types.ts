@@ -5,7 +5,7 @@ export type ContainerType = 'beaker' | 'test_tube' | 'bottle' | 'jar' | 'rock' |
 export interface ReactionResult {
     productName: string;
     color: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'sparkles';
     temperature?: number; // In Celsius
     message: string;
 }
@@ -23,7 +23,7 @@ export interface Chemical {
     thermalDecomposition?: {
         product: string;
         minTemperature: number;
-        effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+        effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'sparkles';
         message: string;
     };
 }
@@ -35,7 +35,7 @@ export interface ActiveReaction {
     targetColor: string;
     productId: string;
     productName: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'sparkles';
     message: string;
 }
 
@@ -62,7 +62,7 @@ export interface ReactionEntry {
     reactants: [string, string];
     product: string;
     resultColor?: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'sparkles';
     temperature?: number;
     minTemperature?: number; // Minimum temp required to trigger reaction
     duration?: number; // Time in ms for reaction to complete

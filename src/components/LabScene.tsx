@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, Text, Caustics, MeshTransmissionMaterial } from '@react-three/drei';
 import { EffectComposer, Bloom, DepthOfField, Vignette } from '@react-three/postprocessing';
-import { createTable, createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh, createMeniscusGeometry, createNoiseTexture } from '../utils/threeHelpers';
+import { createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh, createMeniscusGeometry, createNoiseTexture } from '../utils/threeHelpers';
 import { EffectSystem } from '../utils/EffectSystem';
 import { audioManager } from '../utils/AudioManager';
 import { ContainerState } from '../types';
@@ -159,6 +159,8 @@ const Container3D = forwardRef<{ group: THREE.Group, liquid: THREE.Mesh | null }
                             worldRadius={0.6}
                             ior={1.5}
                             backsideIOR={1.1}
+                            causticsOnly={false}
+                            backside={false}
                         >
                             <mesh geometry={geometry} castShadow receiveShadow>
                                 <MeshTransmissionMaterial
@@ -260,11 +262,14 @@ interface LabLogicProps {
     onToggleValve?: (id: string) => void;
     isHeaterOn?: boolean;
     onToggleHeater?: () => void;
+    handlePlanePointerUp: (e: any) => void;
+    handlePlanePointerMove: (e: any) => void;
 }
 
 const LabLogic: React.FC<LabLogicProps> = ({
     containers, meshesMap, lastEffect, lastEffectPos, explodedContainerId,
-    onMove, onPour, onToggleValve, isHeaterOn, onToggleHeater
+    onMove, onPour, onToggleValve, isHeaterOn, onToggleHeater,
+    handlePlanePointerUp, handlePlanePointerMove
 }) => {
     const { scene, camera, gl, raycaster } = useThree();
     const effectSystemRef = useRef<EffectSystem | null>(null);
@@ -283,9 +288,34 @@ const LabLogic: React.FC<LabLogicProps> = ({
     const analyzerRef = useRef<{ group: THREE.Group, texture: THREE.CanvasTexture, canvas: HTMLCanvasElement } | null>(null);
     const heaterRef = useRef<{ mesh: THREE.Object3D, light: THREE.PointLight } | null>(null);
 
+    // Initial Scene Setup (Phase 2: Furniture Restoration & Logic Objects)
     useEffect(() => {
         effectSystemRef.current = new EffectSystem(scene);
 
+        // --- PHASE 2: FURNITURE RESTORATION ---
+        // 1. The Main Table & Grid (Imperative)
+        const tableMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(12, 0.2, 6),
+            new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.8 })
+        );
+        tableMesh.receiveShadow = true;
+
+        const grid = new THREE.GridHelper(10, 20, 0x38bdf8, 0x1e293b);
+        grid.position.y = 0.11; // Relative to mesh center
+        tableMesh.add(grid);
+
+        scene.add(tableMesh);
+
+        // 2. The Source Chemical Shelf (Imperative)
+        const shelf = new THREE.Mesh(
+            new THREE.BoxGeometry(10, 0.1, 2.5),
+            new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 })
+        );
+        shelf.position.set(0, 0.5, -3.5);
+        shelf.receiveShadow = true;
+        scene.add(shelf);
+
+        // Logic Objects (Heater, Analyzer, Stream)
         const heater = createHeaterMesh();
         heater.position.set(...LOCAL_HEATER_POSITION);
         heater.userData.id = 'HEATER';
@@ -313,35 +343,35 @@ const LabLogic: React.FC<LabLogicProps> = ({
         pourStreamRef.current = streamMesh;
 
         return () => {
+            scene.remove(tableMesh);
+            scene.remove(shelf);
             scene.remove(heater); scene.remove(heaterLight);
             scene.remove(analyzer.group);
             scene.remove(streamMesh);
         };
     }, [scene]);
 
-    // Handle Click on non-container objects (Heater, Valve) via Raycaster for consistency with drag blocking?
-    // Actually, R3F events on objects are better.
-    // We already moved container drag logic to LabScene declarative part.
-    // But heater and valve logic was inside useEffect. Let's make them declarative or keep using raycaster for static scene objects?
-    // The previous implementation had them in useEffect.
-    // The prompt asked to remove imperative listeners.
-    // We can attach onClick to the imperative objects? No, they are added to scene directly.
-    // We should use <primitive object={...} onClick={...} /> for them if we want R3F events.
-    // But since they are created in useEffect, we can't easily wrap them in JSX.
-    // We'll keep the raycaster for these "environment" objects for now or refactor them to components.
-    // Refactoring to components is cleaner but out of scope for "Tactile Restoration".
-    // I'll stick to a minimal raycaster for these specific interactions if needed, BUT
-    // the user asked to "Remove old imperative event listeners".
-    // So I should attach listeners to the canvas via `useThree` events? No, `useThree` gives state.
-    // R3F handles events on meshes.
-    // If I add objects imperatively `scene.add(mesh)`, R3F events won't fire on them.
-    // I should convert Heater and Analyzer to components.
-
-    // For now, to satisfy the prompt "Remove imperative listeners", I will rely on the fact that Drag is handled.
-    // But Heater toggle needs to work.
-    // I will add a click listener to the window for these specific static objects as a fallback, OR
-    // better: Refactor Heater/Analyzer to declarative components in next step or now.
-    // Let's do it now for consistency.
+    // Imperative Raycasting for Drag Start on imperative objects (if any)
+    useEffect(() => {
+        const onPointerDown = (event: PointerEvent) => {
+             if (event.button === 0) {
+                 const intersects = raycaster.intersectObjects(scene.children, true);
+                 if (intersects.length > 0) {
+                     let target = intersects[0].object;
+                     while(target.parent && !target.userData.id) target = target.parent;
+                     if (target.userData.id === 'HEATER') {
+                         onToggleHeater?.();
+                     } else if (target.userData.type === 'burette_valve') {
+                         const buretteId = target.parent?.parent?.userData.id;
+                         if (buretteId) onToggleValve?.(buretteId);
+                     }
+                 }
+             }
+        };
+        const canvasEl = gl.domElement;
+        canvasEl.addEventListener('pointerdown', onPointerDown);
+        return () => canvasEl.removeEventListener('pointerdown', onPointerDown);
+    }, [gl, raycaster, scene, onToggleHeater, onToggleValve]);
 
     const updateAnalyzerDisplay = (chemId: string | null, temp?: number) => {
         if (!analyzerRef.current) return;
@@ -493,7 +523,9 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     const meshesMap = useRef<Map<string, { group: THREE.Group, liquid: THREE.Mesh | null }>>(new Map());
     const orbitControlsRef = useRef<any>(null);
     const dragInfo = useRef<{ id: string, offset: THREE.Vector3 } | null>(null);
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+    // Invisible Raycast Plane for dragging (Phase 1)
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.11); // Plane at y=0.11
     const raycaster = new THREE.Raycaster();
 
     // -- Handler for Drag Start --
@@ -501,9 +533,7 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
         e.stopPropagation();
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
-        // Calculate offset (e.point is the intersection point on the mesh)
-        // We need point on the plane ideally?
-        // Let's use the object position relative to the intersection point
+        // Use the object position relative to the intersection point for offset
         const objectPos = meshesMap.current.get(id)?.group.position.clone();
         if (objectPos) {
             const offset = objectPos.sub(e.point);
@@ -514,19 +544,22 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     };
 
     // -- Handler for Drag Move --
+    // Attached to a large invisible plane to catch moves
     const handlePlanePointerMove = (e: any) => {
         if (dragInfo.current && dragInfo.current.id) {
             e.stopPropagation();
             const { id, offset } = dragInfo.current;
             const obj = meshesMap.current.get(id);
             if (obj) {
-                // e.point is the intersection on the invisible plane
+                // e.point is intersection on the plane
                 const newPos = e.point.clone().add(offset);
+
+                // Clamp Y (Tactile Restoration)
                 const containerData = props.containers.find(c => c.id === id);
                 const targetY = (containerData?.type === 'bottle' || containerData?.type === 'jar') ? 0.56 : 0.11;
-                newPos.y = targetY;
+                newPos.y = targetY; // Strictly clamp
 
-                // Visual Update
+                // Direct Mutation (Phase 1)
                 obj.group.position.copy(newPos);
             }
         }
@@ -540,7 +573,7 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
             const obj = meshesMap.current.get(id);
 
             if (obj) {
-                // 1. Sync State
+                // 1. Sync State (Phase 1: ONLY on up)
                 props.onMove(id, [obj.group.position.x, obj.group.position.y, obj.group.position.z]);
                 audioManager.playGlassClink();
 
@@ -601,32 +634,23 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                     lookAt={() => new THREE.Vector3(0,0,0)}
                 />
 
-                <LabLogic {...props} meshesMap={meshesMap} />
+                <LabLogic
+                    {...props}
+                    meshesMap={meshesMap}
+                    handlePlanePointerUp={handlePlanePointerUp}
+                    handlePlanePointerMove={handlePlanePointerMove}
+                />
 
-                {/* Module 1: Reinstated Table */}
-                <mesh
-                    position={[0, -0.2, 0]}
-                    receiveShadow
-                    onPointerUp={handlePlanePointerUp}
-                    onPointerMove={handlePlanePointerMove}
-                >
-                    <boxGeometry args={[12, 0.4, 8]} />
-                    <meshStandardMaterial color="#0f172a" roughness={0.7} />
-                </mesh>
-
-                {/* Invisible Drag Plane (slightly above table to catch rays reliably?)
-                    Actually the table mesh above serves as the plane.
-                    If the table is too small, we might drag off it.
-                    A larger invisible plane is safer for dragging. */}
+                {/* Invisible Drag Plane for catching raycasts */}
                 <mesh
                     rotation={[-Math.PI / 2, 0, 0]}
-                    position={[0, 0.11, 0]} // Height of beaker base
+                    position={[0, 0.11, 0]}
                     visible={false}
                     onPointerUp={handlePlanePointerUp}
                     onPointerMove={handlePlanePointerMove}
                 >
                     <planeGeometry args={[100, 100]} />
-                    <meshBasicMaterial />
+                    <meshBasicMaterial color="red" wireframe />
                 </mesh>
 
                 <group>

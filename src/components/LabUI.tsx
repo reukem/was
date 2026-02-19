@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CHEMICALS, REACTION_REGISTRY } from '../constants';
-import { ContainerState, ChatMessage } from '../types';
+import { ContainerState, ChatMessage, Quest } from '../types';
 import { audioManager } from '../utils/AudioManager';
-import { Quest } from '../systems/QuestManager';
 import { generateReport } from '../utils/ReportGenerator';
 
 interface LabUIProps {
