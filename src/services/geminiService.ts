@@ -1,4 +1,5 @@
 import { ChatMessage } from '../types';
+import { CHEMISTRY_KNOWLEDGE_BASE } from '../systems/KnowledgeBase';
 
 export class GeminiService {
     private apiKey: string = "";
@@ -11,6 +12,8 @@ export class GeminiService {
 
         // PROFESSOR LUCY (Socratic Vietnamese AI)
         this.systemInstruction = `
+    ${CHEMISTRY_KNOWLEDGE_BASE}
+
     Bạn là GIÁO SƯ LUCY, một giáo sư Hóa học thiên tài, siêu năng lượng và hơi "điên rồ" một chút.
     Bạn đang tương tác với một học sinh trung học Việt Nam trong phòng thí nghiệm ảo "Chemic-AI".
 
@@ -22,7 +25,7 @@ export class GeminiService {
     NHIỆM VỤ CỐT LÕI (PHƯƠNG PHÁP SOCRATIC):
     1. Bạn KHÔNG BAO GIỜ chỉ đưa ra đáp án. Bạn là người dẫn dắt.
     2. Khi nhận được tag [OBSERVATION], bạn phải:
-       - Giải thích ngắn gọn hiện tượng hóa học vừa xảy ra (dưới 2 câu).
+       - Giải thích ngắn gọn hiện tượng hóa học vừa xảy ra (dưới 2 câu), tham khảo Knowledge Base.
        - NGAY LẬP TỨC đặt một câu hỏi gợi mở (Socratic Question) để kiểm tra sự hiểu biết của học sinh.
          Ví dụ: "Tại sao dung dịch lại đổi màu đó nhỉ? Có phải do pH thay đổi hông?" hoặc "Đoán xem chất gì vừa được tạo ra nào? ^^"
     3. Nếu học sinh trả lời sai, hãy trêu chọc nhẹ nhàng nhưng sửa lỗi ngay.
@@ -40,8 +43,15 @@ export class GeminiService {
     - Ví dụ: "Nhìn nè, phản ứng trung hòa xảy ra như vầy: [TRIGGER_WHITEBOARD: HCl + NaOH -> NaCl + H2O]"
     - Hãy chắc chắn phương trình được cân bằng nhé!
 
-    BỐI CẢNH HIỆN TẠI:
-    Học sinh đang thực hiện thí nghiệm trong môi trường 3D. Bạn là giọng nói hướng dẫn từ máy phân tích.
+    QUY TẮC NHẬN THỨC NGỮ CẢNH (CONTEXT AWARENESS):
+    - Mỗi tin nhắn của người dùng sẽ đi kèm với một payload JSON ẩn [SYSTEM CONTEXT].
+    - BẠN PHẢI ĐỌC payload này để biết chính xác những gì đang có trên bàn thí nghiệm (dung tích, màu sắc, nhiệt độ).
+    - Luôn tham chiếu đến các giá trị cụ thể này. Ví dụ: "Cô thấy em đang có 0.5L HCl ở 25 độ C đó nha."
+    - Đừng bao giờ ảo tưởng ra các chất không có trong Context.
+
+    ĐỊNH DẠNG (FORMATTING):
+    - Sử dụng **in đậm** cho tên các Nguyên tố hoặc Hợp chất.
+    - Viết phương trình hóa học rõ ràng.
     `;
 
         this.startNewChat();
@@ -84,9 +94,15 @@ export class GeminiService {
         return "Ui da! Mạng lag quá, cô chưa nghe rõ. Nói lại nghe coi nè? :3";
     }
 
-    async chat(message: string): Promise<string> {
+    async chat(message: string, context?: object): Promise<string> {
+        // Append context if provided
+        let fullMessage = message;
+        if (context) {
+            fullMessage += `\n\n[SYSTEM CONTEXT: ${JSON.stringify(context)}]`;
+        }
+
         // Add user message to history
-        this.history.push({ role: "user", parts: [{ text: message }] });
+        this.history.push({ role: "user", parts: [{ text: fullMessage }] });
         this.notifyUpdate();
 
         const maxRetries = 2;
@@ -94,9 +110,9 @@ export class GeminiService {
 
         while (attempt < maxRetries) {
             try {
-                // Using the specific model requested: gemini-2.5-flash-preview-09-2025
+                // Using gemini-1.5-pro as requested for advanced reasoning
                 const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${this.apiKey}`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -104,7 +120,7 @@ export class GeminiService {
                             contents: this.history,
                             systemInstruction: { parts: [{ text: this.systemInstruction }] },
                             generationConfig: {
-                                maxOutputTokens: 500,
+                                maxOutputTokens: 800,
                                 temperature: 0.7
                             }
                         })

@@ -423,8 +423,15 @@ const App: React.FC = () => {
                     // We don't await here to avoid blocking the render loop
                     const detail = `Đã trộn ${CHEMICALS[source.contents.chemicalId].name} (${source.contents.chemicalId}) vào ${CHEMICALS[targetChemId].name} (${targetChemId}). Tạo ra ${mixResult.reaction!.productName}.`;
                     const kineticNote = mixResult.activeReaction ? ` Phản ứng diễn ra trong ${(mixResult.activeReaction.duration / 1000).toFixed(1)}s.` : '';
+
+                    // Capture current state snapshot for the observation
+                    const labState = containers.map(c => ({
+                         id: c.id,
+                         contents: c.contents ? { chem: c.contents.chemicalId, vol: c.contents.volume.toFixed(2), temp: c.contents.temperature.toFixed(1) } : 'Empty'
+                    }));
+
                     setIsChatOpen(true);
-                    aiServiceRef.current.chat(`[OBSERVATION] ${detail}${kineticNote}`).catch(() => {});
+                    aiServiceRef.current.chat(`[OBSERVATION] ${detail}${kineticNote}`, { containers: labState, event: 'REACTION' }).catch(() => {});
                 }
                 return mixResult.reaction!.message;
             });
@@ -434,7 +441,20 @@ const App: React.FC = () => {
     const handleUserChat = async (message: string) => {
         if (aiServiceRef.current) {
             setIsAiLoading(true);
-            await aiServiceRef.current.chat(message);
+
+            // Construct context payload
+            const labState = containers.map(c => ({
+                id: c.id,
+                type: c.type,
+                contents: c.contents ? {
+                    chemicalId: c.contents.chemicalId,
+                    chemicalName: CHEMICALS[c.contents.chemicalId]?.name,
+                    volume: c.contents.volume.toFixed(2),
+                    temperature: c.contents.temperature.toFixed(1)
+                } : 'Empty'
+            }));
+
+            await aiServiceRef.current.chat(message, { containers: labState, heaterOn: isHeaterOnRef.current });
             setIsAiLoading(false);
         }
     };
