@@ -193,7 +193,7 @@ const LabUI: React.FC<LabUIProps> = ({
                     )}
 
                     {/* QUEST LOG */}
-                    <div className={`transition-all duration-500 ease-out ${isQuestLogOpen ? 'w-72 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-10 overflow-hidden'}`}>
+                    <div className={`transition-all duration-500 ease-out ${isQuestLogOpen ? 'w-72 opacity-100 translate-x-0 pointer-events-auto' : 'w-0 opacity-0 -translate-x-10 overflow-hidden pointer-events-none'}`}>
                         <div className="bg-[#0f172a]/80 backdrop-blur-xl border border-amber-500/10 rounded-2xl p-4 shadow-xl">
                             <div className="flex justify-between items-center mb-3 border-b border-white/5 pb-2">
                                 <span className="text-amber-500/80 font-black text-[10px] uppercase tracking-widest">Nhiệm Vụ Hiện Tại</span>
@@ -212,7 +212,7 @@ const LabUI: React.FC<LabUIProps> = ({
                     {!isQuestLogOpen && (
                         <button
                             onClick={() => setIsQuestLogOpen(true)}
-                            className="bg-amber-500/10 text-amber-500 border border-amber-500/20 p-3 rounded-2xl text-xs font-bold uppercase tracking-wider backdrop-blur-md hover:bg-amber-500/20 transition-all text-left w-fit shadow-lg"
+                            className="bg-amber-500/10 text-amber-500 border border-amber-500/20 p-3 rounded-2xl text-xs font-bold uppercase tracking-wider backdrop-blur-md hover:bg-amber-500/20 transition-all text-left w-fit shadow-lg pointer-events-auto z-50"
                         >
                             📋 Nhiệm Vụ ({quests.filter(q => !q.isCompleted).length})
                         </button>
@@ -253,7 +253,7 @@ const LabUI: React.FC<LabUIProps> = ({
 
             {/* --- SIDEBAR (Compound Database) --- */}
             {!isExamMode && (
-            <div className={`absolute left-6 top-64 bottom-24 w-72 pointer-events-auto transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) z-40 ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0'}`}>
+            <div className={`absolute left-6 top-64 bottom-24 w-72 pointer-events-auto transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) z-40 ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 pointer-events-none'}`}>
                 <div className="flex justify-between items-center mb-3 px-1">
                     <h2 className="text-slate-500 font-black text-[10px] uppercase tracking-[0.2em] drop-shadow-md">KHO HÓA CHẤT</h2>
                     <button onClick={() => setIsSidebarOpen(false)} className="text-slate-600 hover:text-white transition-colors">✕</button>

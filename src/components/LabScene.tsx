@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, Text, Caustics, MeshTransmissionMaterial, Html, DragControls } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
-import { createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createMetalMaterial, createLabel, createHeaterMesh, createNoiseTexture } from '../utils/threeHelpers';
+import { createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createLabel, createHeaterMesh, createNoiseTexture } from '../utils/threeHelpers';
 import { EffectSystem } from '../utils/EffectSystem';
 import { audioManager } from '../utils/AudioManager';
 import { ContainerState } from '../types';
@@ -12,11 +12,10 @@ import ReactionVFX from './ReactionVFX';
 import { PhysicsEngine } from '../systems/PhysicsEngine';
 import { Analyzer3D } from './Analyzer3D';
 
-// Fix imports: CHEMICALS and HEATER_POSITION are in constants, not types
 const LOCAL_CHEMICALS = CHEMS_CONST;
 const LOCAL_HEATER_POSITION = HEAT_CONST;
 
-// Redefine local geometries
+// --- Local Geometries ---
 const createTestTubeGeometryLocal = () => {
     const points = [];
     points.push(new THREE.Vector2(0, 0));
@@ -51,7 +50,6 @@ const createJarGeometryLocal = () => {
 };
 
 // --- Container3D Component ---
-// Pure rendering component, Drag handled by parent Wrapper
 interface Container3DProps {
     container: ContainerState;
     quality: 'high' | 'low';
@@ -75,7 +73,6 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
         return new THREE.BoxGeometry(0.5, 0.5, 0.5);
     }, [container.type]);
 
-    // Determine liquid dimensions based on container type
     const liquidProps = useMemo(() => {
         if (container.type === 'beaker') return { radius: 0.46, height: 1.0 };
         if (container.type === 'test_tube') return { radius: 0.13, height: 1.1 };
@@ -94,9 +91,14 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
     const isUltra = quality === 'high';
     const isGlass = ['beaker', 'test_tube', 'bottle', 'burette'].includes(container.type);
 
+    // Sync position only if significantly different to avoid fighting DragControls
     useEffect(() => {
         if (groupRef.current) {
-            groupRef.current.position.set(...container.position);
+            const currentPos = groupRef.current.position;
+            const targetPos = new THREE.Vector3(...container.position);
+            if (currentPos.distanceTo(targetPos) > 0.01) {
+                groupRef.current.position.set(...container.position);
+            }
         }
     }, [container.position]);
 
@@ -166,7 +168,6 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
                     <mesh geometry={geometry} material={glassMaterial} castShadow />
                 ) : null}
 
-                {/* STATIC LIQUID MESH (Emergency Rollback) */}
                 {liquidProps && contents && (
                     <mesh position={[0, (liquidProps.height * contents.volume * 0.5) - (liquidProps.height * 0.5), 0]}>
                         <cylinderGeometry args={[liquidProps.radius, liquidProps.radius, liquidProps.height * Math.max(0.01, contents.volume), 32]} />
@@ -238,7 +239,7 @@ const LabLogic: React.FC<LabLogicProps> = ({
     useEffect(() => {
         effectSystemRef.current = new EffectSystem(scene);
 
-        // --- PHASE 2: FURNITURE RESTORATION ---
+        // --- FURNITURE & STATIC OBJECTS ---
         const tableMesh = new THREE.Mesh(
             new THREE.BoxGeometry(12, 0.2, 6),
             new THREE.MeshPhysicalMaterial({
@@ -246,15 +247,13 @@ const LabLogic: React.FC<LabLogicProps> = ({
                 roughness: 0.4,
                 metalness: 0.8,
                 clearcoat: 0.5,
-                clearcoatRoughness: 0.1,
-                transmission: 0, // Ensure it is solid
-                transparent: false
+                clearcoatRoughness: 0.1
             })
         );
         tableMesh.receiveShadow = true;
-        // NO EVENT HANDLERS ON TABLE (Module 1: Free Camera)
+        // Explicitly disable raycasting to prevent blocking OrbitControls
+        tableMesh.raycast = () => {};
 
-        // Add Emissive Accents
         const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(12, 0.2, 6));
         const edgeMat = new THREE.LineBasicMaterial({ color: 0x06b6d4, linewidth: 2 });
         const edges = new THREE.LineSegments(edgeGeo, edgeMat);
@@ -267,13 +266,13 @@ const LabLogic: React.FC<LabLogicProps> = ({
 
         scene.add(tableMesh);
 
-        // 2. The Source Chemical Shelf
         const shelf = new THREE.Mesh(
             new THREE.BoxGeometry(10, 0.1, 2.5),
             new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 })
         );
         shelf.position.set(0, 0.5, -3.5);
         shelf.receiveShadow = true;
+        shelf.raycast = () => {}; // Disable raycasting
         scene.add(shelf);
 
         // Logic Objects
@@ -305,7 +304,7 @@ const LabLogic: React.FC<LabLogicProps> = ({
         };
     }, [scene]);
 
-    // Imperative Raycasting for clicks (only for static logic objects like Heater/Valve)
+    // Handle clicks for static logic objects (Heater, Valve)
     useEffect(() => {
         const onPointerDown = (event: PointerEvent) => {
              if (event.button === 0) {
@@ -327,7 +326,7 @@ const LabLogic: React.FC<LabLogicProps> = ({
         return () => canvasEl.removeEventListener('pointerdown', onPointerDown);
     }, [gl, raycaster, scene, onToggleHeater, onToggleValve]);
 
-    useFrame((state, delta) => {
+    useFrame(() => {
         effectSystemRef.current?.update();
 
         if (shakeIntensity.current > 0) {
@@ -442,12 +441,7 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     const orbitControlsRef = useRef<any>(null);
     const [analyzerPos, setAnalyzerPos] = useState(new THREE.Vector3(4, 0, 1.5));
 
-    // DRAG CONTROLS HANDLERS (Module 2)
-    // The event argument is provided by DragControls, but we don't need it.
-    // However, TS expects (event: ThreeEvent<PointerEvent>) => void.
-    // We can just use 'any' to bypass or a compatible signature.
-    // Drei's DragControls onDragStart signature is (e: ThreeEvent<PointerEvent>) => void
-    const handleDragStart = (_e: any) => {
+    const handleDragStart = () => {
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
         audioManager.playGlassClink();
     };
@@ -455,44 +449,33 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     const handleDragEnd = (e: any) => {
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
 
-        // e.object is the mesh being dragged.
-        // But we wrap Container3D group in DragControls? No, DragControls wraps children and attaches drag.
-        // It returns the object in event.
-
-        const obj = e.object;
-        // We need to find which container this object belongs to.
-        // We attached userData={{ id: container.id }} to the group in Container3D.
-        // If DragControls is wrapping the Container3D group, e.object should be that group (or a child).
-        // Let's traverse up to find userData.id.
-        let target = obj;
+        // Find the container ID from the dragged object
+        let target = e.object;
         while (target && !target.userData.id) {
             target = target.parent;
         }
 
         if (target && target.userData.id) {
             const id = target.userData.id;
-            const pos = target.position;
+            const pos = target.position; // Position updated by DragControls
 
             if (id === 'ANALYZER') {
-                // Update Analyzer State
                 setAnalyzerPos(pos.clone());
                 return;
             }
 
-            // Sync Container Position
+            // Sync React State ONLY on drag end
             props.onMove(id, [pos.x, pos.y, pos.z]);
 
-            // Physics Checks (Module 3)
+            // Physics/Interaction Checks
             const sourcePos = pos;
             const sourceType = target.userData.type;
 
             meshesMap.current.forEach((other, otherId) => {
                 if (otherId !== id) {
-                    // Pour Check
                     if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, id, otherId)) {
                         props.onPour(id, otherId);
                     }
-                    // Drop Check
                     else if (PhysicsEngine.checkDropCondition(sourcePos, other.group.position, sourceType)) {
                         props.onDrop(id, otherId);
                     }
@@ -500,11 +483,6 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
             });
         }
     };
-
-    // Prepare objects for DragControls
-    // DragControls expects an array of objects or children.
-    // We can wrap everything in DragControls?
-    // <DragControls> can accept children.
 
     return (
         <div className="w-full h-full">
@@ -546,7 +524,6 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                     axisLock="y"
                 >
                     <group>
-                        {/* ANALYZER MACHINE */}
                         <Analyzer3D
                             position={[analyzerPos.x, analyzerPos.y, analyzerPos.z]}
                             updateDisplay={(ctx) => {
@@ -559,15 +536,6 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
 
                                 props.containers.forEach(c => {
                                     const cPos = new THREE.Vector3(...c.position);
-                                    // Analyzer position is updated by DragControls directly on mesh,
-                                    // but react state `analyzerPos` might lag until drag end if we don't sync.
-                                    // However, visual feedback needs real-time.
-                                    // `analyzerPos` is state. `DragControls` modifies scene object.
-                                    // We need to read from scene object?
-                                    // Actually, let's just use the `analyzerPos` state which we update onDragEnd.
-                                    // Real-time update during drag requires onDrag callback.
-                                    // But DragControls onDrag provides matrix.
-
                                     if (analyzerPos.distanceTo(cPos) < 1.2 && c.contents) {
                                         foundChem = c.contents.chemicalId;
                                         foundTemp = c.contents.temperature || 25;
@@ -592,7 +560,6 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                             }}
                         />
 
-                        {/* CONTAINERS */}
                         {props.containers.map(c => (
                             c.id !== props.explodedContainerId && (
                                 <Container3D
