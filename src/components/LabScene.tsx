@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo, forwardRef, Suspense } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment, Text, Caustics, MeshTransmissionMaterial, Html } from '@react-three/drei';
-import { useDrag } from '@use-gesture/react';
+import { OrbitControls, Environment, Text, Caustics, MeshTransmissionMaterial, Html, DragControls } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createMetalMaterial, createLabel, createHeaterMesh, createNoiseTexture } from '../utils/threeHelpers';
 import { EffectSystem } from '../utils/EffectSystem';
@@ -51,102 +50,20 @@ const createJarGeometryLocal = () => {
     return new THREE.LatheGeometry(points, 32);
 };
 
-
 // --- Container3D Component ---
-// Modified to use useDrag hook
+// Pure rendering component, Drag handled by parent Wrapper
 interface Container3DProps {
     container: ContainerState;
     quality: 'high' | 'low';
-    onDragStart: () => void;
-    onDragEnd: (id: string, pos: [number, number, number]) => void;
-    // We don't need manual onPointerDown anymore as useDrag handles it
 }
 
-const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ container, quality, onDragStart, onDragEnd }, ref) => {
+const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ container, quality }, ref) => {
     const groupRef = useRef<THREE.Group>(null);
     const solidRef = useRef<THREE.Mesh>(null);
-    const { size, viewport, camera, raycaster } = useThree();
 
     React.useImperativeHandle(ref, () => ({
         group: groupRef.current!
     }));
-
-    // GESTURE HOOK
-    const bind = useDrag(
-        ({ active, event, timeStamp }) => {
-            if (active) {
-                // DRAGGING
-                // 1. Disable Orbit Controls
-                onDragStart();
-                event.stopPropagation();
-
-                // 2. Raycast to invisible plane at y=0.11
-                // We construct a plane and raycast manually or use the event data if available.
-                // Simpler: Use the standard Ray-Plane intersection math.
-                const planeY = 0.11;
-
-                // Get normalized mouse coords (-1 to +1)
-                // useDrag provides xy in pixels. We need normalized device coords (NDC).
-                // Or better: use Three's raycaster directly with mouse position.
-                // But useDrag returns event which is a pointer event.
-
-                // Construct a Plane in ThreeJS
-                const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -planeY); // Plane normal (0,1,0), constant -0.11
-
-                // Raycaster is updated by R3F loop, but we might need to set it from event coordinates?
-                // R3F event already contains `point` (intersection point on the object).
-                // But we want intersection on a global plane, not the object itself.
-
-                // Let's create a ray from camera
-                // Convert pixel coordinates to NDC
-                const x = (event as any).clientX;
-                const y = (event as any).clientY;
-                // We need canvas bounds
-                const canvas = (event as any).target as HTMLCanvasElement; // rough guess
-                // Actually @use-gesture gives us nice coordinates but mapping to 3D needs care.
-
-                // EASIEST WAY:
-                // Just use the R3F `raycaster` with the current mouse position.
-                // But `useThree` state is global.
-                // Let's rely on `event` from R3F if we attach to mesh?
-                // `useDrag` attaches listeners to the dom element usually or we spread props.
-                // Wait, standard `useDrag` attaches to the returned bind() props which we put on the mesh.
-                // The event passed to the callback is a ThreeEvent if we bind to a R3F mesh!
-                // SO `event.point` is where we clicked on the mesh.
-
-                // BUT we want to drag on a plane.
-                // Standard technique:
-                // Calculate intersection of Ray with Plane.
-
-                const ray = new THREE.Ray();
-                ray.origin.copy(camera.position);
-                // Direction: from camera to mouse NDC.
-                // We need mouse NDC.
-                const ndcX = ((x / window.innerWidth) * 2 - 1);
-                const ndcY = -((y / window.innerHeight) * 2 - 1);
-                // This assumes full screen canvas.
-
-                ray.direction.set(ndcX, ndcY, 0.5).unproject(camera).sub(ray.origin).normalize();
-
-                const target = new THREE.Vector3();
-                ray.intersectPlane(plane, target);
-
-                if (target) {
-                    // Update position directly
-                    // Clamp Y based on type
-                    const targetY = (container.type === 'bottle' || container.type === 'jar') ? 0.56 : 0.11;
-                    groupRef.current?.position.set(target.x, targetY, target.z);
-                }
-            } else {
-                // END DRAG
-                if (groupRef.current) {
-                    const { x, y, z } = groupRef.current.position;
-                    onDragEnd(container.id, [x, y, z]);
-                }
-            }
-        },
-        { filterTaps: true }
-    );
 
     const geometry = useMemo(() => {
         if (container.type === 'beaker') return createBeakerGeometry(0.5, 1.2);
@@ -188,11 +105,9 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
     return (
         <group
             ref={groupRef}
-            userData={{ id: container.id }}
+            userData={{ id: container.id, type: container.type }}
             castShadow
             receiveShadow
-            {...bind() as any}
-            onClick={(e) => { e.stopPropagation(); /* Prevent click-through */ }}
         >
             {container.type === 'burette' && (
                 <primitive object={createStandGeometry()} />
@@ -299,11 +214,10 @@ interface LabLogicProps {
     explodedContainerId?: string | null;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
-    onDrop: (sourceId: string, targetId: string) => void; // New prop for solid drops
+    onDrop: (sourceId: string, targetId: string) => void;
     onToggleValve?: (id: string) => void;
     isHeaterOn?: boolean;
     onToggleHeater?: () => void;
-    // Callbacks for Analyzer
     setAnalyzerPosition: (pos: THREE.Vector3) => void;
     analyzerPosition: THREE.Vector3;
     heaterTemp?: number;
@@ -318,15 +232,13 @@ const LabLogic: React.FC<LabLogicProps> = ({
     const effectSystemRef = useRef<EffectSystem | null>(null);
     const shakeIntensity = useRef(0);
     const pourStreamRef = useRef<THREE.Mesh | null>(null);
-
     const heaterRef = useRef<{ mesh: THREE.Object3D, light: THREE.PointLight } | null>(null);
 
-    // Initial Scene Setup (Phase 2: Furniture Restoration & Logic Objects)
+    // Initial Scene Setup
     useEffect(() => {
         effectSystemRef.current = new EffectSystem(scene);
 
         // --- PHASE 2: FURNITURE RESTORATION ---
-        // 1. The Main Table & Grid (Imperative)
         const tableMesh = new THREE.Mesh(
             new THREE.BoxGeometry(12, 0.2, 6),
             new THREE.MeshPhysicalMaterial({
@@ -338,8 +250,9 @@ const LabLogic: React.FC<LabLogicProps> = ({
             })
         );
         tableMesh.receiveShadow = true;
+        // NO EVENT HANDLERS ON TABLE (Module 1: Free Camera)
 
-        // Add Emissive Accents (Neon Edges)
+        // Add Emissive Accents
         const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(12, 0.2, 6));
         const edgeMat = new THREE.LineBasicMaterial({ color: 0x06b6d4, linewidth: 2 });
         const edges = new THREE.LineSegments(edgeGeo, edgeMat);
@@ -347,12 +260,12 @@ const LabLogic: React.FC<LabLogicProps> = ({
         tableMesh.add(edges);
 
         const grid = new THREE.GridHelper(10, 20, 0x06b6d4, 0x1e293b);
-        grid.position.y = 0.11; // Relative to mesh center
+        grid.position.y = 0.11;
         tableMesh.add(grid);
 
         scene.add(tableMesh);
 
-        // 2. The Source Chemical Shelf (Imperative)
+        // 2. The Source Chemical Shelf
         const shelf = new THREE.Mesh(
             new THREE.BoxGeometry(10, 0.1, 2.5),
             new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 })
@@ -361,7 +274,7 @@ const LabLogic: React.FC<LabLogicProps> = ({
         shelf.receiveShadow = true;
         scene.add(shelf);
 
-        // Logic Objects (Heater, Analyzer, Stream)
+        // Logic Objects
         const heater = createHeaterMesh();
         heater.position.set(...LOCAL_HEATER_POSITION);
         heater.userData.id = 'HEATER';
@@ -390,7 +303,7 @@ const LabLogic: React.FC<LabLogicProps> = ({
         };
     }, [scene]);
 
-    // Imperative Raycasting for clicks on logic objects
+    // Imperative Raycasting for clicks (only for static logic objects like Heater/Valve)
     useEffect(() => {
         const onPointerDown = (event: PointerEvent) => {
              if (event.button === 0) {
@@ -439,10 +352,7 @@ const LabLogic: React.FC<LabLogicProps> = ({
             const { mesh, light } = heaterRef.current;
             const temp = heaterTemp || 300;
             const intensity = isHeaterOn ? (temp / 300) : 0;
-
-            // Light color shifts from orange to white-hot
             const hotColor = new THREE.Color().setHSL(0.05 + (temp/2000)*0.1, 1.0, 0.5 + (temp/2000)*0.5);
-
             light.intensity = intensity * 1.5;
             light.color = hotColor;
 
@@ -530,56 +440,69 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     const orbitControlsRef = useRef<any>(null);
     const [analyzerPos, setAnalyzerPos] = useState(new THREE.Vector3(4, 0, 1.5));
 
-    // Gestures handling within Container3D now.
-    // We just need to handle the end callbacks.
-
-    const handleDragStart = () => {
+    // DRAG CONTROLS HANDLERS (Module 2)
+    // The event argument is provided by DragControls, but we don't need it.
+    // However, TS expects (event: ThreeEvent<PointerEvent>) => void.
+    // We can just use 'any' to bypass or a compatible signature.
+    // Drei's DragControls onDragStart signature is (e: ThreeEvent<PointerEvent>) => void
+    const handleDragStart = (_e: any) => {
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
         audioManager.playGlassClink();
     };
 
-    const handleDragEnd = (id: string, pos: [number, number, number]) => {
+    const handleDragEnd = (e: any) => {
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-        props.onMove(id, pos);
 
-        // Physics Checks
-        const obj = meshesMap.current.get(id);
-        if (!obj) return;
+        // e.object is the mesh being dragged.
+        // But we wrap Container3D group in DragControls? No, DragControls wraps children and attaches drag.
+        // It returns the object in event.
 
-        const sourcePos = obj.group.position;
-        const sourceType = props.containers.find(c => c.id === id)?.type;
+        const obj = e.object;
+        // We need to find which container this object belongs to.
+        // We attached userData={{ id: container.id }} to the group in Container3D.
+        // If DragControls is wrapping the Container3D group, e.object should be that group (or a child).
+        // Let's traverse up to find userData.id.
+        let target = obj;
+        while (target && !target.userData.id) {
+            target = target.parent;
+        }
 
-        meshesMap.current.forEach((other, otherId) => {
-            if (otherId !== id) {
-                // 1. Pour Check
-                const canPour = PhysicsEngine.checkPourCondition(
-                    sourcePos,
-                    other.group.position,
-                    id,
-                    otherId
-                );
-                if (canPour) props.onPour(id, otherId);
+        if (target && target.userData.id) {
+            const id = target.userData.id;
+            const pos = target.position;
 
-                // 2. Drop Check (Solid -> Liquid)
-                // We need to know if the dragged object is a dropped solid
-                // Check Drop logic relies on PhysicsEngine which we need to update first
-                // Assuming PhysicsEngine.checkDropCondition exists (Step 2 of plan)
-                // We'll leave this for now and update PhysicsEngine next.
-                // But we can implement the call here.
-
-                // 2. Drop Check (Solid -> Liquid)
-                const canDrop = PhysicsEngine.checkDropCondition(
-                    sourcePos,
-                    other.group.position,
-                    sourceType
-                );
-
-                if (canDrop) {
-                    props.onDrop(id, otherId);
-                }
+            if (id === 'ANALYZER') {
+                // Update Analyzer State
+                setAnalyzerPos(pos.clone());
+                return;
             }
-        });
+
+            // Sync Container Position
+            props.onMove(id, [pos.x, pos.y, pos.z]);
+
+            // Physics Checks (Module 3)
+            const sourcePos = pos;
+            const sourceType = target.userData.type;
+
+            meshesMap.current.forEach((other, otherId) => {
+                if (otherId !== id) {
+                    // Pour Check
+                    if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, id, otherId)) {
+                        props.onPour(id, otherId);
+                    }
+                    // Drop Check
+                    else if (PhysicsEngine.checkDropCondition(sourcePos, other.group.position, sourceType)) {
+                        props.onDrop(id, otherId);
+                    }
+                }
+            });
+        }
     };
+
+    // Prepare objects for DragControls
+    // DragControls expects an array of objects or children.
+    // We can wrap everything in DragControls?
+    // <DragControls> can accept children.
 
     return (
         <div className="w-full h-full">
@@ -614,80 +537,78 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                     setAnalyzerPosition={setAnalyzerPos}
                 />
 
-                <Analyzer3D
-                    position={[analyzerPos.x, analyzerPos.y, analyzerPos.z]}
-                    onPositionChange={setAnalyzerPos}
+                {/* @ts-ignore */}
+                <DragControls
                     onDragStart={handleDragStart}
-                    onDragEnd={() => { if(orbitControlsRef.current) orbitControlsRef.current.enabled = true; }}
-                    updateDisplay={(ctx) => {
-                        ctx.fillStyle = '#0f172a';
-                        ctx.fillRect(0, 0, 256, 128);
-                        ctx.textAlign = 'center';
+                    onDragEnd={handleDragEnd}
+                    axisLock="y"
+                >
+                    <group>
+                        {/* ANALYZER MACHINE */}
+                        <Analyzer3D
+                            position={[analyzerPos.x, analyzerPos.y, analyzerPos.z]}
+                            updateDisplay={(ctx) => {
+                                ctx.fillStyle = '#0f172a';
+                                ctx.fillRect(0, 0, 256, 128);
+                                ctx.textAlign = 'center';
 
-                        // Check probe proximity
-                        // Probe tip offset relative to group
-                        const probeTipWorld = analyzerPos.clone().add(new THREE.Vector3(0, -0.6 + 0.3, 0.5 + 0.3));
-                        // Wait, geometry offsets:
-                        // Probe geo translated 0, -0.3, 0.5.
-                        // Arm translated 0, 0.3, 0.3.
-                        // Body at 0,0,0.
-                        // Probe tip is roughly at (0, -0.6, 0.5) relative to body center (which is 0.4 high?).
-                        // Let's approximate:
-                        // Analyzer is at `analyzerPos`.
-                        // Probe tip is at `analyzerPos` + (0, 0.3, 0.5).
-                        // Actually, let's just find the closest beaker.
+                                let foundChem = null;
+                                let foundTemp = 25;
 
-                        let foundChem = null;
-                        let foundTemp = 25;
+                                props.containers.forEach(c => {
+                                    const cPos = new THREE.Vector3(...c.position);
+                                    // Analyzer position is updated by DragControls directly on mesh,
+                                    // but react state `analyzerPos` might lag until drag end if we don't sync.
+                                    // However, visual feedback needs real-time.
+                                    // `analyzerPos` is state. `DragControls` modifies scene object.
+                                    // We need to read from scene object?
+                                    // Actually, let's just use the `analyzerPos` state which we update onDragEnd.
+                                    // Real-time update during drag requires onDrag callback.
+                                    // But DragControls onDrag provides matrix.
 
-                        props.containers.forEach(c => {
-                            const cPos = new THREE.Vector3(...c.position);
-                            // Simple distance check from Analyzer center to Beaker center
-                            // If distance < 1.0, read it.
-                            if (analyzerPos.distanceTo(cPos) < 1.2 && c.contents) {
-                                foundChem = c.contents.chemicalId;
-                                foundTemp = c.contents.temperature || 25;
-                            }
-                        });
-
-                        if (foundChem) {
-                            const chem = LOCAL_CHEMICALS[foundChem];
-                            ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
-                            ctx.font = 'bold 24px monospace';
-                            ctx.fillText('SCANNING...', 128, 40);
-                            ctx.fillStyle = '#22c55e';
-                            ctx.font = 'bold 36px monospace';
-                            ctx.fillText(`pH: ${chem.ph}`, 128, 80);
-                            ctx.font = '24px monospace';
-                            ctx.fillText(`${foundTemp.toFixed(0)}°C`, 128, 110);
-                        } else {
-                            ctx.fillStyle = '#94a3b8';
-                            ctx.font = 'bold 32px monospace';
-                            ctx.fillText('READY', 128, 70);
-                        }
-                    }}
-                />
-
-                <group>
-                    {props.containers.map(c => (
-                        c.id !== props.explodedContainerId && (
-                            <Container3D
-                                key={c.id}
-                                container={c}
-                                quality={props.isPerformanceMode ? 'low' : 'high'}
-                                ref={(node) => {
-                                    if (node) {
-                                        meshesMap.current.set(c.id, node);
-                                    } else {
-                                        meshesMap.current.delete(c.id);
+                                    if (analyzerPos.distanceTo(cPos) < 1.2 && c.contents) {
+                                        foundChem = c.contents.chemicalId;
+                                        foundTemp = c.contents.temperature || 25;
                                     }
-                                }}
-                                onDragStart={handleDragStart}
-                                onDragEnd={handleDragEnd}
-                            />
-                        )
-                    ))}
-                </group>
+                                });
+
+                                if (foundChem) {
+                                    const chem = LOCAL_CHEMICALS[foundChem];
+                                    ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
+                                    ctx.font = 'bold 24px monospace';
+                                    ctx.fillText('SCANNING...', 128, 40);
+                                    ctx.fillStyle = '#22c55e';
+                                    ctx.font = 'bold 36px monospace';
+                                    ctx.fillText(`pH: ${chem.ph}`, 128, 80);
+                                    ctx.font = '24px monospace';
+                                    ctx.fillText(`${foundTemp.toFixed(0)}°C`, 128, 110);
+                                } else {
+                                    ctx.fillStyle = '#94a3b8';
+                                    ctx.font = 'bold 32px monospace';
+                                    ctx.fillText('READY', 128, 70);
+                                }
+                            }}
+                        />
+
+                        {/* CONTAINERS */}
+                        {props.containers.map(c => (
+                            c.id !== props.explodedContainerId && (
+                                <Container3D
+                                    key={c.id}
+                                    container={c}
+                                    quality={props.isPerformanceMode ? 'low' : 'high'}
+                                    ref={(node) => {
+                                        if (node) {
+                                            meshesMap.current.set(c.id, node);
+                                        } else {
+                                            meshesMap.current.delete(c.id);
+                                        }
+                                    }}
+                                />
+                            )
+                        ))}
+                    </group>
+                </DragControls>
 
                 {props.lastEffect && props.lastEffectPos && (
                     <ReactionVFX

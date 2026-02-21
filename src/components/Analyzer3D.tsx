@@ -1,7 +1,6 @@
 import React, { useRef, useMemo, useEffect } from 'react';
 import * as THREE from 'three';
-import { useThree } from '@react-three/fiber';
-import { useDrag } from '@use-gesture/react';
+import { useFrame } from '@react-three/fiber';
 
 const createAnalyzerGeometry = () => {
     const group = new THREE.Group();
@@ -40,71 +39,47 @@ const createAnalyzerGeometry = () => {
 };
 
 interface Analyzer3DProps {
-    onDragStart: () => void;
-    onDragEnd: () => void;
-    updateDisplay: (ctx: CanvasRenderingContext2D) => void;
+    updateDisplay: (ctx: CanvasRenderingContext2D, worldPos: THREE.Vector3) => void;
     position: [number, number, number];
-    onPositionChange: (pos: THREE.Vector3) => void;
+    // Add missing props that LabScene is passing (even if not used by DragControls directly, TS complains if we spread)
+    onDragStart?: (e: any) => void;
+    onDragEnd?: () => void;
+    onPositionChange?: (pos: THREE.Vector3) => void;
 }
 
-export const Analyzer3D = React.forwardRef<{ group: THREE.Group }, Analyzer3DProps>(({ onDragStart, onDragEnd, updateDisplay, position, onPositionChange }, ref) => {
-    const groupRef = useRef<THREE.Group>(null);
-    const { camera } = useThree();
+export const Analyzer3D = React.forwardRef<{ group: THREE.Group }, Analyzer3DProps>(({ updateDisplay, position }, ref) => {
+    const localRef = useRef<THREE.Group>(null);
     const { group, texture, canvas } = useMemo(() => createAnalyzerGeometry(), []);
 
     React.useImperativeHandle(ref, () => ({
-        group: groupRef.current!
+        group: localRef.current!
     }));
 
-    // Update display texture
+    // Initial position
     useEffect(() => {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            updateDisplay(ctx);
-            texture.needsUpdate = true;
+        if (localRef.current) {
+            localRef.current.position.set(...position);
+        }
+    }, [position]); // Only update when parent state changes (drop)
+
+    // Real-time display update
+    useFrame(() => {
+        if (localRef.current) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+                // Pass current world position to update callback
+                updateDisplay(ctx, localRef.current.position);
+                texture.needsUpdate = true;
+            }
         }
     });
 
-    const bind = useDrag(
-        ({ active, event }) => {
-            if (active) {
-                onDragStart();
-                event.stopPropagation();
-
-                const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // Ground plane 0
-
-                const x = (event as any).clientX;
-                const y = (event as any).clientY;
-
-                const ray = new THREE.Ray();
-                ray.origin.copy(camera.position);
-                const ndcX = ((x / window.innerWidth) * 2 - 1);
-                const ndcY = -((y / window.innerHeight) * 2 - 1);
-                ray.direction.set(ndcX, ndcY, 0.5).unproject(camera).sub(ray.origin).normalize();
-
-                const target = new THREE.Vector3();
-                ray.intersectPlane(plane, target);
-
-                if (target && groupRef.current) {
-                    // Clamp Y to 0 (floor) or table height 0.11 if we want it on table
-                    // Analyzer looks like a machine, maybe it sits on table.
-                    groupRef.current.position.set(target.x, 0, target.z);
-                    onPositionChange(groupRef.current.position);
-                }
-            } else {
-                onDragEnd();
-            }
-        },
-        { filterTaps: true }
-    );
-
     return (
         <primitive
-            ref={groupRef}
+            ref={localRef}
             object={group}
-            position={position}
-            {...bind() as any}
-            onClick={(e: any) => e.stopPropagation()}
+            // We attach userData so DragControls can identify it
+            userData={{ id: 'ANALYZER', type: 'tool' }}
         />
     );
 });
