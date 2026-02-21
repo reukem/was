@@ -118,9 +118,10 @@ export class ChemistryEngine {
         const resultColor = this.blendColors(c1.color, vol1, c2.color, vol2);
 
         // --- TITRATION / INDICATOR LOGIC ---
-        const hasIndicator = [chemId1, chemId2].some(id => id === 'PHENOLPHTHALEIN' || id === 'PINK_INDICATOR');
+        const hasPhenol = [chemId1, chemId2].some(id => id === 'PHENOLPHTHALEIN' || id === 'PINK_INDICATOR');
+        const hasUniversal = [chemId1, chemId2].some(id => id === 'UNIVERSAL_INDICATOR');
 
-        if (hasIndicator) {
+        if (hasPhenol || hasUniversal) {
             const getMolarBalance = (ph: number, vol: number) => {
                 const h = Math.pow(10, -ph);
                 const oh = Math.pow(10, -(14 - ph));
@@ -141,6 +142,28 @@ export class ChemistryEngine {
                 }
             }
 
+            // UNIVERSAL INDICATOR LOGIC
+            if (hasUniversal) {
+                let color = '#22c55e'; // 7 Green
+                if (finalPH < 3) color = '#ef4444'; // Red
+                else if (finalPH < 5) color = '#f97316'; // Orange
+                else if (finalPH < 6.5) color = '#eab308'; // Yellow
+                else if (finalPH < 7.5) color = '#22c55e'; // Green
+                else if (finalPH < 9.5) color = '#3b82f6'; // Blue
+                else color = '#a855f7'; // Purple
+
+                return {
+                    resultId: 'UNIVERSAL_INDICATOR',
+                    resultColor: color,
+                    reaction: {
+                        productName: `Dung dịch pH ${finalPH.toFixed(1)}`,
+                        color: color,
+                        message: `Chất chỉ thị vạn năng: pH = ${finalPH.toFixed(1)}.`
+                    }
+                };
+            }
+
+            // PHENOLPHTHALEIN LOGIC
             if (finalPH >= 8.2) {
                 return {
                     resultId: 'PINK_INDICATOR',

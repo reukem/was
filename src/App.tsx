@@ -326,7 +326,25 @@ const App: React.FC = () => {
     }, []);
 
     const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
-        setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
+        setContainers(prev => prev.map(c => {
+            if (c.id === id) {
+                // HEATER SNAP LOGIC (Module 3)
+                const distToHeater = new THREE.Vector2(position[0], position[2])
+                    .distanceTo(new THREE.Vector2(HEATER_POSITION[0], HEATER_POSITION[2]));
+
+                if (distToHeater < 0.4 && (c.type === 'beaker')) {
+                    // Snap to plate
+                    return { ...c, position: [HEATER_POSITION[0], 0.36, HEATER_POSITION[2]], isOnHeater: true };
+                }
+                return { ...c, position, isOnHeater: false };
+            }
+            return c;
+        }));
+    }, []);
+
+    // NEW: Handle Solid Drops (Sodium -> Water)
+    const handleDrop = useCallback((sourceId: string, targetId: string) => {
+        handlePour(sourceId, targetId, 1.0); // Pour everything (solid chunk)
     }, []);
 
     const handlePour = useCallback(async (sourceId: string, targetId: string, amountOverride?: number) => {
@@ -584,6 +602,7 @@ const App: React.FC = () => {
                 explodedContainerId={explodedContainerId}
                 onMove={handleMoveContainer}
                 onPour={handlePour}
+                onDrop={handleDrop}
                 onToggleValve={handleToggleValve}
                 isHeaterOn={isHeaterOn}
                 onToggleHeater={handleToggleHeater}

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, forwardRef, Suspense } fro
 import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, Text, Caustics, MeshTransmissionMaterial, Html } from '@react-three/drei';
+import { useDrag } from '@use-gesture/react';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createMetalMaterial, createLabel, createHeaterMesh, createNoiseTexture } from '../utils/threeHelpers';
 import { EffectSystem } from '../utils/EffectSystem';
@@ -10,6 +11,7 @@ import { ContainerState } from '../types';
 import { CHEMICALS as CHEMS_CONST, HEATER_POSITION as HEAT_CONST } from '../constants';
 import ReactionVFX from './ReactionVFX';
 import { PhysicsEngine } from '../systems/PhysicsEngine';
+import { Analyzer3D } from './Analyzer3D';
 
 // Fix imports: CHEMICALS and HEATER_POSITION are in constants, not types
 const LOCAL_CHEMICALS = CHEMS_CONST;
@@ -49,63 +51,102 @@ const createJarGeometryLocal = () => {
     return new THREE.LatheGeometry(points, 32);
 };
 
-const createAnalyzerMachineLocal = () => {
-    const group = new THREE.Group();
-    const bodyGeo = new THREE.BoxGeometry(0.5, 0.8, 0.3);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.castShadow = true;
-    group.add(body);
-
-    const accentGeo = new THREE.BoxGeometry(0.52, 0.1, 0.32);
-    const accentMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 1.0, roughness: 0.2 });
-    const topAccent = new THREE.Mesh(accentGeo, accentMat);
-    topAccent.position.y = 0.42;
-    group.add(topAccent);
-
-    const armGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.4);
-    armGeo.rotateX(Math.PI / 2);
-    armGeo.translate(0, 0.3, 0.3);
-    const arm = new THREE.Mesh(armGeo, bodyMat);
-    group.add(arm);
-
-    const probeGeo = new THREE.CylinderGeometry(0.01, 0.01, 0.6);
-    probeGeo.translate(0, -0.3, 0.5);
-    const probe = new THREE.Mesh(probeGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 1.0 }));
-    const collider = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
-    collider.position.set(0, -0.3, 0.5);
-    collider.userData.type = 'PROBE_SENSOR';
-    group.add(collider);
-    group.add(probe);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, 256, 128);
-        ctx.font = 'bold 30px monospace';
-        ctx.fillStyle = '#22c55e';
-        ctx.textAlign = 'center';
-        ctx.fillText('ANALYZER', 128, 70);
-    }
-    const texture = new THREE.CanvasTexture(canvas);
-    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.25), new THREE.MeshBasicMaterial({ map: texture }));
-    screen.position.set(0, 0.1, 0.17);
-    group.add(screen);
-
-    return { group, texture, canvas };
-};
 
 // --- Container3D Component ---
-const Container3D = forwardRef<{ group: THREE.Group }, { container: ContainerState, quality: 'high' | 'low', onPointerDown?: (e: any) => void }>(({ container, quality, onPointerDown }, ref) => {
+// Modified to use useDrag hook
+interface Container3DProps {
+    container: ContainerState;
+    quality: 'high' | 'low';
+    onDragStart: () => void;
+    onDragEnd: (id: string, pos: [number, number, number]) => void;
+    // We don't need manual onPointerDown anymore as useDrag handles it
+}
+
+const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ container, quality, onDragStart, onDragEnd }, ref) => {
     const groupRef = useRef<THREE.Group>(null);
     const solidRef = useRef<THREE.Mesh>(null);
+    const { size, viewport, camera, raycaster } = useThree();
 
     React.useImperativeHandle(ref, () => ({
         group: groupRef.current!
     }));
+
+    // GESTURE HOOK
+    const bind = useDrag(
+        ({ active, event, timeStamp }) => {
+            if (active) {
+                // DRAGGING
+                // 1. Disable Orbit Controls
+                onDragStart();
+                event.stopPropagation();
+
+                // 2. Raycast to invisible plane at y=0.11
+                // We construct a plane and raycast manually or use the event data if available.
+                // Simpler: Use the standard Ray-Plane intersection math.
+                const planeY = 0.11;
+
+                // Get normalized mouse coords (-1 to +1)
+                // useDrag provides xy in pixels. We need normalized device coords (NDC).
+                // Or better: use Three's raycaster directly with mouse position.
+                // But useDrag returns event which is a pointer event.
+
+                // Construct a Plane in ThreeJS
+                const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -planeY); // Plane normal (0,1,0), constant -0.11
+
+                // Raycaster is updated by R3F loop, but we might need to set it from event coordinates?
+                // R3F event already contains `point` (intersection point on the object).
+                // But we want intersection on a global plane, not the object itself.
+
+                // Let's create a ray from camera
+                // Convert pixel coordinates to NDC
+                const x = (event as any).clientX;
+                const y = (event as any).clientY;
+                // We need canvas bounds
+                const canvas = (event as any).target as HTMLCanvasElement; // rough guess
+                // Actually @use-gesture gives us nice coordinates but mapping to 3D needs care.
+
+                // EASIEST WAY:
+                // Just use the R3F `raycaster` with the current mouse position.
+                // But `useThree` state is global.
+                // Let's rely on `event` from R3F if we attach to mesh?
+                // `useDrag` attaches listeners to the dom element usually or we spread props.
+                // Wait, standard `useDrag` attaches to the returned bind() props which we put on the mesh.
+                // The event passed to the callback is a ThreeEvent if we bind to a R3F mesh!
+                // SO `event.point` is where we clicked on the mesh.
+
+                // BUT we want to drag on a plane.
+                // Standard technique:
+                // Calculate intersection of Ray with Plane.
+
+                const ray = new THREE.Ray();
+                ray.origin.copy(camera.position);
+                // Direction: from camera to mouse NDC.
+                // We need mouse NDC.
+                const ndcX = ((x / window.innerWidth) * 2 - 1);
+                const ndcY = -((y / window.innerHeight) * 2 - 1);
+                // This assumes full screen canvas.
+
+                ray.direction.set(ndcX, ndcY, 0.5).unproject(camera).sub(ray.origin).normalize();
+
+                const target = new THREE.Vector3();
+                ray.intersectPlane(plane, target);
+
+                if (target) {
+                    // Update position directly
+                    // Clamp Y based on type
+                    const targetY = (container.type === 'bottle' || container.type === 'jar') ? 0.56 : 0.11;
+                    groupRef.current?.position.set(target.x, targetY, target.z);
+                }
+            } else {
+                // END DRAG
+                if (groupRef.current) {
+                    const { x, y, z } = groupRef.current.position;
+                    onDragEnd(container.id, [x, y, z]);
+                }
+            }
+        },
+        { filterTaps: true }
+    );
 
     const geometry = useMemo(() => {
         if (container.type === 'beaker') return createBeakerGeometry(0.5, 1.2);
@@ -140,12 +181,19 @@ const Container3D = forwardRef<{ group: THREE.Group }, { container: ContainerSta
         if (groupRef.current) {
             groupRef.current.position.set(...container.position);
         }
-    }, []);
+    }, [container.position]);
 
     const glassMaterial = useMemo(() => createGlassMaterial(quality), [quality]);
 
     return (
-        <group ref={groupRef} userData={{ id: container.id }} castShadow receiveShadow onPointerDown={onPointerDown}>
+        <group
+            ref={groupRef}
+            userData={{ id: container.id }}
+            castShadow
+            receiveShadow
+            {...bind() as any}
+            onClick={(e) => { e.stopPropagation(); /* Prevent click-through */ }}
+        >
             {container.type === 'burette' && (
                 <primitive object={createStandGeometry()} />
             )}
@@ -251,33 +299,25 @@ interface LabLogicProps {
     explodedContainerId?: string | null;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
+    onDrop: (sourceId: string, targetId: string) => void; // New prop for solid drops
     onToggleValve?: (id: string) => void;
     isHeaterOn?: boolean;
     onToggleHeater?: () => void;
-    handlePlanePointerUp: (e: any) => void;
-    handlePlanePointerMove: (e: any) => void;
+    // Callbacks for Analyzer
+    setAnalyzerPosition: (pos: THREE.Vector3) => void;
+    analyzerPosition: THREE.Vector3;
 }
 
 const LabLogic: React.FC<LabLogicProps> = ({
     containers, meshesMap, lastEffect, lastEffectPos, explodedContainerId,
     onMove, onPour, onToggleValve, isHeaterOn, onToggleHeater,
-    handlePlanePointerUp, handlePlanePointerMove
+    setAnalyzerPosition, analyzerPosition
 }) => {
     const { scene, camera, gl, raycaster } = useThree();
     const effectSystemRef = useRef<EffectSystem | null>(null);
     const shakeIntensity = useRef(0);
     const pourStreamRef = useRef<THREE.Mesh | null>(null);
 
-    // Callbacks refs
-    const onMoveRef = useRef(onMove);
-    const onPourRef = useRef(onPour);
-
-    useEffect(() => {
-        onMoveRef.current = onMove;
-        onPourRef.current = onPour;
-    }, [onMove, onPour]);
-
-    const analyzerRef = useRef<{ group: THREE.Group, texture: THREE.CanvasTexture, canvas: HTMLCanvasElement } | null>(null);
     const heaterRef = useRef<{ mesh: THREE.Object3D, light: THREE.PointLight } | null>(null);
 
     // Initial Scene Setup (Phase 2: Furniture Restoration & Logic Objects)
@@ -302,7 +342,6 @@ const LabLogic: React.FC<LabLogicProps> = ({
         const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(12, 0.2, 6));
         const edgeMat = new THREE.LineBasicMaterial({ color: 0x06b6d4, linewidth: 2 });
         const edges = new THREE.LineSegments(edgeGeo, edgeMat);
-        // Slightly larger to avoid z-fighting
         edges.scale.set(1.001, 1.001, 1.001);
         tableMesh.add(edges);
 
@@ -331,12 +370,6 @@ const LabLogic: React.FC<LabLogicProps> = ({
         scene.add(heaterLight);
         heaterRef.current = { mesh: heater, light: heaterLight };
 
-        const analyzer = createAnalyzerMachineLocal();
-        analyzer.group.position.set(4, 0, 1.5);
-        analyzer.group.userData.id = 'ANALYZER_MACHINE';
-        scene.add(analyzer.group);
-        analyzerRef.current = analyzer;
-
         const streamGeo = new THREE.CylinderGeometry(0.015, 0.015, 1, 8);
         streamGeo.rotateX(-Math.PI / 2);
         streamGeo.translate(0, 0, 0.5);
@@ -352,12 +385,11 @@ const LabLogic: React.FC<LabLogicProps> = ({
             scene.remove(tableMesh);
             scene.remove(shelf);
             scene.remove(heater); scene.remove(heaterLight);
-            scene.remove(analyzer.group);
             scene.remove(streamMesh);
         };
     }, [scene]);
 
-    // Imperative Raycasting for Drag Start on imperative objects (if any)
+    // Imperative Raycasting for clicks on logic objects
     useEffect(() => {
         const onPointerDown = (event: PointerEvent) => {
              if (event.button === 0) {
@@ -379,32 +411,6 @@ const LabLogic: React.FC<LabLogicProps> = ({
         return () => canvasEl.removeEventListener('pointerdown', onPointerDown);
     }, [gl, raycaster, scene, onToggleHeater, onToggleValve]);
 
-    const updateAnalyzerDisplay = (chemId: string | null, temp?: number) => {
-        if (!analyzerRef.current) return;
-        const ctx = analyzerRef.current.canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, 256, 128);
-        ctx.textAlign = 'center';
-
-        if (chemId) {
-            const chem = LOCAL_CHEMICALS[chemId];
-            ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
-            ctx.font = 'bold 24px monospace';
-            ctx.fillText('SCANNING...', 128, 40);
-            ctx.fillStyle = '#22c55e';
-            ctx.font = 'bold 36px monospace';
-            ctx.fillText(`pH: ${chem.ph}`, 128, 80);
-            ctx.font = '24px monospace';
-            ctx.fillText(`${temp || 25}°C`, 128, 110);
-        } else {
-            ctx.fillStyle = '#94a3b8';
-            ctx.font = 'bold 32px monospace';
-            ctx.fillText('READY', 128, 70);
-        }
-        analyzerRef.current.texture.needsUpdate = true;
-    };
-
     useFrame((state, delta) => {
         effectSystemRef.current?.update();
 
@@ -414,23 +420,6 @@ const LabLogic: React.FC<LabLogicProps> = ({
             camera.position.y += (Math.random() - 0.5) * shake * 0.2;
             shakeIntensity.current *= 0.9;
             if (shakeIntensity.current < 0.01) shakeIntensity.current = 0;
-        }
-
-        // Analyzer Logic
-        if (analyzerRef.current) {
-            let foundChem = null;
-            let foundTemp = 25;
-            const probeTipWorld = new THREE.Vector3(0, -0.6, 0.5);
-            probeTipWorld.applyMatrix4(analyzerRef.current.group.matrixWorld);
-
-            containers.forEach(c => {
-                const cPos = new THREE.Vector3(...c.position);
-                if (probeTipWorld.distanceTo(cPos) < 0.8 && c.contents) {
-                    foundChem = c.contents.chemicalId;
-                    foundTemp = c.contents.temperature || 25;
-                }
-            });
-            updateAnalyzerDisplay(foundChem, foundTemp);
         }
 
         // Bubbles
@@ -518,6 +507,7 @@ interface LabSceneProps {
     explodedContainerId?: string | null;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
+    onDrop: (sourceId: string, targetId: string) => void;
     onToggleValve?: (id: string) => void;
     isHeaterOn?: boolean;
     onToggleHeater?: () => void;
@@ -528,88 +518,57 @@ interface LabSceneProps {
 const LabScene: React.FC<LabSceneProps> = (props) => {
     const meshesMap = useRef<Map<string, { group: THREE.Group }>>(new Map());
     const orbitControlsRef = useRef<any>(null);
-    const dragInfo = useRef<{ id: string, offset: THREE.Vector3 } | null>(null);
+    const [analyzerPos, setAnalyzerPos] = useState(new THREE.Vector3(4, 0, 1.5));
 
-    // Invisible Raycast Plane for dragging (Phase 1)
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0.11); // Plane at y=0.11
-    const raycaster = new THREE.Raycaster();
+    // Gestures handling within Container3D now.
+    // We just need to handle the end callbacks.
 
-    // -- Handler for Drag Start --
-    const handleContainerPointerDown = (e: any, id: string) => {
-        e.stopPropagation();
-        // Explicitly capture pointer to ensure we receive move/up events even if cursor leaves mesh
-        e.target.setPointerCapture(e.pointerId);
-
+    const handleDragStart = () => {
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
-
-        // Use the object position relative to the intersection point for offset
-        const objectPos = meshesMap.current.get(id)?.group.position.clone();
-        if (objectPos) {
-            const offset = objectPos.sub(e.point);
-            offset.y = 0; // Keep drag planar
-            dragInfo.current = { id, offset };
-            audioManager.playGlassClink();
-        }
+        audioManager.playGlassClink();
     };
 
-    // -- Handler for Drag Move --
-    // Attached to a large invisible plane to catch moves
-    const handlePlanePointerMove = (e: any) => {
-        if (dragInfo.current && dragInfo.current.id) {
-            e.stopPropagation();
-            const { id, offset } = dragInfo.current;
-            const obj = meshesMap.current.get(id);
-            if (obj) {
-                // e.point is intersection on the plane
-                const newPos = e.point.clone().add(offset);
+    const handleDragEnd = (id: string, pos: [number, number, number]) => {
+        if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+        props.onMove(id, pos);
 
-                // Clamp Y (Tactile Restoration)
-                const containerData = props.containers.find(c => c.id === id);
-                const targetY = (containerData?.type === 'bottle' || containerData?.type === 'jar') ? 0.56 : 0.11;
-                newPos.y = targetY; // Strictly clamp
+        // Physics Checks
+        const obj = meshesMap.current.get(id);
+        if (!obj) return;
 
-                // Direct Mutation (Phase 1)
-                obj.group.position.copy(newPos);
+        const sourcePos = obj.group.position;
+        const sourceType = props.containers.find(c => c.id === id)?.type;
+
+        meshesMap.current.forEach((other, otherId) => {
+            if (otherId !== id) {
+                // 1. Pour Check
+                const canPour = PhysicsEngine.checkPourCondition(
+                    sourcePos,
+                    other.group.position,
+                    id,
+                    otherId
+                );
+                if (canPour) props.onPour(id, otherId);
+
+                // 2. Drop Check (Solid -> Liquid)
+                // We need to know if the dragged object is a dropped solid
+                // Check Drop logic relies on PhysicsEngine which we need to update first
+                // Assuming PhysicsEngine.checkDropCondition exists (Step 2 of plan)
+                // We'll leave this for now and update PhysicsEngine next.
+                // But we can implement the call here.
+
+                // 2. Drop Check (Solid -> Liquid)
+                const canDrop = PhysicsEngine.checkDropCondition(
+                    sourcePos,
+                    other.group.position,
+                    sourceType
+                );
+
+                if (canDrop) {
+                    props.onDrop(id, otherId);
+                }
             }
-        }
-    };
-
-    // -- Handler for Drag End --
-    const handlePlanePointerUp = (e: any) => {
-        if (dragInfo.current && dragInfo.current.id) {
-            e.stopPropagation();
-            // Release pointer capture
-            e.target.releasePointerCapture(e.pointerId);
-
-            const id = dragInfo.current.id;
-            const obj = meshesMap.current.get(id);
-
-            if (obj) {
-                // 1. Sync State (Phase 1: ONLY on up)
-                props.onMove(id, [obj.group.position.x, obj.group.position.y, obj.group.position.z]);
-                audioManager.playGlassClink();
-
-                // 2. Proximity Check (Module 3)
-                // Use Physics Engine for precise mixing check
-                meshesMap.current.forEach((other, otherId) => {
-                    if (otherId !== id) {
-                        const canPour = PhysicsEngine.checkPourCondition(
-                            obj.group.position,
-                            other.group.position,
-                            id,
-                            otherId
-                        );
-
-                        if (canPour) {
-                             props.onPour(id, otherId);
-                        }
-                    }
-                });
-            }
-
-            dragInfo.current = null;
-            if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-        }
+        });
     };
 
     return (
@@ -619,16 +578,14 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                 dpr={[1, props.isPerformanceMode ? 1.5 : 2]}
                 camera={{ position: [0, 8, 12], fov: 45 }}
                 gl={{
-                    antialias: true, // Re-enable for sharper edges
+                    antialias: true,
                     toneMapping: THREE.ACESFilmicToneMapping,
                     toneMappingExposure: 1.2
                 }}
             >
-                {/* Futuristic Clean Lab Background */}
                 <color attach="background" args={['#0f172a']} />
 
                 <Suspense fallback={<Html center><div className="text-white font-mono text-xs">LOADING LAB...</div></Html>}>
-                    {/* Moody Sci-Fi Lighting */}
                     <Environment preset="city" background={false} blur={0.8} />
 
                 <directionalLight
@@ -643,21 +600,63 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                 <LabLogic
                     {...props}
                     meshesMap={meshesMap}
-                    handlePlanePointerUp={handlePlanePointerUp}
-                    handlePlanePointerMove={handlePlanePointerMove}
+                    analyzerPosition={analyzerPos}
+                    setAnalyzerPosition={setAnalyzerPos}
                 />
 
-                {/* Invisible Drag Plane for catching raycasts */}
-                <mesh
-                    rotation={[-Math.PI / 2, 0, 0]}
-                    position={[0, 0.11, 0]}
-                    visible={false}
-                    onPointerUp={handlePlanePointerUp}
-                    onPointerMove={handlePlanePointerMove}
-                >
-                    <planeGeometry args={[100, 100]} />
-                    <meshBasicMaterial color="red" wireframe />
-                </mesh>
+                <Analyzer3D
+                    position={[analyzerPos.x, analyzerPos.y, analyzerPos.z]}
+                    onPositionChange={setAnalyzerPos}
+                    onDragStart={handleDragStart}
+                    onDragEnd={() => { if(orbitControlsRef.current) orbitControlsRef.current.enabled = true; }}
+                    updateDisplay={(ctx) => {
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillRect(0, 0, 256, 128);
+                        ctx.textAlign = 'center';
+
+                        // Check probe proximity
+                        // Probe tip offset relative to group
+                        const probeTipWorld = analyzerPos.clone().add(new THREE.Vector3(0, -0.6 + 0.3, 0.5 + 0.3));
+                        // Wait, geometry offsets:
+                        // Probe geo translated 0, -0.3, 0.5.
+                        // Arm translated 0, 0.3, 0.3.
+                        // Body at 0,0,0.
+                        // Probe tip is roughly at (0, -0.6, 0.5) relative to body center (which is 0.4 high?).
+                        // Let's approximate:
+                        // Analyzer is at `analyzerPos`.
+                        // Probe tip is at `analyzerPos` + (0, 0.3, 0.5).
+                        // Actually, let's just find the closest beaker.
+
+                        let foundChem = null;
+                        let foundTemp = 25;
+
+                        props.containers.forEach(c => {
+                            const cPos = new THREE.Vector3(...c.position);
+                            // Simple distance check from Analyzer center to Beaker center
+                            // If distance < 1.0, read it.
+                            if (analyzerPos.distanceTo(cPos) < 1.2 && c.contents) {
+                                foundChem = c.contents.chemicalId;
+                                foundTemp = c.contents.temperature || 25;
+                            }
+                        });
+
+                        if (foundChem) {
+                            const chem = LOCAL_CHEMICALS[foundChem];
+                            ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
+                            ctx.font = 'bold 24px monospace';
+                            ctx.fillText('SCANNING...', 128, 40);
+                            ctx.fillStyle = '#22c55e';
+                            ctx.font = 'bold 36px monospace';
+                            ctx.fillText(`pH: ${chem.ph}`, 128, 80);
+                            ctx.font = '24px monospace';
+                            ctx.fillText(`${foundTemp.toFixed(0)}°C`, 128, 110);
+                        } else {
+                            ctx.fillStyle = '#94a3b8';
+                            ctx.font = 'bold 32px monospace';
+                            ctx.fillText('READY', 128, 70);
+                        }
+                    }}
+                />
 
                 <group>
                     {props.containers.map(c => (
@@ -673,13 +672,13 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                                         meshesMap.current.delete(c.id);
                                     }
                                 }}
-                                onPointerDown={(e) => handleContainerPointerDown(e, c.id)}
+                                onDragStart={handleDragStart}
+                                onDragEnd={handleDragEnd}
                             />
                         )
                     ))}
                 </group>
 
-                {/* VOLUMETRIC SMOKE EFFECT */}
                 {props.lastEffect && props.lastEffectPos && (
                     <ReactionVFX
                         color={props.lastEffect === 'smoke' ? '#aaaaaa' : '#ffaa00'}
@@ -692,7 +691,6 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
 
                 <OrbitControls ref={orbitControlsRef} makeDefault dampingFactor={0.05} />
 
-                    {/* Minimal Post-Processing for Performance & Clarity */}
                     {!props.isPerformanceMode && (
                         <EffectComposer>
                             <Bloom

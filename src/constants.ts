@@ -180,6 +180,17 @@ export const CHEMICALS: Record<string, Chemical> = {
         density: 1.0,
         description: 'Dung dịch bazơ đã chuyển màu hồng.'
     },
+    'UNIVERSAL_INDICATOR': {
+        id: 'UNIVERSAL_INDICATOR',
+        name: 'Chất Chỉ Thị Vạn Năng',
+        formula: 'Mixture',
+        color: '#22c55e', // Neutral Green
+        type: 'liquid',
+        meshStyle: 'flask',
+        ph: 7.0,
+        density: 1.0,
+        description: 'Đổi màu theo pH: Đỏ (<4), Cam (5), Vàng (6), Lục (7), Xanh (8-9), Tím (>10).'
+    },
 
     // --- SOLIDS ---
     'SODIUM': {
