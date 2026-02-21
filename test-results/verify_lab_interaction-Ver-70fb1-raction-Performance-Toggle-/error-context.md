@@ -1,0 +1,188 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic:
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - generic [ref=e10]:
+          - heading "CHEMIC-AI" [level=1] [ref=e11]
+          - paragraph [ref=e14]: QUANTUM REALITY ENGINE
+        - generic [ref=e15]:
+          - button "💎 AAA" [ref=e16] [cursor=pointer]:
+            - generic [ref=e17]: 💎 AAA
+          - button "⚙️" [ref=e18] [cursor=pointer]
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - generic [ref=e21]: Bếp Nhiệt
+            - generic [ref=e22]: 300°C
+          - slider [ref=e23] [cursor=pointer]: "300"
+        - generic [ref=e24]:
+          - paragraph [ref=e25]: An Toàn
+          - paragraph [ref=e26]: 100%
+        - generic [ref=e28]:
+          - generic [ref=e29]:
+            - generic [ref=e30]: Nhiệm Vụ Hiện Tại
+            - button "✕" [ref=e31] [cursor=pointer]
+          - generic [ref=e32]:
+            - generic [ref=e33]:
+              - paragraph [ref=e34]: Khởi Động
+              - paragraph [ref=e35]: Đổ Nước Cất (H2O) vào một Cốc thí nghiệm (Beaker).
+            - generic [ref=e36]:
+              - paragraph [ref=e37]: Tổng hợp Bột Nhiệt Nhôm
+              - paragraph [ref=e38]: Tạo ra Bột Nhiệt Nhôm từ Sắt(III) Oxit và Nhôm.
+            - generic [ref=e39]:
+              - paragraph [ref=e40]: Tổng hợp Natri Clorua
+              - paragraph [ref=e41]: Tạo ra Natri Clorua từ Natri và Khí Clo.
+            - generic [ref=e42]:
+              - paragraph [ref=e43]: "Thí Nghiệm: Mưa Vàng"
+              - paragraph [ref=e44]: Tạo kết tủa PbI2 lấp lánh từ Chì Nitrat và Kali Iodua.
+      - generic [ref=e45]:
+        - button "Bắt Đầu Thi" [ref=e46] [cursor=pointer]
+        - button "🖨️" [ref=e47] [cursor=pointer]
+        - button "📖" [ref=e48] [cursor=pointer]
+        - button "RESET" [ref=e49] [cursor=pointer]
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - heading "KHO HÓA CHẤT" [level=2] [ref=e52]
+        - button "✕" [ref=e53] [cursor=pointer]
+      - generic [ref=e54]:
+        - generic [ref=e55]:
+          - button "Cốc Thủy Tinh 250ml" [ref=e56] [cursor=pointer]:
+            - text: Cốc Thủy Tinh
+            - paragraph [ref=e57]: 250ml
+          - button "Ống Nghiệm Mẫu thử" [ref=e58] [cursor=pointer]:
+            - text: Ống Nghiệm
+            - paragraph [ref=e59]: Mẫu thử
+          - button "Buret Chuẩn Độ 50ml • Chính xác cao 🧪" [ref=e60] [cursor=pointer]:
+            - generic [ref=e61]:
+              - text: Buret Chuẩn Độ
+              - paragraph [ref=e62]: 50ml • Chính xác cao
+            - generic [ref=e63]: 🧪
+        - button "Nước Cất H₂O" [ref=e64] [cursor=pointer]:
+          - generic [ref=e66]: Nước Cất
+          - text: H₂O
+        - button "Axit Clohidric HCl" [ref=e68] [cursor=pointer]:
+          - generic [ref=e70]: Axit Clohidric
+          - text: HCl
+        - button "Axit Nitric HNO₃" [ref=e72] [cursor=pointer]:
+          - generic [ref=e74]: Axit Nitric
+          - text: HNO₃
+        - button "Axit Sulfuric H₂SO₄" [ref=e76] [cursor=pointer]:
+          - generic [ref=e78]: Axit Sulfuric
+          - text: H₂SO₄
+        - button "Axit Photphoric H₃PO₄" [ref=e80] [cursor=pointer]:
+          - generic [ref=e82]: Axit Photphoric
+          - text: H₃PO₄
+        - button "Natri Hydroxit NaOH" [ref=e84] [cursor=pointer]:
+          - generic [ref=e86]: Natri Hydroxit
+          - text: NaOH
+        - button "Amoniac NH₃" [ref=e88] [cursor=pointer]:
+          - generic [ref=e90]: Amoniac
+          - text: NH₃
+        - button "Axit Axetic CH₃COOH" [ref=e92] [cursor=pointer]:
+          - generic [ref=e94]: Axit Axetic
+          - text: CH₃COOH
+        - button "Natri Hypoclorit NaClO" [ref=e96] [cursor=pointer]:
+          - generic [ref=e98]: Natri Hypoclorit
+          - text: NaClO
+        - button "Hydro Peroxit H₂O₂" [ref=e100] [cursor=pointer]:
+          - generic [ref=e102]: Hydro Peroxit
+          - text: H₂O₂
+        - button "Bạc Nitrat AgNO₃" [ref=e104] [cursor=pointer]:
+          - generic [ref=e106]: Bạc Nitrat
+          - text: AgNO₃
+        - button "Chì(II) Nitrat Pb(NO₃)₂" [ref=e108] [cursor=pointer]:
+          - generic [ref=e110]: Chì(II) Nitrat
+          - text: Pb(NO₃)₂
+        - button "Dung Dịch Glucose C₆H₁₂O₆(aq)" [ref=e112] [cursor=pointer]:
+          - generic [ref=e114]: Dung Dịch Glucose
+          - text: C₆H₁₂O₆(aq)
+        - button "Indigo Carmine C₁₆H₈N₂Na₂O₈S₂" [ref=e116] [cursor=pointer]:
+          - generic [ref=e118]: Indigo Carmine
+          - text: C₁₆H₈N₂Na₂O₈S₂
+        - button "Phenolphthalein C₂₀H₁₄O₄" [ref=e120] [cursor=pointer]:
+          - generic [ref=e122]: Phenolphthalein
+          - text: C₂₀H₁₄O₄
+        - button "Dung dịch Bazơ (Có chỉ thị) Mix" [ref=e124] [cursor=pointer]:
+          - generic [ref=e126]: Dung dịch Bazơ (Có chỉ thị)
+          - text: Mix
+        - button "Chất Chỉ Thị Vạn Năng Mixture" [ref=e128] [cursor=pointer]:
+          - generic [ref=e130]: Chất Chỉ Thị Vạn Năng
+          - text: Mixture
+        - button "Natri Na" [ref=e132] [cursor=pointer]:
+          - generic [ref=e134]: Natri
+          - text: Na
+        - button "Kali K" [ref=e136] [cursor=pointer]:
+          - generic [ref=e138]: Kali
+          - text: K
+        - button "Magie Mg" [ref=e140] [cursor=pointer]:
+          - generic [ref=e142]: Magie
+          - text: Mg
+        - button "Canxi Cacbonat CaCO₃" [ref=e144] [cursor=pointer]:
+          - generic [ref=e146]: Canxi Cacbonat
+          - text: CaCO₃
+        - button "Natri Clorua NaCl" [ref=e148] [cursor=pointer]:
+          - generic [ref=e150]: Natri Clorua
+          - text: NaCl
+        - button "Natri Bicarbonat NaHCO₃" [ref=e152] [cursor=pointer]:
+          - generic [ref=e154]: Natri Bicarbonat
+          - text: NaHCO₃
+        - button "Đồng Cu" [ref=e156] [cursor=pointer]:
+          - generic [ref=e158]: Đồng
+          - text: Cu
+        - button "Sắt Fe" [ref=e160] [cursor=pointer]:
+          - generic [ref=e162]: Sắt
+          - text: Fe
+        - button "Kẽm Zn" [ref=e164] [cursor=pointer]:
+          - generic [ref=e166]: Kẽm
+          - text: Zn
+        - button "Nhôm Al" [ref=e168] [cursor=pointer]:
+          - generic [ref=e170]: Nhôm
+          - text: Al
+        - button "Sắt(III) Oxit Fe₂O₃" [ref=e172] [cursor=pointer]:
+          - generic [ref=e174]: Sắt(III) Oxit
+          - text: Fe₂O₃
+        - button "Kali Iodua KI" [ref=e176] [cursor=pointer]:
+          - generic [ref=e178]: Kali Iodua
+          - text: KI
+        - button "I-ốt I₂" [ref=e180] [cursor=pointer]:
+          - generic [ref=e182]: I-ốt
+          - text: I₂
+        - button "Kali Permanganat KMnO₄" [ref=e184] [cursor=pointer]:
+          - generic [ref=e186]: Kali Permanganat
+          - text: KMnO₄
+        - button "Vàng Au" [ref=e188] [cursor=pointer]:
+          - generic [ref=e190]: Vàng
+          - text: Au
+        - button "Khí Clo Cl₂" [ref=e192] [cursor=pointer]:
+          - generic [ref=e194]: Khí Clo
+          - text: Cl₂
+        - button "Đồng(II) Sunfat CuSO₄" [ref=e196] [cursor=pointer]:
+          - generic [ref=e198]: Đồng(II) Sunfat
+          - text: CuSO₄
+        - button "Sắt Nóng Chảy Fe(l)" [ref=e200] [cursor=pointer]:
+          - generic [ref=e202]: Sắt Nóng Chảy
+          - text: Fe(l)
+        - button "Chì(II) Iodua PbI₂" [ref=e204] [cursor=pointer]:
+          - generic [ref=e206]: Chì(II) Iodua
+          - text: PbI₂
+        - button "Đỏ trung gian Phức chất" [ref=e208] [cursor=pointer]:
+          - generic [ref=e210]: Đỏ trung gian
+          - text: Phức chất
+        - button "Bột Nhiệt Nhôm Fe₂O₃ + 2Al" [ref=e212] [cursor=pointer]:
+          - generic [ref=e214]: Bột Nhiệt Nhôm
+          - generic [ref=e216]:
+            - text: Fe₂O₃ +
+            - subscript [ref=e217]: "2"
+            - text: Al
+    - generic [ref=e218]:
+      - generic [ref=e219]: SYSTEM_ONLINE
+      - generic [ref=e221]: "ENTITIES: 2"
+      - generic [ref=e222]: GEMINI_CORE_v1.5
+    - button "🎓 Liên Lạc Giáo Sư Lucy" [ref=e224] [cursor=pointer]:
+      - generic [ref=e225]: 🎓
+      - generic [ref=e226]:
+        - generic [ref=e227]: Liên Lạc
+        - generic [ref=e228]: Giáo Sư Lucy
+```

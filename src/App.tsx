@@ -493,6 +493,12 @@ const App: React.FC = () => {
     };
 
     const handleSpawn = (chemId: string) => {
+        // Safety Limit
+        if (containers.length >= 20) {
+             if (aiServiceRef.current) aiServiceRef.current.chat("[SYSTEM ALERT] Bàn thí nghiệm đã đầy. Vui lòng dọn dẹp bớt.");
+             return;
+        }
+
         audioManager.playGlassClink();
         const isBeaker = chemId === 'BEAKER';
         const isTestTube = chemId === 'TEST_TUBE';

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^0.7.0",
+    "@playwright/test": "^1.58.2",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
     "@react-three/postprocessing": "^2.19.1",

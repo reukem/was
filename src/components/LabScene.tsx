@@ -58,6 +58,7 @@ interface Container3DProps {
 const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ container, quality }, ref) => {
     const groupRef = useRef<THREE.Group>(null);
     const solidRef = useRef<THREE.Mesh>(null);
+    const glassMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
 
     React.useImperativeHandle(ref, () => ({
         group: groupRef.current!
@@ -102,7 +103,19 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
         }
     }, [container.position]);
 
-    const glassMaterial = useMemo(() => createGlassMaterial(quality), [quality]);
+    // Optimized Material Handling
+    if (!glassMaterialRef.current) {
+        glassMaterialRef.current = createGlassMaterial(quality);
+    }
+
+    useEffect(() => {
+        if (glassMaterialRef.current) {
+            const newMat = createGlassMaterial(quality);
+            glassMaterialRef.current.copy(newMat);
+            glassMaterialRef.current.needsUpdate = true;
+            newMat.dispose();
+        }
+    }, [quality]);
 
     return (
         <group
@@ -142,7 +155,7 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
                             </mesh>
                         </Caustics>
                     ) : (
-                        <mesh geometry={geometry} material={glassMaterial} castShadow receiveShadow />
+                        <mesh geometry={geometry} material={glassMaterialRef.current} castShadow receiveShadow />
                     )
                 ) : container.type === 'rock' ? (
                      <mesh geometry={geometry} ref={solidRef} castShadow>
@@ -165,7 +178,7 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
                          )}
                      </mesh>
                 ) : container.type === 'jar' ? (
-                    <mesh geometry={geometry} material={glassMaterial} castShadow />
+                    <mesh geometry={geometry} material={glassMaterialRef.current} castShadow />
                 ) : null}
 
                 {liquidProps && contents && (
@@ -240,6 +253,7 @@ const LabLogic: React.FC<LabLogicProps> = ({
         effectSystemRef.current = new EffectSystem(scene);
 
         // --- FURNITURE & STATIC OBJECTS ---
+        // Restore table visibility and interaction (by NOT disabling raycast)
         const tableMesh = new THREE.Mesh(
             new THREE.BoxGeometry(12, 0.2, 6),
             new THREE.MeshPhysicalMaterial({
@@ -251,8 +265,6 @@ const LabLogic: React.FC<LabLogicProps> = ({
             })
         );
         tableMesh.receiveShadow = true;
-        // Explicitly disable raycasting to prevent blocking OrbitControls
-        tableMesh.raycast = () => {};
 
         const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(12, 0.2, 6));
         const edgeMat = new THREE.LineBasicMaterial({ color: 0x06b6d4, linewidth: 2 });
@@ -272,7 +284,6 @@ const LabLogic: React.FC<LabLogicProps> = ({
         );
         shelf.position.set(0, 0.5, -3.5);
         shelf.receiveShadow = true;
-        shelf.raycast = () => {}; // Disable raycasting
         scene.add(shelf);
 
         // Logic Objects
@@ -441,49 +452,6 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     const orbitControlsRef = useRef<any>(null);
     const [analyzerPos, setAnalyzerPos] = useState(new THREE.Vector3(4, 0, 1.5));
 
-    const handleDragStart = () => {
-        if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
-        audioManager.playGlassClink();
-    };
-
-    const handleDragEnd = (e: any) => {
-        if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-
-        // Find the container ID from the dragged object
-        let target = e.object;
-        while (target && !target.userData.id) {
-            target = target.parent;
-        }
-
-        if (target && target.userData.id) {
-            const id = target.userData.id;
-            const pos = target.position; // Position updated by DragControls
-
-            if (id === 'ANALYZER') {
-                setAnalyzerPos(pos.clone());
-                return;
-            }
-
-            // Sync React State ONLY on drag end
-            props.onMove(id, [pos.x, pos.y, pos.z]);
-
-            // Physics/Interaction Checks
-            const sourcePos = pos;
-            const sourceType = target.userData.type;
-
-            meshesMap.current.forEach((other, otherId) => {
-                if (otherId !== id) {
-                    if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, id, otherId)) {
-                        props.onPour(id, otherId);
-                    }
-                    else if (PhysicsEngine.checkDropCondition(sourcePos, other.group.position, sourceType)) {
-                        props.onDrop(id, otherId);
-                    }
-                }
-            });
-        }
-    };
-
     return (
         <div className="w-full h-full">
             <Canvas
@@ -519,9 +487,43 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
 
                 {/* @ts-ignore */}
                 <DragControls
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
                     axisLock="y"
+                    onDragStart={() => {
+                        if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
+                    }}
+                    onDragEnd={(e) => {
+                        if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+                        let target = e.object;
+                        while(target.parent && !target.userData.id) target = target.parent;
+                        if (target && target.userData.id) {
+                            const id = target.userData.id;
+
+                            // Analyzer special handling
+                            if (id === 'ANALYZER') {
+                                setAnalyzerPos(target.position.clone());
+                                return;
+                            }
+
+                             // ONLY update state here, at the end of the drag.
+                             props.onMove(id, [target.position.x, target.position.y, target.position.z]);
+
+                             // Trigger physics drop/pour checks here.
+                             // Need to check against other meshes
+                             const sourcePos = target.position;
+                             const sourceType = target.userData.type;
+
+                             meshesMap.current.forEach((other, otherId) => {
+                                if (otherId !== id) {
+                                    if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, id, otherId)) {
+                                        props.onPour(id, otherId);
+                                    }
+                                    else if (PhysicsEngine.checkDropCondition(sourcePos, other.group.position, sourceType)) {
+                                        props.onDrop(id, otherId);
+                                    }
+                                }
+                            });
+                        }
+                    }}
                 >
                     <group>
                         <Analyzer3D
