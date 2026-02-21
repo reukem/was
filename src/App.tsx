@@ -9,9 +9,11 @@ import { CHEMICALS, HEATER_POSITION } from './constants';
 import { GeminiService } from './services/geminiService';
 import { audioManager } from './utils/AudioManager';
 import { QuestManager } from './systems/QuestManager';
+import { useStore } from './store';
 
 const App: React.FC = () => {
     const aiServiceRef = useRef<GeminiService | null>(null);
+    const { apiSettings } = useStore();
     const questManagerRef = useRef<QuestManager | null>(null);
     const reactionTimeoutRef = useRef<number | null>(null);
 
@@ -53,7 +55,9 @@ const App: React.FC = () => {
     const isHeaterOnRef = useRef(false);
 
     useEffect(() => {
-        const service = new GeminiService();
+        // Initialize with key from store
+        const service = new GeminiService(apiSettings.geminiKey);
+
         service.onHistoryUpdate = (history) => {
             setChatHistory([...history]);
 
@@ -94,7 +98,7 @@ const App: React.FC = () => {
         return () => {
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
         };
-    }, []);
+    }, [apiSettings.geminiKey]); // Re-init when key changes
 
     // Check Quests Loop
     useEffect(() => {

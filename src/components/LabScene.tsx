@@ -296,11 +296,28 @@ const LabLogic: React.FC<LabLogicProps> = ({
         // 1. The Main Table & Grid (Imperative)
         const tableMesh = new THREE.Mesh(
             new THREE.BoxGeometry(12, 0.2, 6),
-            new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.8 })
+            new THREE.MeshPhysicalMaterial({
+                color: 0x111827,
+                roughness: 0.1,
+                metalness: 0.9,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1,
+                transmission: 0.2,
+                opacity: 0.9,
+                transparent: true
+            })
         );
         tableMesh.receiveShadow = true;
 
-        const grid = new THREE.GridHelper(10, 20, 0x38bdf8, 0x1e293b);
+        // Add Emissive Accents (Neon Edges)
+        const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(12, 0.2, 6));
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0x06b6d4, linewidth: 2 });
+        const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+        // Slightly larger to avoid z-fighting
+        edges.scale.set(1.001, 1.001, 1.001);
+        tableMesh.add(edges);
+
+        const grid = new THREE.GridHelper(10, 20, 0x06b6d4, 0x1e293b);
         grid.position.y = 0.11; // Relative to mesh center
         tableMesh.add(grid);
 
@@ -607,32 +624,26 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                 dpr={[1, props.isPerformanceMode ? 1.5 : 2]}
                 camera={{ position: [0, 8, 12], fov: 45 }}
                 gl={{
-                    antialias: false,
+                    antialias: true, // Re-enable for sharper edges
                     toneMapping: THREE.ACESFilmicToneMapping,
-                    toneMappingExposure: 1.0
+                    toneMappingExposure: 1.2
                 }}
             >
-                <color attach="background" args={['#050b14']} />
+                {/* Futuristic Clean Lab Background */}
+                <color attach="background" args={['#0f172a']} />
 
-                <Environment preset="city" blur={0.7} background />
+                {/* Bright Studio Lighting */}
+                <Environment preset="studio" blur={0.5} />
 
-                <ambientLight intensity={0.2} />
-                <spotLight
+                <ambientLight intensity={0.6} color="#ffffff" />
+                <directionalLight
                     position={[5, 10, 5]}
-                    angle={0.5}
-                    penumbra={1}
-                    castShadow
-                    intensity={150}
-                    shadow-bias={-0.0001}
-                />
-                <rectAreaLight
-                    width={4}
-                    height={4}
-                    color={'#38bdf8'}
                     intensity={2.0}
-                    position={[-5, 5, -5]}
-                    lookAt={() => new THREE.Vector3(0,0,0)}
+                    castShadow
+                    shadow-bias={-0.0001}
+                    shadow-mapSize={[1024, 1024]}
                 />
+                <pointLight position={[-5, 5, -5]} intensity={1.0} color="#06b6d4" />
 
                 <LabLogic
                     {...props}
@@ -677,24 +688,19 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
 
                 <OrbitControls ref={orbitControlsRef} makeDefault dampingFactor={0.05} />
 
+                {/* Minimal Post-Processing for Performance & Clarity */}
                 {!props.isPerformanceMode && (
                     <EffectComposer>
                         <Bloom
-                            luminanceThreshold={1.0}
+                            luminanceThreshold={1.2}
                             mipmapBlur
-                            intensity={1.2}
-                            radius={0.6}
-                        />
-                        <DepthOfField
-                            target={[0, 0, 0]}
-                            focalLength={0.02}
-                            bokehScale={3}
-                            height={480}
+                            intensity={0.6}
+                            radius={0.4}
                         />
                         <Vignette
                             eskil={false}
                             offset={0.1}
-                            darkness={0.6}
+                            darkness={0.4}
                         />
                     </EffectComposer>
                 )}

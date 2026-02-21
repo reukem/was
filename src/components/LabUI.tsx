@@ -3,6 +3,7 @@ import { CHEMICALS, REACTION_REGISTRY } from '../constants';
 import { ContainerState, ChatMessage, Quest } from '../types';
 import { audioManager } from '../utils/AudioManager';
 import { generateReport } from '../utils/ReportGenerator';
+import SettingsModal from './SettingsModal';
 
 interface LabUIProps {
     lastReaction: string | null;
@@ -87,6 +88,7 @@ const LabUI: React.FC<LabUIProps> = ({
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isQuestLogOpen, setIsQuestLogOpen] = useState(true);
     const [isMuted, setIsMuted] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
     const handleSubmitChat = (e: React.FormEvent) => {
@@ -136,6 +138,7 @@ const LabUI: React.FC<LabUIProps> = ({
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 overflow-hidden select-none font-sans text-white">
             <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
+            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
 
             {/* --- HEADER --- */}
             <div className="flex justify-between items-start pointer-events-auto z-50">
@@ -166,6 +169,15 @@ const LabUI: React.FC<LabUIProps> = ({
                             title={isPerformanceMode ? "Chế độ Hiệu Năng (Thấp)" : "Chế độ Đồ Họa Đỉnh Cao (AAA)"}
                         >
                             <span>{isPerformanceMode ? '⚡ FAST' : '💎 AAA'}</span>
+                        </button>
+
+                        {/* Settings Button */}
+                        <button
+                            onClick={() => setIsSettingsOpen(true)}
+                            className="px-3 py-2 rounded-xl bg-[#0f172a]/80 backdrop-blur-xl border border-white/5 hover:border-indigo-500/30 text-slate-400 hover:text-white transition-all shadow-lg pointer-events-auto"
+                            title="Settings (API Key)"
+                        >
+                            ⚙️
                         </button>
                     </div>
 

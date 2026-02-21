@@ -7,8 +7,8 @@ export class GeminiService {
     private systemInstruction: string = "";
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
 
-    constructor() {
-        this.apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+    constructor(apiKey: string | null) {
+        this.apiKey = apiKey || "";
 
         // PROFESSOR LUCY (Socratic Vietnamese AI)
         this.systemInstruction = `
@@ -79,19 +79,44 @@ export class GeminiService {
     private getLocalResponse(message: string): string {
         const msg = message.toLowerCase();
 
-        // Simple fallback responses in Vietnamese
-        if (msg.includes("chào") || msg.includes("ai đó")) {
-            return "Chào cưng! Cô là Giáo sư Lucy đây! :3 Mạng hơi lag xíu nhưng cô vẫn ở đây quan sát nha! Đang làm thí nghiệm gì đó? ^^";
-        }
-        if (msg.includes("nacl") || msg.includes("muối")) {
-            return "Muối ăn (NaCl) đó! Tinh thể lập phương đẹp xỉu. ^^ Em có biết tại sao nó tan trong nước hông? [TRIGGER_WHITEBOARD: NaCl -> Na+ + Cl-]";
-        }
-        if (msg.includes("nổ") || msg.includes("boom")) {
-            return "Á á á! Nổ rồi kìa! 💥 Cẩn thận chút đi trời ơi! 3: Em có sao hông?";
+        // --- OFFLINE MODE / HYBRID ENGINE ---
+        // Basic NLP (Keyword Matching) against Knowledge Base
+        let response = "[CHẾ ĐỘ NGOẠI TUYẾN] Chào cưng! Mạng đang yếu nên cô dùng não bộ dự phòng nha. ^^ ";
+
+        if (msg.includes("nhiệt") || msg.includes("thermo") || msg.includes("nóng") || msg.includes("lạnh")) {
+            // Find Thermodynamics section
+            const section = CHEMISTRY_KNOWLEDGE_BASE.match(/## 1. THERMODYNAMICS & KINETICS([\s\S]*?)## 2/);
+            if (section) {
+                return response + "Về Nhiệt động lực học thì đây nè:\n\n" + section[1].trim();
+            }
         }
 
-        // Default Fallback
-        return "Ui da! Mạng lag quá, cô chưa nghe rõ. Nói lại nghe coi nè? :3";
+        if (msg.includes("na") || msg.includes("sodium") || msg.includes("natri")) {
+             const section = CHEMISTRY_KNOWLEDGE_BASE.match(/### A. Sodium \+ Water([\s\S]*?)### B/);
+             if (section) return response + "Phản ứng của Natri nè cưng:\n\n" + section[1].trim();
+        }
+
+         if (msg.includes("k") || msg.includes("potassium") || msg.includes("kali")) {
+             const section = CHEMISTRY_KNOWLEDGE_BASE.match(/### B. Potassium \+ Water([\s\S]*?)### C/);
+             if (section) return response + "Kali phản ứng mạnh lắm nha:\n\n" + section[1].trim();
+        }
+
+        if (msg.includes("axit") || msg.includes("base") || msg.includes("trung hòa") || msg.includes("hcl") || msg.includes("naoh")) {
+             const section = CHEMISTRY_KNOWLEDGE_BASE.match(/### C. Acid-Base Neutralization([\s\S]*?)### D/);
+             if (section) return response + "Trung hòa Axit-Bazơ là bài cơ bản nha:\n\n" + section[1].trim();
+        }
+
+        if (msg.includes("nổ") || msg.includes("boom") || msg.includes("an toàn")) {
+             const section = CHEMISTRY_KNOWLEDGE_BASE.match(/## 3. SAFETY PROTOCOLS([\s\S]*?)$/);
+             if (section) return response + "⚠️ AN TOÀN LÀ TRÊN HẾT!:\n\n" + section[1].trim();
+        }
+
+        // Simple conversational fallbacks if no science keyword found
+        if (msg.includes("chào") || msg.includes("hello")) {
+            return "Chào cưng! Cô là Giáo sư Lucy đây! :3 Đang làm thí nghiệm gì đó? Nhập API Key vào phần Cài đặt (⚙️) để cô thông minh hơn nha! ^^";
+        }
+
+        return response + "Cô chưa hiểu ý em lắm. Thử hỏi về 'nhiệt độ', 'natri', hay 'axit' xem? Hoặc nhập API Key để cô trả lời xịn hơn nha! :3";
     }
 
     async chat(message: string, context?: object): Promise<string> {
@@ -104,6 +129,17 @@ export class GeminiService {
         // Add user message to history
         this.history.push({ role: "user", parts: [{ text: fullMessage }] });
         this.notifyUpdate();
+
+        // CHECK FOR API KEY (Hybrid Logic)
+        if (!this.apiKey || this.apiKey.trim() === "") {
+             console.warn("No API Key found. Using Hybrid Offline Engine.");
+             // Simulate network delay for realism
+             await new Promise(r => setTimeout(r, 800));
+             const fallbackText = this.getLocalResponse(message);
+             this.history.push({ role: "model", parts: [{ text: fallbackText }] });
+             this.notifyUpdate();
+             return fallbackText;
+        }
 
         const maxRetries = 2;
         let attempt = 0;
@@ -148,7 +184,7 @@ export class GeminiService {
             }
         }
 
-        // Fallback to local brain
+        // Fallback to local brain if API fails even with key
         const fallbackText = this.getLocalResponse(message);
         this.history.push({ role: "model", parts: [{ text: fallbackText }] });
         this.notifyUpdate();
