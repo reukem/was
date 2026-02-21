@@ -1,62 +1,77 @@
-import { ContainerState, Quest } from '../types';
+import { ContainerState, Quest, ReactionEntry } from '../types';
+import { CHEMICALS, REACTION_REGISTRY } from '../constants';
 
-export const QUESTS: Quest[] = [
-    {
-        id: 'orientation_pour',
-        title: 'Thao Tác Cơ Bản',
-        description: 'Đổ Nước Cất vào Cốc thủy tinh (Beaker). (Chuột phải + Giữ để rót)',
-        checkCondition: (containers, _) => {
-            // Find a beaker with water
-            return containers.some(c =>
-                c.type === 'beaker' &&
-                c.contents &&
-                c.contents.chemicalId === 'H2O' &&
-                c.contents.volume > 0.1
-            );
-        },
-        isCompleted: false,
-        rewardMessage: "Tuyệt vời. Bạn đã thành thạo kỹ thuật chuyển chất lỏng."
-    },
-    {
-        id: 'safety_neutralize',
-        title: 'Quy Tắc An Toàn',
-        description: 'Trung hòa Axit Clohidric (HCl) bằng Natri Hydroxit (NaOH).',
-        checkCondition: (_, lastReaction) => {
-            return lastReaction?.includes('NaCl') || false; // Checked against translated reaction message
-        },
-        isCompleted: false,
-        rewardMessage: "Quy tắc an toàn đã được tuân thủ. Axit đã được trung hòa."
-    },
-    {
-        id: 'discovery_golden_rain',
-        title: 'Mưa Vàng',
-        description: 'Tổng hợp tinh thể Chì Iodua (PbNO3 + KI).',
-        checkCondition: (containers, _) => {
-            return containers.some(c => c.contents?.chemicalId === 'GOLDEN_RAIN');
-        },
-        isCompleted: false,
-        rewardMessage: "Kết tủa ngoạn mục! Bạn đã tạo ra cơn Mưa Vàng."
-    }
-];
+// Helper to format names
+const formatName = (id: string) => CHEMICALS[id]?.name || id;
 
 export class QuestManager {
-    private activeQuests: Quest[];
+    private activeQuests: Quest[] = [];
     public onQuestComplete: ((quest: Quest) => void) | null = null;
 
     constructor() {
-        // Deep copy needed to reset state on new game, but simple spread is shallow.
-        // For boolean toggle it's fine if we don't persist between sessions without reload.
-        // Actually, we should map to new objects.
-        this.activeQuests = QUESTS.map(q => ({...q}));
+        this.generateQuests();
+    }
+
+    private generateQuests() {
+        // 1. Tutorial Quest
+        this.activeQuests.push({
+            id: 'tutorial_pour',
+            title: 'Khởi Động',
+            description: 'Đổ Nước Cất (H2O) vào một Cốc thí nghiệm (Beaker).',
+            isCompleted: false,
+            checkCondition: (containers) => containers.some(c =>
+                c.type === 'beaker' && c.contents && c.contents.chemicalId === 'H2O' && c.contents.volume > 0.1
+            ),
+            rewardMessage: "Khởi đầu tốt! Bây giờ hãy thử các phản ứng phức tạp hơn."
+        });
+
+        // 2. Dynamic Synthesis Quests (Pick random reactions from Registry)
+        // Filter interesting reactions
+        const safeReactions = REACTION_REGISTRY.filter(r => r.effect !== 'explosion' && r.product !== 'H2O');
+        const dangerousReactions = REACTION_REGISTRY.filter(r => r.effect === 'explosion');
+
+        // Pick 2 Safe
+        const pickedSafe = safeReactions.sort(() => 0.5 - Math.random()).slice(0, 2);
+        pickedSafe.forEach(r => {
+            this.activeQuests.push({
+                id: `syn_${r.product}_${Date.now()}_${Math.random()}`,
+                title: `Tổng hợp ${formatName(r.product)}`,
+                description: `Tạo ra ${formatName(r.product)} từ ${formatName(r.reactants[0])} và ${formatName(r.reactants[1])}.`,
+                isCompleted: false,
+                checkCondition: (containers) => containers.some(c => c.contents?.chemicalId === r.product),
+                rewardMessage: `Tuyệt vời! Bạn đã tổng hợp thành công ${formatName(r.product)}.`
+            });
+        });
+
+        // 3. Safety/Danger Quest (Optional)
+        if (dangerousReactions.length > 0) {
+            const r = dangerousReactions[0];
+            // Instead of asking to explode, ask to Neutralize? Or observe carefully.
+            // Let's ask to perform a specific showstopper reaction like Golden Rain if available
+            const goldenRain = REACTION_REGISTRY.find(x => x.product === 'GOLDEN_RAIN');
+            if (goldenRain) {
+                this.activeQuests.push({
+                    id: 'quest_golden_rain',
+                    title: 'Thí Nghiệm: Mưa Vàng',
+                    description: 'Tạo kết tủa PbI2 lấp lánh từ Chì Nitrat và Kali Iodua.',
+                    isCompleted: false,
+                    checkCondition: (containers) => containers.some(c => c.contents?.chemicalId === 'GOLDEN_RAIN'),
+                    rewardMessage: "Một kiệt tác hóa học! Phản ứng trao đổi tạo ra kết tủa vàng óng."
+                });
+            }
+        }
     }
 
     check(containers: ContainerState[], lastReaction: string | null) {
+        let changed = false;
         this.activeQuests.forEach(quest => {
             if (!quest.isCompleted && quest.checkCondition(containers, lastReaction)) {
                 quest.isCompleted = true;
+                changed = true;
                 if (this.onQuestComplete) this.onQuestComplete(quest);
             }
         });
+        return changed;
     }
 
     getQuests() {

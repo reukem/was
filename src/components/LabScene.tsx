@@ -306,12 +306,13 @@ interface LabLogicProps {
     // Callbacks for Analyzer
     setAnalyzerPosition: (pos: THREE.Vector3) => void;
     analyzerPosition: THREE.Vector3;
+    heaterTemp?: number;
 }
 
 const LabLogic: React.FC<LabLogicProps> = ({
     containers, meshesMap, lastEffect, lastEffectPos, explodedContainerId,
     onMove, onPour, onToggleValve, isHeaterOn, onToggleHeater,
-    setAnalyzerPosition, analyzerPosition
+    setAnalyzerPosition, analyzerPosition, heaterTemp
 }) => {
     const { scene, camera, gl, raycaster } = useThree();
     const effectSystemRef = useRef<EffectSystem | null>(null);
@@ -436,14 +437,22 @@ const LabLogic: React.FC<LabLogicProps> = ({
         // Heater Visuals
         if (heaterRef.current) {
             const { mesh, light } = heaterRef.current;
-            light.intensity = isHeaterOn ? 2.0 : 0;
+            const temp = heaterTemp || 300;
+            const intensity = isHeaterOn ? (temp / 300) : 0;
+
+            // Light color shifts from orange to white-hot
+            const hotColor = new THREE.Color().setHSL(0.05 + (temp/2000)*0.1, 1.0, 0.5 + (temp/2000)*0.5);
+
+            light.intensity = intensity * 1.5;
+            light.color = hotColor;
+
             mesh.traverse((child) => {
                 if (child instanceof THREE.Mesh && child.material) {
                      const m = child.material as THREE.MeshStandardMaterial;
                      if ('emissive' in m) {
                          if (isHeaterOn && child.name === 'HeaterPlate') {
-                             m.emissive.setHex(0xff3300);
-                             m.emissiveIntensity = 2.0;
+                             m.emissive.setHex(hotColor.getHex());
+                             m.emissiveIntensity = intensity * 2.0;
                          } else if (child.name === 'HeaterPlate') {
                              m.emissive.setHex(0x000000);
                              m.emissiveIntensity = 0;
@@ -513,6 +522,7 @@ interface LabSceneProps {
     onToggleHeater?: () => void;
     isPerformanceMode?: boolean;
     whiteboardContent?: string | null;
+    heaterTemp?: number;
 }
 
 const LabScene: React.FC<LabSceneProps> = (props) => {
@@ -681,9 +691,10 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
 
                 {props.lastEffect && props.lastEffectPos && (
                     <ReactionVFX
-                        color={props.lastEffect === 'smoke' ? '#aaaaaa' : '#ffaa00'}
+                        color={props.lastEffect === 'smoke' ? '#aaaaaa' : props.lastEffect === 'bubbles' ? '#ffffff' : '#ffaa00'}
                         position={new THREE.Vector3(...props.lastEffectPos).add(new THREE.Vector3(0, 0.5, 0)).toArray() as [number, number, number]}
                         intensity={props.lastEffect === 'explosion' ? 5.0 : 1.0}
+                        effectType={props.lastEffect as any}
                     />
                 )}
 

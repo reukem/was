@@ -52,7 +52,9 @@ const App: React.FC = () => {
     const [whiteboardContent, setWhiteboardContent] = useState<string | null>(null);
 
     const [isHeaterOn, setIsHeaterOn] = useState(false);
+    const [heaterTemp, setHeaterTemp] = useState(300); // Default 300C
     const isHeaterOnRef = useRef(false);
+    const heaterTempRef = useRef(300);
 
     useEffect(() => {
         // Initialize with key from store
@@ -160,7 +162,11 @@ const App: React.FC = () => {
 
                 // Heating Logic
                 if (isOnHeater && isHeaterOnRef.current) {
-                    newTemp = Math.min(1500, newTemp + 2.0); // Faster heating
+                    // Approach heater temp
+                    const targetT = heaterTempRef.current;
+                    if (newTemp < targetT) {
+                        newTemp += (targetT - newTemp) * 0.05; // Exp approach
+                    }
                 } else {
                     // Newton's Law of Cooling (Simplified)
                     if (newTemp > 25) newTemp = Math.max(25, newTemp - 0.5);
@@ -234,6 +240,11 @@ const App: React.FC = () => {
             else audioManager.stopGasHiss();
             return newState;
         });
+    }, []);
+
+    const handleSetHeaterTemp = useCallback((t: number) => {
+        setHeaterTemp(t);
+        heaterTempRef.current = t;
     }, []);
 
     const handleToggleValve = useCallback((id: string) => {
@@ -608,6 +619,7 @@ const App: React.FC = () => {
                 onToggleHeater={handleToggleHeater}
                 isPerformanceMode={isPerformanceMode}
                 whiteboardContent={whiteboardContent}
+                heaterTemp={heaterTemp} // Pass to Scene for visuals
             />
             <LabUI
                 lastReaction={lastReaction}
@@ -625,6 +637,8 @@ const App: React.FC = () => {
                 onUserChat={handleUserChat}
                 isPerformanceMode={isPerformanceMode}
                 onTogglePerformance={handleTogglePerformance}
+                heaterTemp={heaterTemp}
+                onSetHeaterTemp={handleSetHeaterTemp}
             />
             {isMolecularViewOpen && (
                 <MolecularView mode={molecularMode} onClose={() => setIsMolecularViewOpen(false)} />

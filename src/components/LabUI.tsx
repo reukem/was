@@ -22,6 +22,8 @@ interface LabUIProps {
     onUserChat: (msg: string) => void;
     isPerformanceMode: boolean;
     onTogglePerformance: () => void;
+    heaterTemp: number;
+    onSetHeaterTemp: (t: number) => void;
 }
 
 const formatScientificText = (text: string) => {
@@ -81,7 +83,7 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
 const LabUI: React.FC<LabUIProps> = ({
     lastReaction, containers, chatHistory, isAiLoading, quests, safetyScore,
     isChatOpen, onToggleChat, onSpawn, onReset, onStartExam, isExamMode, onUserChat,
-    isPerformanceMode, onTogglePerformance
+    isPerformanceMode, onTogglePerformance, heaterTemp, onSetHeaterTemp
 }) => {
     const [chatInput, setChatInput] = useState('');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -163,6 +165,23 @@ const LabUI: React.FC<LabUIProps> = ({
                         >
                             ⚙️
                         </button>
+                    </div>
+
+                    {/* HEATER CONTROL */}
+                    <div className="bg-[#0f172a]/80 backdrop-blur-xl border border-orange-500/20 rounded-2xl p-3 shadow-lg flex flex-col gap-1 w-48">
+                        <div className="flex justify-between items-center text-[10px] uppercase font-bold text-orange-400 tracking-widest">
+                            <span>Bếp Nhiệt</span>
+                            <span>{heaterTemp}°C</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="25"
+                            max="1000"
+                            step="25"
+                            value={heaterTemp}
+                            onChange={(e) => onSetHeaterTemp(Number(e.target.value))}
+                            className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                        />
                     </div>
 
                     {/* SAFETY SCORE */}
