@@ -2,12 +2,15 @@ import React, { useEffect, useRef, useState, useMemo, forwardRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Environment, Text, Caustics, MeshTransmissionMaterial } from '@react-three/drei';
-import { EffectComposer, Bloom, DepthOfField, Vignette } from '@react-three/postprocessing';
-import { createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createLiquidMaterial, createMetalMaterial, createLabel, createHeaterMesh, createMeniscusGeometry, createNoiseTexture } from '../utils/threeHelpers';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+import { createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createMetalMaterial, createLabel, createHeaterMesh, createNoiseTexture } from '../utils/threeHelpers';
 import { EffectSystem } from '../utils/EffectSystem';
 import { audioManager } from '../utils/AudioManager';
 import { ContainerState } from '../types';
 import { CHEMICALS as CHEMS_CONST, HEATER_POSITION as HEAT_CONST } from '../constants';
+import Liquid from './Liquid';
+import ReactionVFX from './ReactionVFX';
+import { PhysicsEngine } from '../systems/PhysicsEngine';
 
 // Fix imports: CHEMICALS and HEATER_POSITION are in constants, not types
 const LOCAL_CHEMICALS = CHEMS_CONST;
@@ -97,14 +100,12 @@ const createAnalyzerMachineLocal = () => {
 };
 
 // --- Container3D Component ---
-const Container3D = forwardRef<{ group: THREE.Group, liquid: THREE.Mesh | null }, { container: ContainerState, quality: 'high' | 'low', onPointerDown?: (e: any) => void }>(({ container, quality, onPointerDown }, ref) => {
+const Container3D = forwardRef<{ group: THREE.Group }, { container: ContainerState, quality: 'high' | 'low', onPointerDown?: (e: any) => void }>(({ container, quality, onPointerDown }, ref) => {
     const groupRef = useRef<THREE.Group>(null);
-    const liquidRef = useRef<THREE.Mesh>(null);
     const solidRef = useRef<THREE.Mesh>(null);
 
     React.useImperativeHandle(ref, () => ({
-        group: groupRef.current!,
-        liquid: liquidRef.current
+        group: groupRef.current!
     }));
 
     const geometry = useMemo(() => {
@@ -117,11 +118,12 @@ const Container3D = forwardRef<{ group: THREE.Group, liquid: THREE.Mesh | null }
         return new THREE.BoxGeometry(0.5, 0.5, 0.5);
     }, [container.type]);
 
-    const liquidGeometry = useMemo(() => {
-        if (container.type === 'beaker') return createMeniscusGeometry(0.46, 1.0);
-        if (container.type === 'test_tube') return createMeniscusGeometry(0.13, 1.1);
-        if (container.type === 'bottle') return new THREE.CylinderGeometry(0.38, 0.38, 0.5, 24);
-        if (container.type === 'burette') return new THREE.CylinderGeometry(0.05, 0.05, 1, 16);
+    // Determine liquid dimensions based on container type
+    const liquidProps = useMemo(() => {
+        if (container.type === 'beaker') return { radius: 0.46, height: 1.0 };
+        if (container.type === 'test_tube') return { radius: 0.13, height: 1.1 };
+        if (container.type === 'bottle') return { radius: 0.38, height: 0.5 };
+        if (container.type === 'burette') return { radius: 0.05, height: 1.0 };
         return null;
     }, [container.type]);
 
@@ -202,29 +204,14 @@ const Container3D = forwardRef<{ group: THREE.Group, liquid: THREE.Mesh | null }
                     <mesh geometry={geometry} material={glassMaterial} castShadow />
                 ) : null}
 
-                {liquidGeometry && (
-                    <mesh
-                        ref={liquidRef}
-                        geometry={liquidGeometry}
-                        visible={!!contents}
-                        position={
-                             container.type === 'beaker' || container.type === 'test_tube' ? [0, 0.05, 0] :
-                             container.type === 'bottle' ? [0, 0.3, 0] :
-                             container.type === 'burette' ? [0, 0.15, 0] : [0,0,0]
-                        }
-                    >
-                        {contents && (
-                            <primitive
-                                object={createLiquidMaterial(
-                                    contents.color,
-                                    !!contents.activeReaction,
-                                    quality,
-                                    0.5
-                                )}
-                                attach="material"
-                            />
-                        )}
-                    </mesh>
+                {/* DYNAMIC LIQUID SHADER */}
+                {liquidProps && contents && (
+                    <Liquid
+                        color={contents.color}
+                        fillLevel={contents.volume}
+                        radius={liquidProps.radius}
+                        height={liquidProps.height}
+                    />
                 )}
 
                 {container.type === 'jar' && contents && (
@@ -253,7 +240,7 @@ const Container3D = forwardRef<{ group: THREE.Group, liquid: THREE.Mesh | null }
 
 interface LabLogicProps {
     containers: ContainerState[];
-    meshesMap: React.MutableRefObject<Map<string, { group: THREE.Group, liquid: THREE.Mesh | null }>>;
+    meshesMap: React.MutableRefObject<Map<string, { group: THREE.Group }>>;
     lastEffect: string | null;
     lastEffectPos?: [number, number, number] | null;
     explodedContainerId?: string | null;
@@ -537,7 +524,7 @@ interface LabSceneProps {
 }
 
 const LabScene: React.FC<LabSceneProps> = (props) => {
-    const meshesMap = useRef<Map<string, { group: THREE.Group, liquid: THREE.Mesh | null }>>(new Map());
+    const meshesMap = useRef<Map<string, { group: THREE.Group }>>(new Map());
     const orbitControlsRef = useRef<any>(null);
     const dragInfo = useRef<{ id: string, offset: THREE.Vector3 } | null>(null);
 
@@ -595,21 +582,21 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                 audioManager.playGlassClink();
 
                 // 2. Proximity Check (Module 3)
-                let closestId: string | null = null;
-                let minDst = Infinity;
+                // Use Physics Engine for precise mixing check
                 meshesMap.current.forEach((other, otherId) => {
                     if (otherId !== id) {
-                        const dist = obj.group.position.distanceTo(other.group.position);
-                        if (dist < 1.5 && dist < minDst) { // Threshold 1.5
-                            minDst = dist;
-                            closestId = otherId;
+                        const canPour = PhysicsEngine.checkPourCondition(
+                            obj.group.position,
+                            other.group.position,
+                            id,
+                            otherId
+                        );
+
+                        if (canPour) {
+                             props.onPour(id, otherId);
                         }
                     }
                 });
-
-                if (closestId) {
-                    props.onPour(id, closestId);
-                }
             }
 
             dragInfo.current = null;
@@ -683,6 +670,15 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                         )
                     ))}
                 </group>
+
+                {/* VOLUMETRIC SMOKE EFFECT */}
+                {props.lastEffect && props.lastEffectPos && (
+                    <ReactionVFX
+                        color={props.lastEffect === 'smoke' ? '#aaaaaa' : '#ffaa00'}
+                        position={new THREE.Vector3(...props.lastEffectPos).add(new THREE.Vector3(0, 0.5, 0)).toArray() as [number, number, number]}
+                        intensity={props.lastEffect === 'explosion' ? 5.0 : 1.0}
+                    />
+                )}
 
                 <Whiteboard content={props.whiteboardContent || null} />
 
