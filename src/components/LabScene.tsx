@@ -290,13 +290,10 @@ const LabLogic: React.FC<LabLogicProps> = ({
             new THREE.BoxGeometry(12, 0.2, 6),
             new THREE.MeshPhysicalMaterial({
                 color: 0x111827,
-                roughness: 0.1,
-                metalness: 0.9,
-                clearcoat: 1.0,
+                roughness: 0.4,
+                metalness: 0.8,
+                clearcoat: 0.5,
                 clearcoatRoughness: 0.1,
-                transmission: 0.2,
-                opacity: 0.9,
-                transparent: true
             })
         );
         tableMesh.receiveShadow = true;
@@ -540,6 +537,9 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     // -- Handler for Drag Start --
     const handleContainerPointerDown = (e: any, id: string) => {
         e.stopPropagation();
+        // Explicitly capture pointer to ensure we receive move/up events even if cursor leaves mesh
+        e.target.setPointerCapture(e.pointerId);
+
         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
 
         // Use the object position relative to the intersection point for offset
@@ -578,6 +578,9 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     const handlePlanePointerUp = (e: any) => {
         if (dragInfo.current && dragInfo.current.id) {
             e.stopPropagation();
+            // Release pointer capture
+            e.target.releasePointerCapture(e.pointerId);
+
             const id = dragInfo.current.id;
             const obj = meshesMap.current.get(id);
 
@@ -625,16 +628,17 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                 <color attach="background" args={['#0f172a']} />
 
                 <Suspense fallback={<Html center><div className="text-white font-mono text-xs">LOADING LAB...</div></Html>}>
-                    {/* Bright Studio Lighting */}
-                    <Environment preset="studio" blur={0.5} />
+                    {/* Moody Sci-Fi Lighting */}
+                    <Environment preset="city" background={false} blur={0.8} />
+
                 <directionalLight
                     position={[5, 10, 5]}
-                    intensity={2.0}
+                    intensity={0.8}
                     castShadow
                     shadow-bias={-0.0001}
                     shadow-mapSize={[1024, 1024]}
                 />
-                <pointLight position={[-5, 5, -5]} intensity={1.0} color="#06b6d4" />
+                <pointLight position={[-5, 5, -5]} intensity={0.4} color="#06b6d4" />
 
                 <LabLogic
                     {...props}
