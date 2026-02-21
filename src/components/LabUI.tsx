@@ -87,7 +87,6 @@ const LabUI: React.FC<LabUIProps> = ({
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isQuestLogOpen, setIsQuestLogOpen] = useState(true);
-    const [isMuted, setIsMuted] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -119,21 +118,6 @@ const LabUI: React.FC<LabUIProps> = ({
             chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
         }
     }, [chatHistory, isChatOpen]);
-
-    useEffect(() => {
-        const lastMsg = chatHistory[chatHistory.length - 1];
-        if (!isMuted && lastMsg?.role === 'model' && 'speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-            const cleanText = lastMsg.text.replace(/[*_`]/g, '');
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            const voices = window.speechSynthesis.getVoices();
-            const viVoice = voices.find(v => v.lang.includes('vi'));
-            if (viVoice) utterance.voice = viVoice;
-            utterance.rate = 1.0;
-            utterance.pitch = 0.9;
-            window.speechSynthesis.speak(utterance);
-        }
-    }, [chatHistory, isMuted]);
 
     return (
         <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 overflow-hidden select-none font-sans text-white">
@@ -383,13 +367,6 @@ const LabUI: React.FC<LabUIProps> = ({
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-                                    className="text-slate-500 hover:text-white p-2 transition-colors rounded-full hover:bg-white/5"
-                                    title={isMuted ? "Bật tiếng" : "Tắt tiếng"}
-                                >
-                                    {isMuted ? "🔇" : "🔊"}
-                                </button>
                                 <button onClick={() => onToggleChat(false)} className="text-slate-500 hover:text-white p-2 rounded-full hover:bg-white/5">✕</button>
                             </div>
                         </div>

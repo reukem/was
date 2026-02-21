@@ -1,14 +1,13 @@
-import React, { useEffect, useRef, useState, useMemo, forwardRef } from 'react';
+import React, { useEffect, useRef, useState, useMemo, forwardRef, Suspense } from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment, Text, Caustics, MeshTransmissionMaterial } from '@react-three/drei';
+import { OrbitControls, Environment, Text, Caustics, MeshTransmissionMaterial, Html } from '@react-three/drei';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { createBeakerGeometry, createBuretteGeometry, createStandGeometry, createRoughChunkGeometry, createMoundGeometry, createGlassMaterial, createMetalMaterial, createLabel, createHeaterMesh, createNoiseTexture } from '../utils/threeHelpers';
 import { EffectSystem } from '../utils/EffectSystem';
 import { audioManager } from '../utils/AudioManager';
 import { ContainerState } from '../types';
 import { CHEMICALS as CHEMS_CONST, HEATER_POSITION as HEAT_CONST } from '../constants';
-import Liquid from './Liquid';
 import ReactionVFX from './ReactionVFX';
 import { PhysicsEngine } from '../systems/PhysicsEngine';
 
@@ -204,14 +203,20 @@ const Container3D = forwardRef<{ group: THREE.Group }, { container: ContainerSta
                     <mesh geometry={geometry} material={glassMaterial} castShadow />
                 ) : null}
 
-                {/* DYNAMIC LIQUID SHADER */}
+                {/* STATIC LIQUID MESH (Emergency Rollback) */}
                 {liquidProps && contents && (
-                    <Liquid
-                        color={contents.color}
-                        fillLevel={contents.volume}
-                        radius={liquidProps.radius}
-                        height={liquidProps.height}
-                    />
+                    <mesh position={[0, (liquidProps.height * contents.volume * 0.5) - (liquidProps.height * 0.5), 0]}>
+                        <cylinderGeometry args={[liquidProps.radius, liquidProps.radius, liquidProps.height * Math.max(0.01, contents.volume), 32]} />
+                        <meshPhysicalMaterial
+                            color={contents.color}
+                            transmission={0.9}
+                            roughness={0.1}
+                            metalness={0.0}
+                            ior={1.33}
+                            thickness={0.5}
+                            transparent
+                        />
+                    </mesh>
                 )}
 
                 {container.type === 'jar' && contents && (
@@ -619,10 +624,9 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                 {/* Futuristic Clean Lab Background */}
                 <color attach="background" args={['#0f172a']} />
 
-                {/* Bright Studio Lighting */}
-                <Environment preset="studio" blur={0.5} />
-
-                <ambientLight intensity={0.6} color="#ffffff" />
+                <Suspense fallback={<Html center><div className="text-white font-mono text-xs">LOADING LAB...</div></Html>}>
+                    {/* Bright Studio Lighting */}
+                    <Environment preset="studio" blur={0.5} />
                 <directionalLight
                     position={[5, 10, 5]}
                     intensity={2.0}
@@ -684,22 +688,23 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
 
                 <OrbitControls ref={orbitControlsRef} makeDefault dampingFactor={0.05} />
 
-                {/* Minimal Post-Processing for Performance & Clarity */}
-                {!props.isPerformanceMode && (
-                    <EffectComposer>
-                        <Bloom
-                            luminanceThreshold={1.2}
-                            mipmapBlur
-                            intensity={0.6}
-                            radius={0.4}
-                        />
-                        <Vignette
-                            eskil={false}
-                            offset={0.1}
-                            darkness={0.4}
-                        />
-                    </EffectComposer>
-                )}
+                    {/* Minimal Post-Processing for Performance & Clarity */}
+                    {!props.isPerformanceMode && (
+                        <EffectComposer>
+                            <Bloom
+                                luminanceThreshold={1.2}
+                                mipmapBlur
+                                intensity={0.6}
+                                radius={0.4}
+                            />
+                            <Vignette
+                                eskil={false}
+                                offset={0.1}
+                                darkness={0.4}
+                            />
+                        </EffectComposer>
+                    )}
+                </Suspense>
             </Canvas>
         </div>
     );
