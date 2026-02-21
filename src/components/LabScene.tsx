@@ -247,6 +247,8 @@ const LabLogic: React.FC<LabLogicProps> = ({
                 metalness: 0.8,
                 clearcoat: 0.5,
                 clearcoatRoughness: 0.1,
+                transmission: 0, // Ensure it is solid
+                transparent: false
             })
         );
         tableMesh.receiveShadow = true;
