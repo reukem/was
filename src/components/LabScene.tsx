@@ -485,101 +485,99 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                     setAnalyzerPosition={setAnalyzerPos}
                 />
 
+                {/* Isolated DragControls for Analyzer */}
                 {/* @ts-ignore */}
                 <DragControls
                     axisLock="y"
-                    onDragStart={() => {
-                        if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
-                    }}
+                    onDragStart={() => { if (orbitControlsRef.current) orbitControlsRef.current.enabled = false; }}
                     onDragEnd={(e) => {
                         if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-                        let target = e.object;
-                        while(target.parent && !target.userData.id) target = target.parent;
-                        if (target && target.userData.id) {
-                            const id = target.userData.id;
-
-                            // Analyzer special handling
-                            if (id === 'ANALYZER') {
-                                setAnalyzerPos(target.position.clone());
-                                return;
-                            }
-
-                             // ONLY update state here, at the end of the drag.
-                             props.onMove(id, [target.position.x, target.position.y, target.position.z]);
-
-                             // Trigger physics drop/pour checks here.
-                             // Need to check against other meshes
-                             const sourcePos = target.position;
-                             const sourceType = target.userData.type;
-
-                             meshesMap.current.forEach((other, otherId) => {
-                                if (otherId !== id) {
-                                    if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, id, otherId)) {
-                                        props.onPour(id, otherId);
-                                    }
-                                    else if (PhysicsEngine.checkDropCondition(sourcePos, other.group.position, sourceType)) {
-                                        props.onDrop(id, otherId);
-                                    }
-                                }
-                            });
-                        }
+                        setAnalyzerPos(e.object.position.clone());
                     }}
                 >
-                    <group>
-                        <Analyzer3D
-                            position={[analyzerPos.x, analyzerPos.y, analyzerPos.z]}
-                            updateDisplay={(ctx) => {
-                                ctx.fillStyle = '#0f172a';
-                                ctx.fillRect(0, 0, 256, 128);
-                                ctx.textAlign = 'center';
+                    <Analyzer3D
+                        position={[analyzerPos.x, analyzerPos.y, analyzerPos.z]}
+                        updateDisplay={(ctx) => {
+                            ctx.fillStyle = '#0f172a';
+                            ctx.fillRect(0, 0, 256, 128);
+                            ctx.textAlign = 'center';
 
-                                let foundChem = null;
-                                let foundTemp = 25;
+                            let foundChem = null;
+                            let foundTemp = 25;
 
-                                props.containers.forEach(c => {
-                                    const cPos = new THREE.Vector3(...c.position);
-                                    if (analyzerPos.distanceTo(cPos) < 1.2 && c.contents) {
-                                        foundChem = c.contents.chemicalId;
-                                        foundTemp = c.contents.temperature || 25;
+                            props.containers.forEach(c => {
+                                const cPos = new THREE.Vector3(...c.position);
+                                if (analyzerPos.distanceTo(cPos) < 1.2 && c.contents) {
+                                    foundChem = c.contents.chemicalId;
+                                    foundTemp = c.contents.temperature || 25;
+                                }
+                            });
+
+                            if (foundChem) {
+                                const chem = LOCAL_CHEMICALS[foundChem];
+                                ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
+                                    ctx.font = 'bold 24px monospace';
+                                ctx.fillText('SCANNING...', 128, 40);
+                                ctx.fillStyle = '#22c55e';
+                                ctx.font = 'bold 36px monospace';
+                                ctx.fillText(`pH: ${chem.ph}`, 128, 80);
+                                ctx.font = '24px monospace';
+                                ctx.fillText(`${foundTemp.toFixed(0)}°C`, 128, 110);
+                            } else {
+                                ctx.fillStyle = '#94a3b8';
+                                ctx.font = 'bold 32px monospace';
+                                ctx.fillText('READY', 128, 70);
+                            }
+                        }}
+                    />
+                </DragControls>
+
+                {/* Isolated DragControls for Containers */}
+                {props.containers.map(c => (
+                    c.id !== props.explodedContainerId && (
+                        /* @ts-ignore */
+                        <DragControls
+                            key={`drag-${c.id}`}
+                            axisLock="y"
+                            onDragStart={() => {
+                                if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
+                            }}
+                            onDragEnd={(e) => {
+                                if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+                                // Because we are inside the map loop, we already know the ID is c.id!
+                                const newPos = [e.object.position.x, e.object.position.y, e.object.position.z] as [number, number, number];
+                                props.onMove(c.id, newPos);
+
+                                // Trigger physics drop/pour checks here.
+                                const sourcePos = e.object.position;
+                                const sourceType = c.type;
+
+                                meshesMap.current.forEach((other, otherId) => {
+                                    if (otherId !== c.id) {
+                                        if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, c.id, otherId)) {
+                                            props.onPour(c.id, otherId);
+                                        }
+                                        else if (PhysicsEngine.checkDropCondition(sourcePos, other.group.position, sourceType)) {
+                                            props.onDrop(c.id, otherId);
+                                        }
                                     }
                                 });
-
-                                if (foundChem) {
-                                    const chem = LOCAL_CHEMICALS[foundChem];
-                                    ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
-                                    ctx.font = 'bold 24px monospace';
-                                    ctx.fillText('SCANNING...', 128, 40);
-                                    ctx.fillStyle = '#22c55e';
-                                    ctx.font = 'bold 36px monospace';
-                                    ctx.fillText(`pH: ${chem.ph}`, 128, 80);
-                                    ctx.font = '24px monospace';
-                                    ctx.fillText(`${foundTemp.toFixed(0)}°C`, 128, 110);
-                                } else {
-                                    ctx.fillStyle = '#94a3b8';
-                                    ctx.font = 'bold 32px monospace';
-                                    ctx.fillText('READY', 128, 70);
-                                }
                             }}
-                        />
-
-                        {props.containers.map(c => (
-                            c.id !== props.explodedContainerId && (
-                                <Container3D
-                                    key={c.id}
-                                    container={c}
-                                    quality={props.isPerformanceMode ? 'low' : 'high'}
-                                    ref={(node) => {
-                                        if (node) {
-                                            meshesMap.current.set(c.id, node);
-                                        } else {
-                                            meshesMap.current.delete(c.id);
-                                        }
-                                    }}
-                                />
-                            )
-                        ))}
-                    </group>
-                </DragControls>
+                        >
+                            <Container3D
+                                container={c}
+                                quality={props.isPerformanceMode ? 'low' : 'high'}
+                                ref={(node) => {
+                                    if (node) {
+                                        meshesMap.current.set(c.id, node);
+                                    } else {
+                                        meshesMap.current.delete(c.id);
+                                    }
+                                }}
+                            />
+                        </DragControls>
+                    )
+                ))}
 
                 {props.lastEffect && props.lastEffectPos && (
                     <ReactionVFX

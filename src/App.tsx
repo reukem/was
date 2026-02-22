@@ -46,7 +46,7 @@ const App: React.FC = () => {
     const [isExamMode, setIsExamMode] = useState(false);
 
     // Performance Mode State
-    const [isPerformanceMode, setIsPerformanceMode] = useState(false);
+    const [isPerformanceMode, setIsPerformanceMode] = useState(true);
 
     // Whiteboard State
     const [whiteboardContent, setWhiteboardContent] = useState<string | null>(null);
