@@ -34,21 +34,23 @@ export const PhysicsEngine = {
      * Checks if a solid source has been dropped INTO a target container.
      *
      * Condition:
-     * 1. Source type must be 'rock' or 'solid'.
-     * 2. 2D XZ Distance < 0.5 (Directly intersecting the opening).
-     * 3. Y position doesn't matter as much (it's a drop), but source shouldn't be way below target.
+     * 1. Source type must be 'rock' or 'solid' or 'jar' (if it holds solids).
+     * 2. 2D XZ Distance < 0.6 (Generous drop radius).
+     * 3. Y position is less critical for a drop, but should be vaguely above/near.
      */
     checkDropCondition: (
         sourcePos: THREE.Vector3,
         targetPos: THREE.Vector3,
         sourceType: string | undefined
     ): boolean => {
-        // Only rocks can be dropped "into" things this way
-        if (sourceType !== 'rock' && sourceType !== 'solid') return false;
+        // Solids/Rocks/Jars can be dropped "into" things
+        // Note: 'jar' usually pours, but for this simulation, dragging a jar onto a beaker might be interpreted as dumping its solid contents.
+        if (sourceType !== 'rock' && sourceType !== 'solid' && sourceType !== 'jar') return false;
 
         const dist = new THREE.Vector2(sourcePos.x, sourcePos.z).distanceTo(new THREE.Vector2(targetPos.x, targetPos.z));
 
-        // Strict threshold for dropping IN
-        return dist < 0.5 && sourcePos.y > targetPos.y - 0.2;
+        // Generous threshold for dropping IN (0.6 radius)
+        // Ignore Y-axis strict check as per user request ("dead drop" fix)
+        return dist < 0.6;
     }
 };

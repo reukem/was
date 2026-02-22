@@ -177,50 +177,62 @@ const App: React.FC = () => {
                     changed = true;
                 }
 
-                // 3. Check for Thermal Decomposition / Auto-Ignition
+                // 3. Check for Thermal Decomposition / Auto-Ignition (With Safety Margin)
                 const chem = CHEMICALS[updatedContents.chemicalId];
+                // Check if current temp exceeds threshold for decomposition
+                // The threshold might be lower than the max temp of heater, so ensure it triggers
                 if (chem && chem.thermalDecomposition) {
                     if (newTemp >= chem.thermalDecomposition.minTemperature) {
                         // TRIGGER DECOMPOSITION
-                        const decomp = chem.thermalDecomposition;
-                        updatedContents.chemicalId = decomp.product;
-                        updatedContents.color = CHEMICALS[decomp.product].color;
+                        // Ensure we haven't already reacted if product is same (avoid loop if product is stable)
+                        if (updatedContents.chemicalId !== chem.thermalDecomposition.product) {
+                            const decomp = chem.thermalDecomposition;
+                            updatedContents.chemicalId = decomp.product;
+                            updatedContents.color = CHEMICALS[decomp.product].color;
 
-                        // Side Effects
-                        setLastReaction(decomp.message);
-                        setLastEffect(decomp.effect || null);
-                        setLastEffectPos(c.position);
+                            // Side Effects
+                            setLastReaction(decomp.message);
+                            setLastEffect(decomp.effect || null);
+                            setLastEffectPos(c.position);
 
-                        if (decomp.effect === 'explosion') {
-                            audioManager.playExplosion();
-                            setExplodedContainerId(c.id);
-                            setSafetyScore(s => Math.max(0, s - 50));
+                            if (decomp.effect === 'explosion') {
+                                audioManager.playExplosion();
+                                setExplodedContainerId(c.id);
+                                setSafetyScore(s => Math.max(0, s - 50));
 
-                            // AI Scolding
-                            if (aiServiceRef.current) {
-                                setIsChatOpen(true);
-                                aiServiceRef.current.chat(`[SYSTEM EVENT: EXPLOSION! The student caused a dangerous explosion. Scold them severely but playfully about lab safety rules in Vietnamese.]`);
+                                // AI Scolding
+                                if (aiServiceRef.current) {
+                                    setIsChatOpen(true);
+                                    aiServiceRef.current.chat(`[SYSTEM EVENT: EXPLOSION! The student caused a dangerous explosion. Scold them severely but playfully about lab safety rules in Vietnamese.]`);
+                                }
+
+                                // Reset shattered container after 5s
+                                setTimeout(() => {
+                                    setExplodedContainerId(null);
+                                    setContainers(prev => prev.map(con =>
+                                        con.id === c.id ? { ...con, contents: null, position: con.initialPosition || [0, 0.11, 0] } : con
+                                    ));
+                                }, 5000);
+                            } else {
+                                audioManager.playFizz();
+                                if (aiServiceRef.current) {
+                                    setIsChatOpen(true);
+                                    aiServiceRef.current.chat(`[OBSERVATION] Phản ứng nhiệt phân thành công! ${chem.name} đã chuyển thành ${CHEMICALS[decomp.product].name}.`);
+                                }
                             }
 
-                            // Reset shattered container after 5s
-                            setTimeout(() => {
-                                setExplodedContainerId(null);
-                                // Respawn or reset? Just hide visual damage for now.
-                                // Actually user wants "Fail-Safe Virtual Restart" for that beaker
-                                setContainers(prev => prev.map(con =>
-                                    con.id === c.id ? { ...con, contents: null, position: con.initialPosition || [0, 0.11, 0] } : con
-                                ));
-                            }, 5000);
-                        } else {
-                             audioManager.playFizz();
-                             if (aiServiceRef.current) {
-                                setIsChatOpen(true);
-                                aiServiceRef.current.chat(`[OBSERVATION] Phản ứng nhiệt phân thành công! ${chem.name} đã chuyển thành ${CHEMICALS[decomp.product].name}.`);
-                             }
+                            changed = true;
                         }
-
-                        changed = true;
                     }
+                } else if (newTemp > 100 && updatedContents.chemicalId === 'H2O' && updatedContents.volume > 0) {
+                     // Boiling Water Effect (Generic)
+                     // Reduce volume slowly
+                     updatedContents.volume -= 0.0005;
+                     if (updatedContents.volume <= 0) {
+                         updatedContents.volume = 0;
+                         // Empty
+                     }
+                     changed = true;
                 }
 
                 if (changed) {

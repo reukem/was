@@ -122,12 +122,15 @@ const LabUI: React.FC<LabUIProps> = ({
     }, [chatHistory, isChatOpen]);
 
     return (
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 overflow-hidden select-none font-sans text-white">
-            <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
-            <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 overflow-hidden select-none font-sans text-white z-20">
+            {/* Modals must catch events */}
+            <div className="pointer-events-auto">
+                <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
+                <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+            </div>
 
             {/* --- HEADER --- */}
-            <div className="flex justify-between items-start pointer-events-auto z-50" style={{ pointerEvents: 'auto' }}>
+            <div className="flex justify-between items-start pointer-events-auto z-50 relative" style={{ pointerEvents: 'auto' }}>
                 <div className="flex flex-col gap-3">
                     {/* Main Title Card */}
                     <div className={`bg-[#0f172a]/80 backdrop-blur-xl px-8 py-5 rounded-[2rem] border ${isExamMode ? 'border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.1)]' : 'border-white/5 shadow-2xl'} transition-all duration-500`}>

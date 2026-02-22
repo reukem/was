@@ -558,10 +558,29 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                                             props.onPour(c.id, otherId);
                                         }
                                         else if (PhysicsEngine.checkDropCondition(sourcePos, other.group.position, sourceType)) {
+                                            // Ensure we transfer the full volume for solids (rocks/jars)
+                                            // The PhysicsEngine check is now generous (0.6 radius)
+                                            // We use onPour because onDrop is just a wrapper, and we might need to specify amount
+                                            // Actually, onDrop calls handlePour(..., 1.0) in App.tsx, which is what we want.
                                             props.onDrop(c.id, otherId);
                                         }
                                     }
                                 });
+
+                                // Explicitly check against props.containers for data-driven drop logic (Failsafe)
+                                // This handles cases where meshesMap might be out of sync or raycasting fails
+                                const sourceChem = LOCAL_CHEMICALS[c.contents?.chemicalId || ''];
+                                if (sourceChem && (c.type === 'rock' || sourceChem.type === 'solid')) {
+                                    props.containers.forEach(target => {
+                                        if (target.id !== c.id && (target.type === 'beaker' || target.type === 'test_tube')) {
+                                            const targetPos = new THREE.Vector3(...target.position);
+                                            // Use the lenient check
+                                            if (PhysicsEngine.checkDropCondition(sourcePos, targetPos, c.type)) {
+                                                props.onDrop(c.id, target.id);
+                                            }
+                                        }
+                                    });
+                                }
                             }}
                         >
                             <Container3D
