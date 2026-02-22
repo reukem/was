@@ -1,17 +1,24 @@
 import React, { useState } from 'react';
-import { useStore } from '../store';
 
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
+// Simple local storage fallback since store is deleted
+const getStoredKey = () => localStorage.getItem('gemini_api_key') || '';
+const setStoredKey = (key: string) => {
+    if (key) localStorage.setItem('gemini_api_key', key);
+    else localStorage.removeItem('gemini_api_key');
+};
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-    const { apiSettings, setGeminiKey } = useStore();
-    const [apiKey, setApiKey] = useState(apiSettings.geminiKey || '');
+    const [apiKey, setApiKey] = useState(getStoredKey());
 
     const handleSave = () => {
-        setGeminiKey(apiKey.trim() || null);
+        setStoredKey(apiKey.trim());
+        // Force reload to pick up key in App (simple way since context is gone)
+        window.location.reload();
         onClose();
     };
 

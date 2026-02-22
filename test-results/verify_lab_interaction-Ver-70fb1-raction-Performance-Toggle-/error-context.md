@@ -1,0 +1,91 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - heading "CHEMIC-AI" [level=1] [ref=e8]
+        - paragraph [ref=e9]: Research Environment // v4.1.5
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - generic [ref=e12]: Heater
+          - generic [ref=e13]: 300°C
+        - slider [ref=e14] [cursor=pointer]: "300"
+      - generic [ref=e16]:
+        - button "⚙️" [ref=e17] [cursor=pointer]
+        - button "📖" [ref=e18] [cursor=pointer]
+        - button "Sterilize" [ref=e19] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - heading "Chemical Inventory" [level=2] [ref=e23]
+        - button "✕" [ref=e24] [cursor=pointer]
+      - generic [ref=e25]:
+        - button "Sterile Beaker Borosilicate Glassware" [ref=e26] [cursor=pointer]:
+          - text: Sterile Beaker
+          - paragraph [ref=e27]: Borosilicate Glassware
+        - button "Distilled Water H₂O" [ref=e29] [cursor=pointer]:
+          - generic [ref=e31]: Distilled Water
+          - text: H₂O
+        - button "Sodium Na" [ref=e33] [cursor=pointer]:
+          - generic [ref=e35]: Sodium
+          - text: Na
+        - button "Potassium K" [ref=e37] [cursor=pointer]:
+          - generic [ref=e39]: Potassium
+          - text: K
+        - button "Magnesium Mg" [ref=e41] [cursor=pointer]:
+          - generic [ref=e43]: Magnesium
+          - text: Mg
+        - button "Copper Cu" [ref=e45] [cursor=pointer]:
+          - generic [ref=e47]: Copper
+          - text: Cu
+        - button "Calcium Carbonate CaCO₃" [ref=e49] [cursor=pointer]:
+          - generic [ref=e51]: Calcium Carbonate
+          - text: CaCO₃
+        - button "Chlorine Gas Cl₂" [ref=e53] [cursor=pointer]:
+          - generic [ref=e55]: Chlorine Gas
+          - text: Cl₂
+        - button "Sodium Chloride NaCl" [ref=e57] [cursor=pointer]:
+          - generic [ref=e59]: Sodium Chloride
+          - text: NaCl
+        - button "Hydrochloric Acid HCl" [ref=e61] [cursor=pointer]:
+          - generic [ref=e63]: Hydrochloric Acid
+          - text: HCl
+        - button "Nitric Acid HNO₃" [ref=e65] [cursor=pointer]:
+          - generic [ref=e67]: Nitric Acid
+          - text: HNO₃
+        - button "Sodium Hydroxide NaOH" [ref=e69] [cursor=pointer]:
+          - generic [ref=e71]: Sodium Hydroxide
+          - text: NaOH
+        - button "Acetic Acid CH₃COOH" [ref=e73] [cursor=pointer]:
+          - generic [ref=e75]: Acetic Acid
+          - text: CH₃COOH
+        - button "Sodium Bicarbonate NaHCO₃" [ref=e77] [cursor=pointer]:
+          - generic [ref=e79]: Sodium Bicarbonate
+          - text: NaHCO₃
+        - button "Sodium Hypochlorite NaClO" [ref=e81] [cursor=pointer]:
+          - generic [ref=e83]: Sodium Hypochlorite
+          - text: NaClO
+        - button "Copper(II) Sulfate CuSO₄" [ref=e85] [cursor=pointer]:
+          - generic [ref=e87]: Copper(II) Sulfate
+          - text: CuSO₄
+        - button "Hydrogen Peroxide H₂O₂" [ref=e89] [cursor=pointer]:
+          - generic [ref=e91]: Hydrogen Peroxide
+          - text: H₂O₂
+        - button "Potassium Iodide KI" [ref=e93] [cursor=pointer]:
+          - generic [ref=e95]: Potassium Iodide
+          - text: KI
+        - button "Iodine I₂" [ref=e97] [cursor=pointer]:
+          - generic [ref=e99]: Iodine
+          - text: I₂
+    - generic [ref=e104] [cursor=pointer]:
+      - generic [ref=e106]: 🎓
+      - generic [ref=e107]:
+        - heading "Professor Gemini" [level=3] [ref=e108]
+        - generic [ref=e111]: Connected
+      - button "▲" [ref=e112]
+    - generic [ref=e113]:
+      - generic [ref=e114]: SYSTEM_READY
+      - generic [ref=e116]: "ENTITIES: 2"
+      - generic [ref=e117]: GEMINI_2.5_FLASH
+```
