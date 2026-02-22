@@ -53,12 +53,17 @@ export class ChemistryEngine {
         currentTemperature: number = 20 // Default ambient
     ): { resultId: string; resultColor: string; reaction?: ReactionResult; activeReaction?: ActiveReaction } {
 
-        // HARDCODED SAFETY TRIGGER (MODULE 3)
+        // HARDCODED SAFETY TRIGGER (MODULE 3) - Overwritten for stricter check per Module 4
         if ((chemId1 === 'SODIUM' && chemId2 === 'H2O') || (chemId1 === 'H2O' && chemId2 === 'SODIUM')) {
             return {
                 resultId: 'NaOH',
                 resultColor: '#f8fafc',
-                reaction: { productName: 'NaOH', color: '#f8fafc', effect: 'explosion', message: 'KABOOM!' }
+                reaction: {
+                    productName: 'Sodium Hydroxide',
+                    color: '#f8fafc',
+                    effect: 'explosion',
+                    message: 'Violent exothermic reaction!'
+                }
             };
         }
 

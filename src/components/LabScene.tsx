@@ -464,41 +464,25 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     const [draggedId, setDraggedId] = useState<string | null>(null);
     const dragOffset = useRef(new THREE.Vector3());
 
-    const handleCollisionScenario = (draggedId: string, dropX: number, dropZ: number) => {
-        const sourceContainer = props.containers.find(c => c.id === draggedId);
-        if (!sourceContainer || !sourceContainer.contents) return;
+    const handleDropCollision = (sourceId: string, dropX: number, dropZ: number) => {
+        const source = props.containers.find(c => c.id === sourceId);
+        if (!source || !source.contents) return;
 
-        const sourceChem = LOCAL_CHEMICALS[sourceContainer.contents.chemicalId];
+        const chem = LOCAL_CHEMICALS[source.contents.chemicalId];
+        if (source.type === 'rock' || chem?.type === 'solid') {
+          props.containers.forEach(target => {
+            if (target.id !== sourceId && (target.type === 'beaker' || target.type === 'test_tube')) {
+              const dx = target.position[0] - dropX;
+              const dz = target.position[2] - dropZ;
+              const distance = Math.sqrt(dx * dx + dz * dz);
 
-        // SCENARIO A: The user is dropping a SOLID (Rock/Crystal/Powder)
-        if (sourceContainer.type === 'rock' || (sourceChem && sourceChem.type === 'solid')) {
-
-            // Iterate through all possible targets
-            props.containers.forEach(target => {
-                // Ignore self and ensure target is a vessel capable of holding liquids
-                if (target.id !== draggedId && (target.type === 'beaker' || target.type === 'test_tube')) {
-
-                    // Execute XZ Euclidean Distance Math
-                    const dx = target.position[0] - dropX;
-                    const dz = target.position[2] - dropZ;
-                    const distance = Math.sqrt(dx * dx + dz * dz);
-
-                    // Threshold logic: If distance is less than 0.8 units, it's a hit!
-                    if (distance < 0.8) {
-                        console.log(`[PHYSICS EVENT]: Solid ${draggedId} dropped into ${target.id}`);
-                        // Dump the entire solid volume into the target
-                        props.onPour(draggedId, target.id); // Defaulting to full pour for solids
-                    }
-                }
-            });
+              if (distance < 0.8) { // 2D Euclidean Hit Box
+                props.onPour(sourceId, target.id);
+              }
+            }
+          });
         }
-        // SCENARIO B: Pouring Liquids (Vertical check handled by onPour via checkPourCondition calls previously)
-        // But we need to ensure the standard check is still here if drag ended?
-        // Actually, the drag controls handles the "Pour" via checkPourCondition which is a proximity check.
-        // The Module 1 instructions say "Trigger the Spatial Collision Script (See Module 2)"
-        // Module 2 only defines SCENARIO A for solids.
-        // We will stick to the exact instruction: Implement handleCollisionScenario as requested.
-    };
+      };
 
     return (
         <div className="w-full h-full">
@@ -533,64 +517,60 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                     setAnalyzerPosition={setAnalyzerPos}
                 />
 
-                {/* Invisible Table Plane for Dragging */}
+                {/* Master Raycast Plane (Module 2) */}
                 <mesh
                     rotation={[-Math.PI / 2, 0, 0]}
                     position={[0, 0.11, 0]}
                     visible={false}
                     onPointerMove={(e) => {
-                        // Native Drag Logic: Update position directly
                         if (draggedId) {
-                            if (draggedId === 'ANALYZER') {
-                                // Analyzer special case if needed, but for now Analyzer is static or handled differently?
-                                // User instructions focused on containers. Let's assume Analyzer is also manually draggable if we wrap it.
-                                // Actually, let's keep Analyzer separate or fix it too.
-                                // The user said "Purge DragControls entirely".
-                                setAnalyzerPos(new THREE.Vector3(e.point.x + dragOffset.current.x, 0, e.point.z + dragOffset.current.z));
-                                return;
-                            }
+                            e.stopPropagation();
+                            // NATIVE MUTATION: Bypass React State entirely during drag
+                            // Use scene global traversal as fallback or e.object parent traversal if reliable
+                            // Given we wrapped containers in named groups, let's find them.
+                            // The raycast hit 'e' is on the PLANE. 'draggedId' tells us what to move.
 
-                            const meshNode = meshesMap.current.get(draggedId);
-                            if (meshNode) {
-                                // Mutate position directly
-                                meshNode.group.position.set(
-                                    e.point.x + dragOffset.current.x,
-                                    meshNode.group.position.y, // Lock Y (table height fixed in logic or via physics, but here we just lock to current Y)
-                                    e.point.z + dragOffset.current.z
-                                );
+                            // We need to find the object in the scene.
+                            // e.object is the plane. e.object.parent is the scene (usually).
+                            const scene = e.object.parent;
+                            const target = scene?.getObjectByName(`container-${draggedId}`);
+
+                            if (target) {
+                                // We are moving the GROUP wrapper which has the name `container-${id}`
+                                // Native math: set position
+                                target.position.x = e.point.x;
+                                target.position.z = e.point.z;
+                                // Keep Y fixed to drag plane for now, or maintain original Y?
+                                // The instructions say "position={[0, 0.11, 0]}" for the plane.
+                                // e.point will have Y=0.11.
+                                // Containers usually sit at Y=0 relative to their parent if parent is at 0?
+                                // Wait, the containers are children of the scene.
+                                // `Container3D` puts geometry at [0,0,0] or shifted.
+                                // If we move the group `container-${id}`, we set its world position.
+                                // The plane is at y=0.11. So e.point.y is 0.11.
+                                // We want the bottom of the container at 0.11?
+                                // Previously logic kept Y. Let's trust e.point.
+                                // But `Container3D` internal logic shifts things up.
+                                // Let's just set X and Z and lock Y to the plane height?
+                                // "target.position.x = e.point.x" implies we assume Y matches or is irrelevant during drag.
+                                // Let's set Y to 0.11 to be safe, or just X/Z as requested.
+                                // The instruction says: "target.position.x = e.point.x; target.position.z = e.point.z;"
+                                // It implies Y is untouched.
                             }
                         }
                     }}
                     onPointerUp={(e) => {
                         if (draggedId) {
+                            e.stopPropagation();
                             if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
 
-                            if (draggedId === 'ANALYZER') {
-                                // Finalize Analyzer
-                                setDraggedId(null);
-                                return;
-                            }
+                            // Flush final coordinate to React state ONCE
+                            // Note: e.point.y is 0.11
+                            props.onMove(draggedId, [e.point.x, 0.11, e.point.z]);
 
-                            const meshNode = meshesMap.current.get(draggedId);
-                            if (meshNode) {
-                                const { x, y, z } = meshNode.group.position;
+                            // Execute imperative collision drop check
+                            handleDropCollision(draggedId, e.point.x, e.point.z);
 
-                                // 1. Sync React State
-                                props.onMove(draggedId, [x, y, z]);
-
-                                // 2. Collision Check
-                                handleCollisionScenario(draggedId, x, z);
-
-                                // 3. Liquid Pour Check (Legacy)
-                                const sourcePos = new THREE.Vector3(x, y, z);
-                                meshesMap.current.forEach((other, otherId) => {
-                                    if (otherId !== draggedId) {
-                                        if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, draggedId, otherId)) {
-                                            props.onPour(draggedId, otherId);
-                                        }
-                                    }
-                                });
-                            }
                             setDraggedId(null);
                         }
                     }}

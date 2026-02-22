@@ -18,7 +18,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto">
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200" style={{ pointerEvents: 'auto' }}>
             <div className="bg-[#0f172a]/90 border border-indigo-500/30 p-8 rounded-[2rem] shadow-2xl w-[500px] max-w-full backdrop-blur-xl transform transition-all scale-100 ring-1 ring-white/10">
                 <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-6 tracking-tight flex items-center gap-3">
                     ⚙️ SYSTEM SETTINGS
