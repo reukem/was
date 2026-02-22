@@ -122,15 +122,15 @@ const LabUI: React.FC<LabUIProps> = ({
     }, [chatHistory, isChatOpen]);
 
     return (
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 overflow-hidden select-none font-sans text-white z-20">
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 50, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.5rem', overflow: 'hidden', userSelect: 'none', fontFamily: 'ui-sans-serif, system-ui, sans-serif', color: 'white' }}>
             {/* Modals must catch events */}
-            <div className="pointer-events-auto">
+            <div style={{ pointerEvents: 'auto' }}>
                 <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
             {/* --- HEADER --- */}
-            <div className="flex justify-between items-start pointer-events-auto z-50 relative" style={{ pointerEvents: 'auto' }}>
+            <div className="flex justify-between items-start z-50 relative" style={{ pointerEvents: 'auto' }}>
                 <div className="flex flex-col gap-3">
                     {/* Main Title Card */}
                     <div className={`bg-[#0f172a]/80 backdrop-blur-xl px-8 py-5 rounded-[2rem] border ${isExamMode ? 'border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.1)]' : 'border-white/5 shadow-2xl'} transition-all duration-500`}>
@@ -258,7 +258,7 @@ const LabUI: React.FC<LabUIProps> = ({
 
             {/* --- SIDEBAR (Compound Database) --- */}
             {!isExamMode && (
-            <div className={`absolute left-6 top-64 bottom-24 w-72 pointer-events-auto transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) z-40 ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 pointer-events-none'}`}>
+            <div style={{ pointerEvents: 'auto' }} className={`absolute left-6 top-64 bottom-24 w-72 transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) z-40 ${isSidebarOpen ? 'translate-x-0 opacity-100' : '-translate-x-[120%] opacity-0 pointer-events-none'}`}>
                 <div className="flex justify-between items-center mb-3 px-1">
                     <h2 className="text-slate-500 font-black text-[10px] uppercase tracking-[0.2em] drop-shadow-md">KHO HÓA CHẤT</h2>
                     <button onClick={() => setIsSidebarOpen(false)} className="text-slate-600 hover:text-white transition-colors">✕</button>
@@ -324,8 +324,9 @@ const LabUI: React.FC<LabUIProps> = ({
 
             {!isSidebarOpen && !isExamMode && (
                 <button
+                    style={{ pointerEvents: 'auto' }}
                     onClick={() => setIsSidebarOpen(true)}
-                    className="absolute left-6 top-64 pointer-events-auto bg-[#0f172a]/80 p-4 rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all shadow-xl z-40 hover:scale-105"
+                    className="absolute left-6 top-64 bg-[#0f172a]/80 p-4 rounded-2xl border border-white/10 text-slate-400 hover:text-white transition-all shadow-xl z-40 hover:scale-105"
                 >
                     <span className="writing-vertical text-[10px] font-black uppercase tracking-[0.3em]">Kho</span>
                 </button>
@@ -345,7 +346,7 @@ const LabUI: React.FC<LabUIProps> = ({
 
             {/* --- FOOTER / STATUS BAR --- */}
             <div className="absolute bottom-8 left-0 w-full flex justify-center pointer-events-none z-30">
-                <div className="flex justify-center text-slate-500 text-[9px] font-mono gap-16 bg-[#0f172a]/80 backdrop-blur-xl py-4 px-12 rounded-full border border-white/5 pointer-events-auto shadow-2xl tracking-widest uppercase">
+                <div style={{ pointerEvents: 'auto' }} className="flex justify-center text-slate-500 text-[9px] font-mono gap-16 bg-[#0f172a]/80 backdrop-blur-xl py-4 px-12 rounded-full border border-white/5 shadow-2xl tracking-widest uppercase">
                     <span className="flex items-center gap-3"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"/> SYSTEM_ONLINE</span>
                     <span>ENTITIES: {containers.length}</span>
                     <span className="text-slate-600">GEMINI_CORE_v1.5</span>
@@ -353,7 +354,7 @@ const LabUI: React.FC<LabUIProps> = ({
             </div>
 
             {/* --- CHAT INTERFACE (Professor Gemini) --- */}
-            <div className="absolute right-8 bottom-8 pointer-events-auto z-50 flex flex-col items-end gap-4">
+            <div style={{ pointerEvents: 'auto' }} className="absolute right-8 bottom-8 z-50 flex flex-col items-end gap-4">
 
                 {/* Minimized Button "Comm Link" */}
                 {!isChatOpen && (

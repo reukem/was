@@ -55,7 +55,14 @@ interface Container3DProps {
     quality: 'high' | 'low';
 }
 
-const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ container, quality }, ref) => {
+// Extended interface for the new onPointerDown prop
+interface Container3DProps {
+    container: ContainerState;
+    quality: 'high' | 'low';
+    onPointerDown?: (e: THREE.ThreeEvent<PointerEvent>) => void;
+}
+
+const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ container, quality, onPointerDown }, ref) => {
     const groupRef = useRef<THREE.Group>(null);
     const solidRef = useRef<THREE.Mesh>(null);
     const glassMaterialRef = useRef<THREE.MeshPhysicalMaterial | null>(null);
@@ -123,6 +130,7 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
             userData={{ id: container.id, type: container.type }}
             castShadow
             receiveShadow
+            onPointerDown={onPointerDown} // Attached to group
         >
             {container.type === 'burette' && (
                 <primitive object={createStandGeometry()} />
@@ -452,6 +460,10 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     const orbitControlsRef = useRef<any>(null);
     const [analyzerPos, setAnalyzerPos] = useState(new THREE.Vector3(4, 0, 1.5));
 
+    // Native Drag State
+    const [draggedId, setDraggedId] = useState<string | null>(null);
+    const dragOffset = useRef(new THREE.Vector3());
+
     const handleCollisionScenario = (draggedId: string, dropX: number, dropZ: number) => {
         const sourceContainer = props.containers.find(c => c.id === draggedId);
         if (!sourceContainer || !sourceContainer.contents) return;
@@ -521,14 +533,80 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                     setAnalyzerPosition={setAnalyzerPos}
                 />
 
-                {/* Isolated DragControls for Analyzer */}
-                {/* @ts-ignore */}
-                <DragControls
-                    axisLock="y"
-                    onDragStart={() => { if (orbitControlsRef.current) orbitControlsRef.current.enabled = false; }}
-                    onDragEnd={(e) => {
-                        if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-                        setAnalyzerPos(e.object.position.clone());
+                {/* Invisible Table Plane for Dragging */}
+                <mesh
+                    rotation={[-Math.PI / 2, 0, 0]}
+                    position={[0, 0.11, 0]}
+                    visible={false}
+                    onPointerMove={(e) => {
+                        // Native Drag Logic: Update position directly
+                        if (draggedId) {
+                            if (draggedId === 'ANALYZER') {
+                                // Analyzer special case if needed, but for now Analyzer is static or handled differently?
+                                // User instructions focused on containers. Let's assume Analyzer is also manually draggable if we wrap it.
+                                // Actually, let's keep Analyzer separate or fix it too.
+                                // The user said "Purge DragControls entirely".
+                                setAnalyzerPos(new THREE.Vector3(e.point.x + dragOffset.current.x, 0, e.point.z + dragOffset.current.z));
+                                return;
+                            }
+
+                            const meshNode = meshesMap.current.get(draggedId);
+                            if (meshNode) {
+                                // Mutate position directly
+                                meshNode.group.position.set(
+                                    e.point.x + dragOffset.current.x,
+                                    meshNode.group.position.y, // Lock Y (table height fixed in logic or via physics, but here we just lock to current Y)
+                                    e.point.z + dragOffset.current.z
+                                );
+                            }
+                        }
+                    }}
+                    onPointerUp={(e) => {
+                        if (draggedId) {
+                            if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+
+                            if (draggedId === 'ANALYZER') {
+                                // Finalize Analyzer
+                                setDraggedId(null);
+                                return;
+                            }
+
+                            const meshNode = meshesMap.current.get(draggedId);
+                            if (meshNode) {
+                                const { x, y, z } = meshNode.group.position;
+
+                                // 1. Sync React State
+                                props.onMove(draggedId, [x, y, z]);
+
+                                // 2. Collision Check
+                                handleCollisionScenario(draggedId, x, z);
+
+                                // 3. Liquid Pour Check (Legacy)
+                                const sourcePos = new THREE.Vector3(x, y, z);
+                                meshesMap.current.forEach((other, otherId) => {
+                                    if (otherId !== draggedId) {
+                                        if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, draggedId, otherId)) {
+                                            props.onPour(draggedId, otherId);
+                                        }
+                                    }
+                                });
+                            }
+                            setDraggedId(null);
+                        }
+                    }}
+                >
+                    <planeGeometry args={[100, 100]} />
+                </mesh>
+
+                {/* Analyzer (Manually Draggable) */}
+                <group
+                    onPointerDown={(e) => {
+                        e.stopPropagation();
+                        setDraggedId('ANALYZER');
+                        if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
+                        // Analyzer is at Y=0 usually? Or Y varies?
+                        // Analyzer pos is props controlled? No, state `analyzerPos`.
+                        dragOffset.current.set(analyzerPos.x - e.point.x, 0, analyzerPos.z - e.point.z);
                     }}
                 >
                     <Analyzer3D
@@ -566,65 +644,34 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                             }
                         }}
                     />
-                </DragControls>
+                </group>
 
-                {/* Isolated DragControls for Containers */}
+                {/* Containers with Manual Drag Handlers */}
                 {props.containers.map(c => (
                     c.id !== props.explodedContainerId && (
-                        /* @ts-ignore */
-                        <DragControls
-                            key={`drag-${c.id}`}
-                            axisLock="y"
-                            onDragStart={() => {
+                        <Container3D
+                            key={c.id}
+                            container={c}
+                            quality={props.isPerformanceMode ? 'low' : 'high'}
+                            ref={(node) => {
+                                if (node) {
+                                    meshesMap.current.set(c.id, node);
+                                } else {
+                                    meshesMap.current.delete(c.id);
+                                }
+                            }}
+                            onPointerDown={(e) => {
+                                e.stopPropagation();
+                                setDraggedId(c.id);
                                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
+
+                                // Calc offset
+                                const group = meshesMap.current.get(c.id)?.group;
+                                if (group) {
+                                    dragOffset.current.set(group.position.x - e.point.x, 0, group.position.z - e.point.z);
+                                }
                             }}
-                            onDragEnd={(e) => {
-                                if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-
-                                // 1. Identify the exact root mesh being dragged
-                                let target = e.object;
-                                while(target.parent && !target.userData.id) target = target.parent;
-                                const draggedId = target.userData.id;
-                                if (!draggedId) return;
-
-                                // 2. Capture the FINAL resting coordinate from the Three.js scene graph
-                                const dropX = target.position.x;
-                                const dropY = target.position.y;
-                                const dropZ = target.position.z;
-
-                                // 3. Sync to React State EXACTLY ONCE
-                                props.onMove(draggedId, [dropX, dropY, dropZ]);
-
-                                // 4. Trigger the Spatial Collision Script (See Module 2)
-                                handleCollisionScenario(draggedId, dropX, dropZ);
-
-                                // NOTE: The legacy PhysicsEngine checkPourCondition is still useful for liquids
-                                // We keep it for pouring liquids (Beaker to Beaker), as Module 2 only defined SOLID drop logic.
-                                // But we should access the position from the vars we just captured.
-                                const sourcePos = new THREE.Vector3(dropX, dropY, dropZ);
-
-                                meshesMap.current.forEach((other, otherId) => {
-                                    if (otherId !== draggedId) {
-                                        // Standard Pour Logic (Vertical) for Liquids
-                                        if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, draggedId, otherId)) {
-                                            props.onPour(draggedId, otherId);
-                                        }
-                                    }
-                                });
-                            }}
-                        >
-                            <Container3D
-                                container={c}
-                                quality={props.isPerformanceMode ? 'low' : 'high'}
-                                ref={(node) => {
-                                    if (node) {
-                                        meshesMap.current.set(c.id, node);
-                                    } else {
-                                        meshesMap.current.delete(c.id);
-                                    }
-                                }}
-                            />
-                        </DragControls>
+                        />
                     )
                 ))}
 

@@ -445,6 +445,29 @@ const App: React.FC = () => {
         });
 
         if (mixResult.reaction) {
+            // IMMEDIATE REACTION TRIGGER (MODULE 3)
+            if (mixResult.reaction.effect === 'explosion') {
+                audioManager.playExplosion();
+                setLastEffect('explosion');
+                setLastEffectPos(target.position);
+
+                // Force state update immediately
+                setLastReaction(mixResult.reaction.message);
+
+                // Cleanup after delay
+                if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
+                reactionTimeoutRef.current = window.setTimeout(() => {
+                    setLastReaction(null);
+                    setLastEffect(null);
+                    setLastEffectPos(null);
+                }, 6000);
+
+                if (aiServiceRef.current) {
+                    aiServiceRef.current.chat(`[SYSTEM EVENT: EXPLOSION! The student caused a dangerous explosion.]`);
+                }
+                return;
+            }
+
             // Debounce Reaction Effects (Don't spam if same reaction continues)
             setLastReaction(prev => {
                 if (prev === mixResult.reaction!.message) return prev;
