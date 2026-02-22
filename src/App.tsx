@@ -393,12 +393,12 @@ class GeminiService {
 
     constructor() {
         this.apiKey = localStorage.getItem('gemini_api_key') || ""; // Load from local storage
-        this.systemInstruction = `You are Professor Gemini, an elite chemistry professor and AI research assistant.
+        this.systemInstruction = `You are Professor Lucy, an advanced Quantum AI laboratory assistant.
 
         Personality:
-        - Highly intelligent, rigorous, and precise.
-        - You love teaching but demand accuracy.
-        - You can handle basic questions (like "What is H2O?") effortlessly.
+        - Playful but highly intelligent.
+        - You use emojis and encouraging language.
+        - You are visually represented as a fox-eared anime girl, so be cute but professional.
         - When a reaction occurs, analyze the stoichiometry and thermodynamics concisely.
 
         Formatting:
@@ -420,8 +420,8 @@ class GeminiService {
 
     startNewChat() {
         this.history = [
-            { role: "user", parts: [{ text: "Hello Professor." }] },
-            { role: "model", parts: [{ text: "Welcome to the Chemic-AI Laboratory v4.1.5. I am Professor Gemini. I am ready to supervise your experiments." }] }
+            { role: "user", parts: [{ text: "Hello Professor Lucy." }] },
+            { role: "model", parts: [{ text: "Hi there! I'm Professor Lucy 🦊! Ready to do some science? Just drag and drop chemicals to mix them!" }] }
         ];
         this.notifyUpdate();
     }
@@ -444,7 +444,7 @@ class GeminiService {
                         body: JSON.stringify({
                             contents: this.history,
                             systemInstruction: { parts: [{ text: this.systemInstruction }] },
-                            generationConfig: { maxOutputTokens: 300, temperature: 0.7 } // Higher temperature for more creative/less rigid responses
+                            generationConfig: { maxOutputTokens: 300, temperature: 0.8 }
                         })
                     }
                 );
@@ -923,6 +923,88 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
     );
 };
 
+// -- UI COMPONENT: HOLOGRAPHIC AVATAR --
+const HolographicAvatar: React.FC<{
+    isExpanded: boolean;
+    setIsExpanded: (v: boolean) => void;
+    chatHistory: ChatMessage[];
+    isAiLoading: boolean;
+    chatInput: string;
+    setChatInput: (v: string) => void;
+    onSubmit: (e: React.FormEvent) => void;
+}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit }) => {
+    const chatEndRef = useRef<HTMLDivElement>(null);
+    useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
+
+    return (
+        <div className={`absolute right-4 bottom-24 transition-all duration-500 ease-in-out z-40 pointer-events-auto flex flex-col items-end gap-4 ${isExpanded ? 'w-[400px]' : 'w-auto'}`}>
+
+            {/* Chat Bubble (Only visible when expanded or new message) */}
+            {isExpanded && (
+                <div className="bg-slate-900/80 backdrop-blur-2xl border border-neon-cyan/30 rounded-2xl p-4 w-full h-[400px] flex flex-col shadow-[0_0_30px_rgba(6,182,212,0.1)] animate-in slide-in-from-bottom-4 duration-300">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pr-2">
+                        {chatHistory.map((msg, i) => (
+                            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[85%] p-3 rounded-xl text-xs leading-relaxed ${
+                                    msg.role === 'user'
+                                    ? 'bg-neon-cyan/20 text-cyan-50 border border-neon-cyan/30 rounded-br-none'
+                                    : 'bg-slate-800/80 text-slate-200 border border-white/5 rounded-bl-none'
+                                }`}>
+                                    {msg.role === 'model' ? formatScientificText(msg.text) : msg.text}
+                                </div>
+                            </div>
+                        ))}
+                        {isAiLoading && (
+                            <div className="flex justify-start">
+                                <div className="bg-slate-800/50 p-3 rounded-xl rounded-bl-none border border-white/5 flex gap-1">
+                                    <div className="w-1.5 h-1.5 bg-neon-cyan rounded-full animate-bounce" />
+                                    <div className="w-1.5 h-1.5 bg-neon-cyan rounded-full animate-bounce delay-100" />
+                                    <div className="w-1.5 h-1.5 bg-neon-cyan rounded-full animate-bounce delay-200" />
+                                </div>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </div>
+                    <form onSubmit={onSubmit} className="mt-3 relative">
+                        <input
+                            type="text"
+                            value={chatInput}
+                            onChange={(e) => setChatInput(e.target.value)}
+                            placeholder="Ask Professor Lucy..."
+                            className="w-full bg-slate-950/50 border border-neon-cyan/20 rounded-lg py-2.5 px-3 text-xs text-white focus:outline-none focus:border-neon-cyan/60 transition-colors placeholder-slate-500"
+                        />
+                        <button type="submit" disabled={!chatInput.trim() || isAiLoading} className="absolute right-1 top-1 bottom-1 aspect-square flex items-center justify-center text-neon-cyan hover:text-white transition-colors disabled:opacity-30">
+                            ➤
+                        </button>
+                    </form>
+                </div>
+            )}
+
+            {/* Avatar Circle */}
+            <div
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="relative group cursor-pointer"
+            >
+                {/* Glow ring */}
+                <div className="absolute inset-0 rounded-full bg-neon-cyan blur-md opacity-20 group-hover:opacity-40 animate-pulse-slow transition-opacity" />
+
+                {/* Main Avatar Container */}
+                <div className="w-20 h-20 rounded-full border-2 border-neon-cyan/50 bg-slate-900/80 overflow-hidden relative shadow-[0_0_15px_rgba(6,182,212,0.3)] group-hover:scale-105 transition-transform duration-300">
+                    <img src="/lucy.png" alt="Professor Lucy" className="w-full h-full object-cover object-top" />
+
+                    {/* Status Dot */}
+                    <div className="absolute bottom-1 right-2 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full animate-pulse" />
+                </div>
+
+                {/* Name Tag */}
+                <div className="absolute top-1/2 -left-3 -translate-x-full -translate-y-1/2 bg-slate-900/80 backdrop-blur border border-neon-cyan/30 px-3 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                    <span className="text-[10px] font-bold text-neon-cyan whitespace-nowrap tracking-wider">PROF. LUCY</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const LabUI: React.FC<{
     lastReaction: string | null;
     containers: ContainerState[];
@@ -934,17 +1016,11 @@ const LabUI: React.FC<{
     onChat: (message: string) => void;
 }> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat }) => {
     const [chatInput, setChatInput] = useState("");
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false); // Chat expanded state
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [heaterTemp, setHeaterTemp] = useState(300);
-    const chatEndRef = useRef<HTMLDivElement>(null);
-
-    // Auto-scroll chat
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [chatHistory]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -955,149 +1031,150 @@ const LabUI: React.FC<{
     };
 
     return (
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 overflow-hidden select-none font-sans">
-            {/* Modals must catch events */}
+        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between overflow-hidden select-none font-sans z-50">
+            {/* 1. GLOBAL MODALS (Pointer Events Auto) */}
             <div className="pointer-events-auto">
                 <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
-            <div className="flex justify-between items-start pointer-events-auto">
-                <div className="bg-slate-900/90 backdrop-blur-xl p-5 rounded-2xl border border-white/10 shadow-2xl">
-                    <h1 className="text-3xl font-black bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent tracking-tighter">
-                        CHEMIC-AI
+            {/* 2. QUANTUM HEADER */}
+            <div className="flex justify-between items-start p-6 pointer-events-none z-40">
+                {/* Branding */}
+                <div className="pointer-events-auto bg-slate-900/40 backdrop-blur-xl border border-white/10 p-5 rounded-tl-2xl rounded-br-2xl shadow-lg relative group overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-neon-cyan/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                    <h1 className="text-3xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-neon-cyan to-white animate-text-shimmer bg-[length:200%_auto]">
+                        QUANTUM <span className="text-neon-cyan">CHEMIC</span> AI
                     </h1>
-                    <p className="text-slate-400 text-[10px] mt-1 uppercase tracking-[0.3em] font-medium">Research Environment // v4.1.5</p>
+                    <div className="flex items-center gap-2 mt-1">
+                        <div className="h-0.5 w-8 bg-neon-cyan" />
+                        <p className="text-slate-400 text-[9px] uppercase tracking-[0.3em] font-medium">Simulation v5.0 // Lucy.OS</p>
+                    </div>
                 </div>
 
-                {/* Heater Control */}
-                <div className="bg-slate-900/90 backdrop-blur-xl p-4 rounded-2xl border border-orange-500/20 shadow-lg flex flex-col gap-2 w-48 mx-4">
-                    <div className="flex justify-between items-center">
-                        <span className="text-[10px] font-bold text-orange-400 uppercase tracking-wider">Heater</span>
-                        <span className="text-xs font-mono text-orange-300">{heaterTemp}°C</span>
-                    </div>
-                    <input
-                        type="range"
-                        min="25"
-                        max="1000"
-                        step="25"
-                        value={heaterTemp}
-                        onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                    />
-                </div>
-
-                <div className="flex flex-col gap-2 items-end">
-                    <div className="flex gap-2">
-                        <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-4 py-2 rounded-xl border border-white/10 transition-all font-bold text-lg backdrop-blur-md shadow-lg">
-                            ⚙️
-                        </button>
-                        <button onClick={() => setIsNotebookOpen(true)} className="bg-indigo-500/10 hover:bg-indigo-500 text-indigo-400 hover:text-white px-4 py-2 rounded-xl border border-indigo-500/20 transition-all font-bold text-xl backdrop-blur-md shadow-lg" title="Open Lab Notebook">
-                            📖
-                        </button>
-                        <button onClick={onReset} className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-5 py-2 rounded-xl border border-red-500/20 transition-all font-bold text-xs uppercase tracking-widest backdrop-blur-md shadow-lg">
-                            Sterilize
-                        </button>
-                    </div>
+                {/* Top Right Controls */}
+                <div className="flex gap-3 pointer-events-auto">
+                     <button onClick={() => setIsSettingsOpen(true)} className="w-10 h-10 flex items-center justify-center bg-slate-900/60 backdrop-blur hover:bg-white/10 rounded-full border border-white/10 text-slate-300 hover:text-white transition-all hover:rotate-90">
+                        ⚙️
+                    </button>
+                    <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 flex items-center justify-center bg-slate-900/60 backdrop-blur hover:bg-neon-cyan/20 rounded-full border border-white/10 hover:border-neon-cyan/50 text-slate-300 hover:text-neon-cyan transition-all" title="Lab Notebook">
+                        📖
+                    </button>
                 </div>
             </div>
 
-            <div className={`absolute left-6 top-36 pointer-events-auto transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-[120%]'}`}>
-                <div className="h-[60vh] overflow-y-auto pr-2 w-64 scrollbar-thin scrollbar-thumb-indigo-500/20 scrollbar-track-transparent">
-                    <div className="flex justify-between items-center mb-2 px-2">
-                        <h2 className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] drop-shadow-md">Chemical Inventory</h2>
-                        <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-white transition-colors">✕</button>
+            {/* 3. INVENTORY DRAWER (Left) */}
+            <div className={`absolute left-0 top-32 bottom-32 w-64 transition-transform duration-500 ease-out z-30 pointer-events-auto ${isSidebarOpen ? 'translate-x-6' : '-translate-x-full'}`}>
+                <div className="h-full bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl flex flex-col overflow-hidden shadow-2xl">
+                    <div className="p-4 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-white/5 to-transparent">
+                        <h2 className="text-neon-cyan font-bold text-xs uppercase tracking-[0.2em] flex items-center gap-2">
+                            <span className="w-2 h-2 bg-neon-cyan rounded-full animate-pulse" />
+                            Inventory
+                        </h2>
+                        <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-white transition-colors text-xs">HIDE</button>
                     </div>
 
-                    <div className="flex flex-col gap-2">
-                        <button onClick={() => onSpawn('BEAKER')} className="group p-4 rounded-xl bg-slate-950/40 hover:bg-indigo-500/20 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-md shadow-sm">
-                            <span className="text-xs font-bold text-slate-200">Sterile Beaker</span>
-                            <p className="text-[9px] text-slate-500 mt-1 uppercase tracking-wider">Borosilicate Glassware</p>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
+                        <button onClick={() => onSpawn('BEAKER')} className="w-full group p-3 rounded-xl bg-white/5 hover:bg-neon-cyan/20 border border-white/5 hover:border-neon-cyan/50 transition-all text-left relative overflow-hidden">
+                            <div className="absolute inset-0 bg-neon-cyan/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="text-xs font-bold text-slate-200 group-hover:text-neon-cyan relative z-10">Sterile Beaker</span>
+                            <p className="text-[9px] text-slate-500 mt-0.5 uppercase tracking-wider relative z-10">Glassware</p>
                         </button>
-                        <div className="h-px bg-white/10 my-1 mx-2" />
+
+                        <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-2" />
+
                         {Object.values(CHEMICALS).map(chem => (
-                            <button key={chem.id} onClick={() => onSpawn(chem.id)} className="group relative p-3 rounded-lg bg-slate-950/30 hover:bg-slate-800/60 border border-white/5 hover:border-indigo-500/40 transition-all text-left backdrop-blur-sm shadow-sm">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[11px] font-bold text-slate-300 group-hover:text-white transition-colors">{chem.name}</span>
-                                    <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(255,255,255,0.1)]" style={{ backgroundColor: chem.color }}></div>
+                            <button key={chem.id} onClick={() => onSpawn(chem.id)} className="w-full group relative p-2.5 rounded-lg bg-transparent hover:bg-slate-800 border border-transparent hover:border-white/10 transition-all text-left flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-slate-950 border border-white/10 flex items-center justify-center shrink-0 group-hover:border-neon-cyan/30 transition-colors">
+                                    <div className="w-3 h-3 rounded-full shadow-[0_0_8px_currentColor]" style={{ color: chem.color, backgroundColor: chem.color }}></div>
                                 </div>
-                                <span className="text-[9px] font-mono text-slate-500 group-hover:text-indigo-400 tracking-tighter transition-colors">
-                                    {formatScientificText(chem.formula)}
-                                </span>
+                                <div>
+                                    <div className="text-[11px] font-bold text-slate-300 group-hover:text-white transition-colors">{chem.name}</div>
+                                    <div className="text-[9px] font-mono text-slate-500 group-hover:text-neon-cyan tracking-tighter transition-colors">
+                                        {formatScientificText(chem.formula)}
+                                    </div>
+                                </div>
                             </button>
                         ))}
                     </div>
                 </div>
             </div>
 
+            {/* Sidebar Toggle Button (When closed) */}
             {!isSidebarOpen && (
                 <button
                     onClick={() => setIsSidebarOpen(true)}
-                    className="absolute left-6 top-36 pointer-events-auto bg-slate-900/80 p-3 rounded-xl border border-white/10 text-indigo-400 hover:text-white transition-all shadow-lg"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 pointer-events-auto bg-slate-900/80 backdrop-blur p-3 rounded-r-xl border-y border-r border-white/10 text-neon-cyan hover:text-white hover:pl-5 transition-all shadow-lg z-30 group"
                 >
-                    <span className="writing-vertical text-xs font-bold uppercase tracking-widest">Inventory</span>
+                    <span className="writing-vertical text-[10px] font-bold uppercase tracking-widest group-hover:tracking-[0.3em] transition-all">Inventory</span>
                 </button>
             )}
 
+            {/* 4. REACTION ALERT (Center) */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none w-full flex justify-center z-20">
                 {lastReaction && (
-                    <div className="animate-in fade-in zoom-in duration-500 slide-in-from-bottom-8 bg-slate-900/90 backdrop-blur-3xl border border-orange-500/30 p-8 rounded-[2rem] shadow-2xl text-center max-w-lg">
-                        <p className="text-orange-400 font-bold text-[10px] uppercase tracking-[0.2em] mb-3">Reaction Detected</p>
-                        <p className="text-white text-md font-medium leading-relaxed tracking-tight shadow-sm">
+                    <div className="animate-in fade-in zoom-in duration-300 slide-in-from-bottom-8 bg-slate-900/80 backdrop-blur-2xl border border-neon-cyan/40 p-8 rounded-[2rem] shadow-[0_0_50px_rgba(6,182,212,0.2)] text-center max-w-lg relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-neon-cyan to-transparent animate-pulse" />
+                        <p className="text-neon-cyan font-bold text-[10px] uppercase tracking-[0.2em] mb-3">Reaction Detected</p>
+                        <p className="text-white text-md font-medium leading-relaxed tracking-tight shadow-sm font-mono">
                             {formatScientificText(lastReaction)}
                         </p>
                     </div>
                 )}
             </div>
 
-            <div className="flex justify-end pointer-events-auto items-end pb-8">
-                <div className={`relative group transition-all duration-500 ease-in-out ${isExpanded ? 'w-[32rem] h-[36rem]' : 'w-80 h-[4rem]'} animate-float`}>
-                    <div className={`bg-slate-900/95 backdrop-blur-3xl border border-indigo-500/30 rounded-[2rem] shadow-2xl relative flex flex-col gap-4 overflow-hidden h-full ${isExpanded ? 'p-6' : 'p-4'}`}>
-                        <div className="flex items-center gap-4 border-b border-white/5 pb-2 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-                            <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-xl shadow-xl shrink-0 border border-white/5">
-                                <div className="text-xl">🎓</div>
-                            </div>
-                            <div className="flex-1">
-                                <h3 className="text-white font-bold text-sm tracking-tight">Professor Gemini</h3>
-                                {isAiLoading ? (
-                                    <div className="flex gap-1 mt-1"><div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce" /><div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" /><div className="w-1 h-1 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" /></div>
-                                ) : (
-                                    <div className="flex items-center gap-1.5 mt-1"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /><span className="text-[8px] text-emerald-400 font-bold uppercase tracking-widest">Connected</span></div>
-                                )}
-                            </div>
-                            <button className="text-slate-400 hover:text-white">{isExpanded ? '▼' : '▲'}</button>
-                        </div>
+            {/* 5. PROFESSOR LUCY (Bottom Right) */}
+            <HolographicAvatar
+                isExpanded={isExpanded}
+                setIsExpanded={setIsExpanded}
+                chatHistory={chatHistory}
+                isAiLoading={isAiLoading}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                onSubmit={handleSubmit}
+            />
 
-                        {isExpanded && (
-                            <>
-                                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar flex flex-col gap-3">
-                                    {chatHistory.map((msg, i) => (
-                                        <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                            <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-slate-800 text-slate-200 rounded-bl-none border border-white/5'}`}>
-                                                {msg.role === 'model' ? formatScientificText(msg.text) : msg.text}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <div ref={chatEndRef} />
-                                </div>
-                                <form onSubmit={handleSubmit} className="relative mt-2 shrink-0">
-                                    <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Ask the Professor..." className="w-full bg-slate-800/50 border border-indigo-500/20 rounded-xl py-3 px-4 pl-4 pr-12 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 transition-colors" />
-                                    <button type="submit" disabled={!chatInput.trim() || isAiLoading} className="absolute right-1 top-1 bottom-1 aspect-square bg-indigo-500/20 hover:bg-indigo-500 text-indigo-300 hover:text-white rounded-lg flex items-center justify-center transition-all disabled:opacity-50">
-                                        ➤
-                                    </button>
-                                </form>
-                            </>
-                        )}
+            {/* 6. CONTROL DECK (Bottom Center) */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto z-40">
+                <div className="bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-full px-8 py-3 flex items-center gap-8 shadow-2xl">
+
+                    {/* Heater */}
+                    <div className="flex flex-col gap-1 w-48">
+                        <div className="flex justify-between items-end">
+                            <span className="text-[9px] font-bold text-orange-400 uppercase tracking-widest">Thermal Control</span>
+                            <span className="text-[10px] font-mono text-orange-200">{heaterTemp}°C</span>
+                        </div>
+                        <input
+                            type="range"
+                            min="25"
+                            max="1000"
+                            step="25"
+                            value={heaterTemp}
+                            onChange={(e) => setHeaterTemp(Number(e.target.value))}
+                            className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500 hover:accent-orange-400 transition-colors"
+                        />
                     </div>
+
+                    <div className="w-px h-8 bg-white/10" />
+
+                    {/* Reset Button */}
+                    <button
+                        onClick={onReset}
+                        className="group flex flex-col items-center gap-1 opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                        <div className="w-8 h-8 rounded-full border border-red-500/50 flex items-center justify-center text-red-500 bg-red-500/10 group-hover:bg-red-500 group-hover:text-white transition-all shadow-[0_0_10px_rgba(239,68,68,0.2)]">
+                            ⟳
+                        </div>
+                        <span className="text-[8px] font-bold text-red-400 uppercase tracking-widest">Sterilize</span>
+                    </button>
                 </div>
             </div>
 
-            <div className="absolute bottom-6 left-0 w-full flex justify-center pointer-events-none">
-                <div className="flex justify-center text-slate-500 text-[8px] font-mono gap-12 bg-slate-900/60 backdrop-blur-md py-3 px-10 rounded-full border border-white/5 pointer-events-auto shadow-inner">
-                    <span className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-emerald-500"/> SYSTEM_READY</span>
-                    <span>ENTITIES: {containers.length}</span>
-                    <span className="text-slate-400">GEMINI_2.5_FLASH</span>
-                </div>
+            {/* System Status Footer */}
+            <div className="absolute bottom-2 right-4 pointer-events-none opacity-50 text-[8px] font-mono text-slate-500 flex gap-4">
+                <span>SYS_READY</span>
+                <span>ENTITIES: {containers.length}</span>
+                <span>LUCY_AI_ONLINE</span>
             </div>
         </div>
     );
@@ -1120,7 +1197,7 @@ export default function App() {
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
     const [lastReaction, setLastReaction] = useState<string | null>(null);
     const [lastEffect, setLastEffect] = useState<string | null>(null);
-    const [aiFeedback, setAiFeedback] = useState<string>("Welcome to the laboratory. I am Professor Gemini.");
+    const [aiFeedback, setAiFeedback] = useState<string>("Welcome to the laboratory. I am Professor Lucy.");
     const [isAiLoading, setIsAiLoading] = useState(false);
 
     useEffect(() => {
@@ -1229,6 +1306,9 @@ export default function App() {
 
     return (
         <div className={`relative w-full h-screen bg-slate-950 transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
+            {/* Background Texture */}
+            <div className="absolute inset-0 bg-tech-grid opacity-20 pointer-events-none" />
+
             <LabScene
                 containers={containers}
                 lastEffect={lastEffect}
