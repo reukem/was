@@ -452,6 +452,42 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
     const orbitControlsRef = useRef<any>(null);
     const [analyzerPos, setAnalyzerPos] = useState(new THREE.Vector3(4, 0, 1.5));
 
+    const handleCollisionScenario = (draggedId: string, dropX: number, dropZ: number) => {
+        const sourceContainer = props.containers.find(c => c.id === draggedId);
+        if (!sourceContainer || !sourceContainer.contents) return;
+
+        const sourceChem = LOCAL_CHEMICALS[sourceContainer.contents.chemicalId];
+
+        // SCENARIO A: The user is dropping a SOLID (Rock/Crystal/Powder)
+        if (sourceContainer.type === 'rock' || (sourceChem && sourceChem.type === 'solid')) {
+
+            // Iterate through all possible targets
+            props.containers.forEach(target => {
+                // Ignore self and ensure target is a vessel capable of holding liquids
+                if (target.id !== draggedId && (target.type === 'beaker' || target.type === 'test_tube')) {
+
+                    // Execute XZ Euclidean Distance Math
+                    const dx = target.position[0] - dropX;
+                    const dz = target.position[2] - dropZ;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+
+                    // Threshold logic: If distance is less than 0.8 units, it's a hit!
+                    if (distance < 0.8) {
+                        console.log(`[PHYSICS EVENT]: Solid ${draggedId} dropped into ${target.id}`);
+                        // Dump the entire solid volume into the target
+                        props.onPour(draggedId, target.id); // Defaulting to full pour for solids
+                    }
+                }
+            });
+        }
+        // SCENARIO B: Pouring Liquids (Vertical check handled by onPour via checkPourCondition calls previously)
+        // But we need to ensure the standard check is still here if drag ended?
+        // Actually, the drag controls handles the "Pour" via checkPourCondition which is a proximity check.
+        // The Module 1 instructions say "Trigger the Spatial Collision Script (See Module 2)"
+        // Module 2 only defines SCENARIO A for solids.
+        // We will stick to the exact instruction: Implement handleCollisionScenario as requested.
+    };
+
     return (
         <div className="w-full h-full">
             <Canvas
@@ -544,43 +580,37 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                             }}
                             onDragEnd={(e) => {
                                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
-                                // Because we are inside the map loop, we already know the ID is c.id!
-                                const newPos = [e.object.position.x, e.object.position.y, e.object.position.z] as [number, number, number];
-                                props.onMove(c.id, newPos);
 
-                                // Trigger physics drop/pour checks here.
-                                const sourcePos = e.object.position;
-                                const sourceType = c.type;
+                                // 1. Identify the exact root mesh being dragged
+                                let target = e.object;
+                                while(target.parent && !target.userData.id) target = target.parent;
+                                const draggedId = target.userData.id;
+                                if (!draggedId) return;
+
+                                // 2. Capture the FINAL resting coordinate from the Three.js scene graph
+                                const dropX = target.position.x;
+                                const dropY = target.position.y;
+                                const dropZ = target.position.z;
+
+                                // 3. Sync to React State EXACTLY ONCE
+                                props.onMove(draggedId, [dropX, dropY, dropZ]);
+
+                                // 4. Trigger the Spatial Collision Script (See Module 2)
+                                handleCollisionScenario(draggedId, dropX, dropZ);
+
+                                // NOTE: The legacy PhysicsEngine checkPourCondition is still useful for liquids
+                                // We keep it for pouring liquids (Beaker to Beaker), as Module 2 only defined SOLID drop logic.
+                                // But we should access the position from the vars we just captured.
+                                const sourcePos = new THREE.Vector3(dropX, dropY, dropZ);
 
                                 meshesMap.current.forEach((other, otherId) => {
-                                    if (otherId !== c.id) {
-                                        if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, c.id, otherId)) {
-                                            props.onPour(c.id, otherId);
-                                        }
-                                        else if (PhysicsEngine.checkDropCondition(sourcePos, other.group.position, sourceType)) {
-                                            // Ensure we transfer the full volume for solids (rocks/jars)
-                                            // The PhysicsEngine check is now generous (0.6 radius)
-                                            // We use onPour because onDrop is just a wrapper, and we might need to specify amount
-                                            // Actually, onDrop calls handlePour(..., 1.0) in App.tsx, which is what we want.
-                                            props.onDrop(c.id, otherId);
+                                    if (otherId !== draggedId) {
+                                        // Standard Pour Logic (Vertical) for Liquids
+                                        if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, draggedId, otherId)) {
+                                            props.onPour(draggedId, otherId);
                                         }
                                     }
                                 });
-
-                                // Explicitly check against props.containers for data-driven drop logic (Failsafe)
-                                // This handles cases where meshesMap might be out of sync or raycasting fails
-                                const sourceChem = LOCAL_CHEMICALS[c.contents?.chemicalId || ''];
-                                if (sourceChem && (c.type === 'rock' || sourceChem.type === 'solid')) {
-                                    props.containers.forEach(target => {
-                                        if (target.id !== c.id && (target.type === 'beaker' || target.type === 'test_tube')) {
-                                            const targetPos = new THREE.Vector3(...target.position);
-                                            // Use the lenient check
-                                            if (PhysicsEngine.checkDropCondition(sourcePos, targetPos, c.type)) {
-                                                props.onDrop(c.id, target.id);
-                                            }
-                                        }
-                                    });
-                                }
                             }}
                         >
                             <Container3D

@@ -56,21 +56,21 @@ export class ChemistryEngine {
         const c1 = CHEMICALS[chemId1] || CHEMICALS['H2O'];
         const c2 = CHEMICALS[chemId2] || CHEMICALS['H2O'];
 
-        // 1. Check for specific molecular reactions in Registry
+        // 1. SCENARIO: Check Registry for ANY valid permutation
         const match = REACTION_REGISTRY.find(r =>
-            (r.reactants[0] === chemId1 && r.reactants[1] === chemId2) ||
-            (r.reactants[1] === chemId1 && r.reactants[0] === chemId2)
+            (r.reactants.includes(chemId1) && r.reactants.includes(chemId2))
         );
 
-        // Check Temperature Activation Energy
+        // 2. SCENARIO: A valid reaction exists
         if (match) {
+            // Temperature check for activation energy
             const minTemp = match.minTemperature || -273;
-
             if (currentTemperature >= minTemp) {
-                const product = CHEMICALS[match.product];
-                const startBlend = this.blendColors(c1.color, vol1, c2.color, vol2);
 
+                const product = CHEMICALS[match.product];
+                // Override volume rules for solid dropping - if it's an explosive reaction, force the visuals!
                 const finalColor = match.effect === 'explosion' ? product.color : match.resultColor || product.color;
+                const startBlend = this.blendColors(c1.color, vol1, c2.color, vol2);
 
                 const result: {
                     resultId: string;
@@ -83,7 +83,7 @@ export class ChemistryEngine {
                     reaction: {
                         productName: product.name,
                         color: finalColor,
-                        effect: match.effect,
+                        effect: match.effect, // CRITICAL: This must pass 'explosion' back to App.tsx
                         temperature: match.temperature,
                         message: match.message
                     }
