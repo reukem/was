@@ -30,7 +30,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                 <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-6 tracking-tight flex items-center gap-3">
                     ⚙️ SYSTEM SETTINGS
                 </h2>
-
                 <div className="space-y-6">
                     <div>
                         <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
@@ -59,7 +58,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             )}
                         </div>
                     </div>
-
                     <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
                         <button
                             onClick={onClose}
