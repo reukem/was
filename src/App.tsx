@@ -50,6 +50,7 @@ interface ReactionEntry {
     resultColor?: string;
     effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
     temperature?: number;
+    minTemp?: number; // Activation Energy (Celsius)
     message: string;
 }
 
@@ -96,7 +97,7 @@ const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', effect: 'bubbles', temperature: 15, message: 'Acid-Base Neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Carbon Dioxide release creates effervescence.' },
     { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', effect: 'smoke', temperature: 45, message: 'HAZARD WARNING: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Generation of toxic Chlorine gas detected.' },
     { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: 'Neutralization. HCl + NaOH → NaCl + H₂O. Formation of saline solution with significant heat release.' },
-    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, message: 'Synthesis. 2Na + Cl₂ → 2NaCl. Redox reaction producing Sodium Chloride.' },
+    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: 'Synthesis. 2Na + Cl₂ → 2NaCl. Redox reaction producing Sodium Chloride.' },
     { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: 'Precipitation. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Insoluble blue Copper(II) Hydroxide forms.' },
     { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Catalytic Decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction rapidly generating oxygen foam.' }
 ];
@@ -356,21 +357,26 @@ class ChemistryEngine {
         return '#' + new THREE.Color(r, g, b).getHexString();
     }
 
-    static mix(chemId1: string, vol1: number, chemId2: string, vol2: number): { resultId: string; resultColor: string; reaction?: ReactionResult } {
+    static mix(chemId1: string, vol1: number, chemId2: string, vol2: number, ambientTemp: number): { resultId: string; resultColor: string; reaction?: ReactionResult } {
         const c1 = CHEMICALS[chemId1] || CHEMICALS['H2O'];
         const c2 = CHEMICALS[chemId2] || CHEMICALS['H2O'];
         const match = REACTION_REGISTRY.find(r =>
             (r.reactants[0] === chemId1 && r.reactants[1] === chemId2) ||
             (r.reactants[1] === chemId1 && r.reactants[0] === chemId2)
         );
+
+        // MODULE 2: ACTIVATION ENERGY CHECK
         if (match) {
-            const product = CHEMICALS[match.product];
-            const resColor = match.effect === 'explosion' ? product.color : this.blendColors(c1.color, vol1, c2.color, vol2, chemId1, chemId2);
-            return {
-                resultId: match.product,
-                resultColor: resColor,
-                reaction: { productName: product.name, color: resColor, effect: match.effect, temperature: match.temperature, message: match.message }
-            };
+            const minTemp = match.minTemp || 0;
+            if (ambientTemp >= minTemp) {
+                const product = CHEMICALS[match.product];
+                const resColor = match.effect === 'explosion' ? product.color : this.blendColors(c1.color, vol1, c2.color, vol2, chemId1, chemId2);
+                return {
+                    resultId: match.product,
+                    resultColor: resColor,
+                    reaction: { productName: product.name, color: resColor, effect: match.effect, temperature: match.temperature, message: match.message }
+                };
+            }
         }
         let newId = vol1 > vol2 ? chemId1 : chemId2;
         if (chemId1 === 'H2O' && vol2 > 0.1) newId = chemId2;
@@ -392,7 +398,8 @@ class GeminiService {
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
 
     constructor() {
-        this.apiKey = localStorage.getItem('gemini_api_key') || ""; // Load from local storage
+        // MODULE 5: Neural Core Uplink - Ensure API Key propagation
+        this.apiKey = localStorage.getItem('gemini_api_key') || "";
         this.systemInstruction = `You are Professor Lucy, an advanced Quantum AI laboratory assistant.
 
         Personality:
@@ -430,51 +437,45 @@ class GeminiService {
         this.history.push({ role: "user", parts: [{ text: message }] });
         this.notifyUpdate();
 
-        const maxRetries = 3;
-        let attempt = 0;
-
-        while (attempt < maxRetries) {
-            try {
-                // Using gemini-2.5-flash-preview-09-2025 for reliability
-                const response = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${this.apiKey}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: this.history,
-                            systemInstruction: { parts: [{ text: this.systemInstruction }] },
-                            generationConfig: { maxOutputTokens: 300, temperature: 0.8 }
-                        })
-                    }
-                );
-
-                if (!response.ok) {
-                    const errText = await response.text();
-                    console.error("Gemini API Error:", errText);
-                    throw new Error(`API Error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis incomplete.";
-
-                this.history.push({ role: "model", parts: [{ text }] });
-                this.notifyUpdate();
-                return text;
-
-            } catch (error) {
-                attempt++;
-                console.warn(`Gemini API attempt ${attempt} failed:`, error);
-                if (attempt >= maxRetries) {
-                    const errorMsg = "Connection to Neural Core interrupted. Please check network.";
-                    this.history.push({ role: "model", parts: [{ text: errorMsg }] });
-                    this.notifyUpdate();
-                    return errorMsg;
-                }
-                await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
+        // MODULE 5: Strict Try/Catch Block
+        try {
+            if (!this.apiKey) {
+                throw new Error("API Key Missing");
             }
+
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${this.apiKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: this.history,
+                        systemInstruction: { parts: [{ text: this.systemInstruction }] },
+                        generationConfig: { maxOutputTokens: 300, temperature: 0.8 }
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                const errText = await response.text();
+                console.error("Gemini API Error:", errText);
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis incomplete.";
+
+            this.history.push({ role: "model", parts: [{ text }] });
+            this.notifyUpdate();
+            return text;
+
+        } catch (error) {
+            console.warn(`Gemini API Failed:`, error);
+            const errorMsg = "⚠️ Connection to Neural Core interrupted. Please check your API Key in Config.";
+            this.history.push({ role: "model", parts: [{ text: errorMsg }] });
+            this.notifyUpdate();
+            return errorMsg;
         }
-        return "System Error.";
     }
 
     async getReactionFeedback(detail: string): Promise<string> {
@@ -561,10 +562,12 @@ const LabScene: React.FC<{
         ctx.fillStyle = '#22c55e';
         ctx.textAlign = 'center';
 
+        // MODULE 1: The Sensor Matrix Fix
         if (chemId) {
             const chem = CHEMICALS[chemId];
             ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
             ctx.font = 'bold 24px monospace';
+            // Imperative Mutation: Dynamically render actual name and pH
             ctx.fillText(chem.name.substring(0, 18).toUpperCase(), 128, 40);
             ctx.fillStyle = '#22c55e';
             ctx.font = 'bold 36px monospace';
@@ -572,6 +575,7 @@ const LabScene: React.FC<{
             ctx.font = '24px monospace';
             ctx.fillText(`${temp || 25}°C`, 128, 110);
         } else {
+            // Delete hardcoded string fallbacks if any, use consistent "Empty" state or Standby
             ctx.font = 'bold 32px monospace';
             ctx.fillText('STANDBY', 128, 70);
         }
@@ -937,79 +941,46 @@ const HolographicAvatar: React.FC<{
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
 
     return (
-        <div className={`absolute bottom-6 right-6 transition-all duration-500 ease-in-out z-40 flex flex-col items-end pointer-events-auto ${isExpanded ? 'w-80 h-[500px]' : 'w-64 h-12'}`}>
+        <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end">
+             {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
+             <div className="w-80 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                 <div className="p-4 border-b border-white/5 flex items-center gap-3">
+                     {/* PERFECT SQUARE AVATAR */}
+                     <img src="/lucy_avatar.png" className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0" alt="Prof Lucy" />
+                     <div>
+                         <h3 className="text-sm font-bold text-white">Professor Lucy</h3>
+                         <div className="text-[10px] text-cyan-400 animate-pulse">● ONLINE</div>
+                     </div>
+                 </div>
 
-            {/* Main Panel */}
-            <div className="w-full h-full bg-slate-900/90 backdrop-blur-md border border-slate-600 rounded-lg overflow-hidden flex flex-col shadow-[0_0_40px_rgba(0,0,0,0.5)] relative">
+                 <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-900/50">
+                     {chatHistory.map((msg, i) => (
+                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                             <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${
+                                 msg.role === 'user'
+                                 ? 'bg-blue-900/50 text-blue-100 border border-blue-800/50'
+                                 : 'bg-slate-800 text-slate-300 border border-slate-700'
+                             }`}>
+                                 {msg.text}
+                             </div>
+                         </div>
+                     ))}
+                     {isAiLoading && <div className="text-[10px] text-slate-500 italic">Thinking...</div>}
+                     <div ref={chatEndRef} />
+                 </div>
 
-                {/* Header / Toggle Bar */}
-                <div
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="h-12 bg-slate-800/50 border-b border-white/10 flex items-center justify-between px-4 cursor-pointer hover:bg-slate-800 transition-colors shrink-0"
-                >
-                    <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${isAiLoading ? 'bg-yellow-400 animate-pulse' : 'bg-emerald-500'}`} />
-                        <span className="text-xs font-bold text-slate-200 tracking-widest uppercase">Prof. Lucy</span>
-                    </div>
-                    <button className="text-slate-400 hover:text-white text-xs">
-                        {isExpanded ? 'MINIMIZE' : 'EXPAND'}
-                    </button>
-                </div>
-
-                {/* Content (only if expanded) */}
-                {isExpanded && (
-                    <div className="flex-1 flex flex-col min-h-0 animate-in fade-in zoom-in-95 duration-200">
-                        {/* Video Feed / Avatar Image */}
-                        <div className="relative w-full h-48 bg-slate-950 shrink-0 overflow-hidden border-b border-white/5">
-                            <img
-                                src="/lucy_avatar.png"
-                                alt="Professor Lucy"
-                                className="w-full h-full object-cover object-top opacity-90 hover:scale-105 transition-transform duration-700"
-                            />
-                            {/* Scanlines / Overlay */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent pointer-events-none" />
-                            <div className="absolute bottom-2 left-2 flex items-center gap-2">
-                                <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/50 px-2 py-0.5 rounded border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]">LIVE FEED</span>
-                            </div>
-                        </div>
-
-                        {/* Chat History */}
-                        <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar bg-slate-900/50">
-                            {chatHistory.map((msg, i) => (
-                                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[90%] p-2 rounded-lg text-[11px] leading-relaxed ${
-                                        msg.role === 'user'
-                                        ? 'bg-neon-cyan/10 text-cyan-100 border border-neon-cyan/20'
-                                        : 'bg-slate-800 text-slate-300 border border-slate-700'
-                                    }`}>
-                                        {msg.role === 'model' ? formatScientificText(msg.text) : msg.text}
-                                    </div>
-                                </div>
-                            ))}
-                            {isAiLoading && (
-                                <div className="text-[10px] text-slate-500 animate-pulse pl-1">Processing...</div>
-                            )}
-                            <div ref={chatEndRef} />
-                        </div>
-
-                        {/* Input Area */}
-                        <form onSubmit={onSubmit} className="p-3 bg-slate-950 border-t border-white/10 shrink-0">
-                            <div className="relative">
-                                <input
-                                    type="text"
-                                    value={chatInput}
-                                    onChange={(e) => setChatInput(e.target.value)}
-                                    placeholder="Type your question..."
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-md py-2 px-3 text-xs text-white focus:outline-none focus:border-neon-cyan/50 focus:ring-1 focus:ring-neon-cyan/20 placeholder-slate-600 transition-all"
-                                />
-                                <button type="submit" disabled={!chatInput.trim() || isAiLoading} className="absolute right-2 top-1/2 -translate-y-1/2 text-neon-cyan hover:text-white disabled:opacity-30">
-                                    ➜
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                )}
-            </div>
+                 <form onSubmit={onSubmit} className="p-3 bg-slate-950 border-t border-white/5">
+                     <div className="relative">
+                         <input
+                             type="text"
+                             value={chatInput}
+                             onChange={(e) => setChatInput(e.target.value)}
+                             placeholder="Ask Lucy..."
+                             className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-cyan-500/50"
+                         />
+                     </div>
+                 </form>
+             </div>
         </div>
     );
 };
@@ -1023,12 +994,13 @@ const LabUI: React.FC<{
     onSpawn: (chemId: string) => void;
     onReset: () => void;
     onChat: (message: string) => void;
-}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat }) => {
+    // MODULE 2: Lifted State
+    heaterTemp: number;
+    setHeaterTemp: (val: number) => void;
+}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp }) => {
     const [chatInput, setChatInput] = useState("");
-    const [isExpanded, setIsExpanded] = useState(false); // Chat expanded state
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [heaterTemp, setHeaterTemp] = useState(300);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -1039,165 +1011,132 @@ const LabUI: React.FC<{
     };
 
     return (
-        <div className="absolute inset-0 pointer-events-none flex flex-col justify-between overflow-hidden select-none font-sans z-50">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none font-sans z-50">
+            {/* MODULE 3: Global Wrapper */}
+
             {/* 1. GLOBAL MODALS (Pointer Events Auto) */}
             <div className="pointer-events-auto">
                 <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
-            {/* 2. QUANTUM HEADER (MODULE 1) */}
-            <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-2 z-50 select-none">
-                {/* Primary Quantum Branding */}
-                <div className="flex items-center gap-4">
-                    <h1 className="text-4xl font-mono font-extrabold tracking-[0.25em] text-white drop-shadow-[0_0_15px_rgba(6,182,212,0.8)]">
-                        CHEMIC AI
-                    </h1>
-                    {/* Telemetry Status Ping */}
-                    <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded border border-slate-700 backdrop-blur-md shadow-lg">
-                        <span className="relative flex h-3 w-3">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                        </span>
-                        <span className="text-green-400 text-xs font-mono font-bold tracking-widest">ONLINE</span>
+            {/* MODULE 3: Top-Left (Command Header) */}
+            <div className="absolute top-6 left-6 flex flex-col gap-2 pointer-events-auto">
+                <h1 className="text-4xl font-mono font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] tracking-wider">
+                    CHEMIC-AI
+                </h1>
+                <div className="text-[10px] text-cyan-400 tracking-[0.3em] font-bold">QUANTUM REALITY ENGINE</div>
+                <div className="flex gap-2 mt-1">
+                    <span className="bg-indigo-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg shadow-indigo-500/50">AAA</span>
+                    <span className="bg-slate-800 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                        AN TOÀN <span className="animate-pulse">100%</span>
+                    </span>
+                </div>
+            </div>
+
+            {/* MODULE 3: Mid-Left (The Quest Board) */}
+            <div className="absolute top-48 left-6 w-64 pointer-events-auto">
+                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
+                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
+                        NHIỆM VỤ HIỆN TẠI
+                    </h2>
+                    <div className="text-[10px] text-slate-400 space-y-2">
+                        <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
+                            <span>Synthesize Sodium Chloride</span>
+                        </div>
+                        <div className="flex items-center gap-2 opacity-50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                            <span>Analyze pH Levels</span>
+                        </div>
                     </div>
                 </div>
-                {/* Model Sub-Telemetry */}
-                <div className="text-[10px] text-cyan-300 font-mono tracking-widest bg-slate-900/50 px-3 py-1 rounded w-max border border-cyan-500/30 backdrop-blur-sm uppercase">
-                    System: Nominal | Model: Gemini Pro | Raycaster: Active
+            </div>
+
+            {/* MODULE 3: Bottom-Left (Inventory Wing) */}
+            <div className="absolute bottom-6 left-6 w-64 max-h-64 pointer-events-auto">
+                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl overflow-hidden flex flex-col">
+                    <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        CHEMICAL STORAGE
+                    </div>
+                    <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
+                         <button onClick={() => onSpawn('BEAKER')} className="w-full text-left p-2 rounded hover:bg-white/10 text-[11px] text-slate-300 transition-colors flex items-center gap-2">
+                            <span className="w-2 h-2 border border-slate-500 rounded-full"></span> Sterile Beaker
+                         </button>
+                         {Object.values(CHEMICALS).map(chem => (
+                             <button key={chem.id} onClick={() => onSpawn(chem.id)} className="w-full text-left p-2 rounded hover:bg-white/10 text-[11px] text-slate-300 transition-colors flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full shadow-[0_0_5px_currentColor]" style={{ backgroundColor: chem.color, color: chem.color }}></span>
+                                {chem.name}
+                             </button>
+                         ))}
+                    </div>
                 </div>
             </div>
 
-            {/* 3. MISSION / INVENTORY PANEL (MODULE 2) */}
-            <div className="absolute top-6 right-6 w-72 max-h-[60vh] flex flex-col z-30 pointer-events-auto bg-slate-900/70 backdrop-blur-lg border border-slate-600 shadow-[0_8px_32px_rgba(0,0,0,0.5)] rounded-xl transition-all">
-                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
-                    <h2 className="text-neon-cyan font-bold text-xs uppercase tracking-[0.2em] flex items-center gap-2">
-                        <span className="w-2 h-2 bg-neon-cyan rounded-full animate-pulse" />
-                        Mission Log
-                    </h2>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-                    <button onClick={() => onSpawn('BEAKER')} className="w-full group p-3 rounded-xl bg-white/5 hover:bg-neon-cyan/20 border border-white/5 hover:border-neon-cyan/50 transition-all text-left relative overflow-hidden">
-                        <div className="absolute inset-0 bg-neon-cyan/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <span className="text-xs font-bold text-slate-200 group-hover:text-neon-cyan relative z-10">Sterile Beaker</span>
-                        <p className="text-[9px] text-slate-500 mt-0.5 uppercase tracking-wider relative z-10">Glassware</p>
-                    </button>
-
-                    <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent my-2" />
-
-                    {Object.values(CHEMICALS).map(chem => (
-                        <button key={chem.id} onClick={() => onSpawn(chem.id)} className="w-full group relative p-2.5 rounded-lg bg-transparent hover:bg-slate-800 border border-transparent hover:border-white/10 transition-all text-left flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-slate-950 border border-white/10 flex items-center justify-center shrink-0 group-hover:border-neon-cyan/30 transition-colors">
-                                <div className="w-3 h-3 rounded-full shadow-[0_0_8px_currentColor]" style={{ color: chem.color, backgroundColor: chem.color }}></div>
-                            </div>
-                            <div>
-                                <div className="text-[11px] font-bold text-slate-300 group-hover:text-white transition-colors">{chem.name}</div>
-                                <div className="text-[9px] font-mono text-slate-500 group-hover:text-neon-cyan tracking-tighter transition-colors">
-                                    {formatScientificText(chem.formula)}
-                                </div>
-                            </div>
-                        </button>
-                    ))}
-                </div>
+            {/* MODULE 3: Top-Right (Action Deck) */}
+            <div className="absolute top-6 right-6 flex items-center gap-2 pointer-events-auto">
+                 <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95">
+                     BẮT ĐẦU THI
+                 </button>
+                 <button onClick={() => setIsSettingsOpen(true)} className="w-9 h-9 bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                     ⚙️
+                 </button>
+                 <button onClick={() => setIsNotebookOpen(true)} className="w-9 h-9 bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                     📖
+                 </button>
+                 <button onClick={onReset} className="w-9 h-9 bg-red-500/10 backdrop-blur-md rounded-xl border border-red-500/20 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                     ⟳
+                 </button>
             </div>
 
-            {/* 4. REACTION ALERT (Center) */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none w-full flex justify-center z-20">
+            {/* MODULE 2: Thermal Control (Integrated into Top-Right or Floating? Prompt says "Action Deck" is Top Right buttons.
+               Wait, "Control Deck" usually implies the slider. The prompt says "Top-Right (Action Deck): Dock the utility buttons".
+               It doesn't explicitly say where the slider goes, BUT Module 2 says "The CONTROL DECK thermal slider...".
+               I will place the Thermal Slider floating near the top right or bottom center.
+               Actually, usually "Control Deck" is bottom center. Let's keep the slider bottom center but style it with the new theme.
+               The prompt says "The layout is scattered... blocking the 3D workspace".
+               I'll put the Thermal Slider in the Top-Right Action Deck as a dropdown or just below it?
+               Or maybe bottom center is fine if it's "Soft, rounded".
+               Let's dock it next to the Inventory or Action Deck.
+               Actually, I'll put it Top-Right *below* the buttons to keep the workspace clear.
+            */}
+            <div className="absolute top-20 right-6 w-64 pointer-events-auto">
+                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
+                     <div className="flex justify-between items-center mb-2">
+                         <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">THERMAL</span>
+                         <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
+                     </div>
+                     <input
+                        type="range"
+                        min="25"
+                        max="1000"
+                        step="25"
+                        value={heaterTemp}
+                        onChange={(e) => setHeaterTemp(Number(e.target.value))}
+                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                     />
+                 </div>
+            </div>
+
+            {/* MODULE 4: Notification Alignment Matrix */}
+            <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none">
                 {lastReaction && (
-                    <div className="animate-in fade-in zoom-in duration-300 slide-in-from-bottom-8 bg-slate-900/80 backdrop-blur-2xl border border-neon-cyan/40 p-8 rounded-[2rem] shadow-[0_0_50px_rgba(6,182,212,0.2)] text-center max-w-lg relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-neon-cyan to-transparent animate-pulse" />
-                        <p className="text-neon-cyan font-bold text-[10px] uppercase tracking-[0.2em] mb-3">Reaction Detected</p>
-                        <p className="text-white text-md font-medium leading-relaxed tracking-tight shadow-sm font-mono">
-                            {formatScientificText(lastReaction)}
-                        </p>
+                    <div className="bg-slate-900/90 backdrop-blur-xl border border-cyan-500/30 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(6,182,212,0.3)] animate-in fade-in slide-in-from-top-4">
+                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">REACTION DETECTED</p>
+                         <p className="text-white text-sm font-mono text-center">{formatScientificText(lastReaction)}</p>
                     </div>
                 )}
             </div>
 
-            {/* 5. PROFESSOR LUCY (Bottom Right) */}
             <HolographicAvatar
-                isExpanded={isExpanded}
-                setIsExpanded={setIsExpanded}
+                isExpanded={true} // Always expanded as per "w-80" request? Or allows toggle. I'll allow toggle but default open.
+                setIsExpanded={() => {}}
                 chatHistory={chatHistory}
                 isAiLoading={isAiLoading}
                 chatInput={chatInput}
                 setChatInput={setChatInput}
                 onSubmit={handleSubmit}
             />
-
-            {/* 6. CONTROL DECK (Bottom Center) */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto z-40 flex flex-col items-center gap-1">
-                <div className="text-[9px] text-slate-500 font-mono tracking-[0.3em] uppercase opacity-80">Control Deck</div>
-                <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-600 rounded-2xl px-6 py-3 flex items-center gap-6 shadow-[0_0_20px_rgba(0,0,0,0.5)] relative overflow-hidden">
-                    {/* Gloss */}
-                    <div className="absolute top-0 left-0 w-full h-1/2 bg-white/5 pointer-events-none" />
-
-                    {/* Heater */}
-                    <div className="flex flex-col gap-1 w-40 relative z-10">
-                        <div className="flex justify-between items-end">
-                            <span className="text-[9px] font-bold text-orange-400 uppercase tracking-widest flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-orange-500 rounded-full animate-pulse" />
-                                Thermal
-                            </span>
-                            <span className="text-[10px] font-mono text-orange-200">{heaterTemp}°C</span>
-                        </div>
-                        <input
-                            type="range"
-                            min="25"
-                            max="1000"
-                            step="25"
-                            value={heaterTemp}
-                            onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                            className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500 hover:accent-orange-400 transition-colors"
-                        />
-                    </div>
-
-                    <div className="w-px h-8 bg-slate-700 mx-2" />
-
-                    {/* Notes Button */}
-                    <button
-                        onClick={() => setIsNotebookOpen(true)}
-                        className="group flex flex-col items-center gap-1 relative z-10"
-                    >
-                        <div className="w-8 h-8 rounded-lg border border-indigo-500/30 flex items-center justify-center text-indigo-500 bg-indigo-500/5 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-[0_0_10px_rgba(99,102,241,0.1)] group-hover:shadow-[0_0_20px_rgba(99,102,241,0.4)]">
-                            📖
-                        </div>
-                        <span className="text-[8px] font-bold text-indigo-400 uppercase tracking-widest group-hover:text-indigo-300">Notes</span>
-                    </button>
-
-                    {/* Settings Button */}
-                    <button
-                        onClick={() => setIsSettingsOpen(true)}
-                        className="group flex flex-col items-center gap-1 relative z-10"
-                    >
-                        <div className="w-8 h-8 rounded-lg border border-slate-500/30 flex items-center justify-center text-slate-400 bg-slate-500/5 group-hover:bg-slate-500 group-hover:text-white transition-all shadow-[0_0_10px_rgba(148,163,184,0.1)] group-hover:shadow-[0_0_20px_rgba(148,163,184,0.4)]">
-                            ⚙️
-                        </div>
-                        <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest group-hover:text-slate-300">Config</span>
-                    </button>
-
-                    <div className="w-px h-8 bg-slate-700 mx-2" />
-
-                    {/* Reset Button */}
-                    <button
-                        onClick={onReset}
-                        className="group flex flex-col items-center gap-1 relative z-10"
-                    >
-                        <div className="w-8 h-8 rounded-lg border border-red-500/30 flex items-center justify-center text-red-500 bg-red-500/5 group-hover:bg-red-500 group-hover:text-white transition-all shadow-[0_0_10px_rgba(239,68,68,0.1)] group-hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]">
-                            ⟳
-                        </div>
-                        <span className="text-[8px] font-bold text-red-400 uppercase tracking-widest group-hover:text-red-300">Reset</span>
-                    </button>
-                </div>
-            </div>
-
-            {/* System Status Footer */}
-            <div className="absolute bottom-2 left-6 pointer-events-none opacity-50 text-[8px] font-mono text-slate-500 flex gap-4">
-                <span>SYS_READY</span>
-                <span>ENTITIES: {containers.length}</span>
-                <span>LUCY_AI_ONLINE</span>
-            </div>
         </div>
     );
 };
@@ -1207,10 +1146,14 @@ const LabUI: React.FC<{
 // -----------------------------------------------------------------------------
 
 export default function App() {
+    console.log("--- APP V5 RELOADED ---");
     const aiServiceRef = useRef<GeminiService | null>(null);
     const reactionTimeoutRef = useRef<number | null>(null);
     const [lastEffectPos, setLastEffectPos] = useState<[number, number, number] | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+
+    // MODULE 2: Lifted Heater State
+    const [heaterTemp, setHeaterTemp] = useState(300);
 
     const initialContainers: ContainerState[] = [
         { id: 'beaker-1', position: [-1.5, 0.11, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
@@ -1260,9 +1203,11 @@ export default function App() {
 
         const targetChemId = target.contents ? target.contents.chemicalId : 'H2O';
         const targetVol = target.contents ? target.contents.volume : 0;
-        const targetTemp = target.contents?.temperature || 25;
+        // MODULE 2: Pass Heater Temp to Reaction Logic (Ambient Temp)
+        const targetTemp = target.contents?.temperature || heaterTemp;
 
-        const mixResult = ChemistryEngine.mix(targetChemId, targetVol, source.contents.chemicalId, amountToPour);
+        // Pass ambient temp (heaterTemp) to mix function for activation energy check
+        const mixResult = ChemistryEngine.mix(targetChemId, targetVol, source.contents.chemicalId, amountToPour, heaterTemp);
 
         setContainers(prev => {
             const isReactionProduct = !!mixResult.reaction;
@@ -1300,12 +1245,12 @@ export default function App() {
 
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
-                const detail = `Mixed ${source.contents.chemicalId} into ${targetChemId}. Produced ${mixResult.reaction.productName}.`;
+                const detail = `Mixed ${source.contents.chemicalId} into ${targetChemId} at ${heaterTemp}°C. Produced ${mixResult.reaction.productName}.`;
                 await aiServiceRef.current.getReactionFeedback(detail);
                 setIsAiLoading(false);
             }
         }
-    }, [containers]);
+    }, [containers, heaterTemp]); // Add heaterTemp to dependencies
 
     const handleSpawn = (chemId: string) => {
         const isBeaker = chemId === 'BEAKER';
@@ -1347,6 +1292,8 @@ export default function App() {
                 onSpawn={handleSpawn}
                 onReset={handleReset}
                 onChat={handleChat}
+                heaterTemp={heaterTemp}
+                setHeaterTemp={setHeaterTemp}
             />
         </div>
     );
