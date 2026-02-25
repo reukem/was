@@ -1043,7 +1043,7 @@ const LabUI: React.FC<{
     };
 
     return (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none font-sans z-[999999]">
+        <div className="absolute inset-0 z-[999999] pointer-events-none overflow-hidden select-none font-sans">
             {/* MODULE 3: Global Wrapper */}
 
             {/* 1. GLOBAL MODALS (Pointer Events Auto) */}
@@ -1318,7 +1318,7 @@ export default function App() {
     };
 
     return (
-        <div className={`relative w-full h-screen bg-slate-950 transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
+        <div className={`relative w-full h-screen overflow-hidden bg-slate-950 transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
             {/* Background Texture */}
             <div className="absolute inset-0 bg-tech-grid opacity-20 pointer-events-none" />
 
