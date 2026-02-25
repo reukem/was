@@ -586,17 +586,17 @@ const LabScene: React.FC<{
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
+        renderer.toneMappingExposure = 0.7;
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        // BLOOM ADJUSTMENT: Strength 0.6, Threshold 0.85
+        // BLOOM ADJUSTMENT: Strength 0.2, Threshold 0.85
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.6, 0.2, 0.85
+            0.2, 0.2, 0.85
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
@@ -612,7 +612,7 @@ const LabScene: React.FC<{
         scene.add(new THREE.AmbientLight(0xffffff, 0.2)); // Lower ambient for contrast
 
         // Key Light - Warm white for specular highlights
-        const spotLight = new THREE.SpotLight(0xffffff, 300);
+        const spotLight = new THREE.SpotLight(0xffffff, 50);
         spotLight.position.set(8, 12, 8);
         spotLight.angle = Math.PI / 4;
         spotLight.penumbra = 0.5;
@@ -621,7 +621,7 @@ const LabScene: React.FC<{
         scene.add(spotLight);
 
         // Rim Light - Cool blue for sci-fi edge
-        const rectLight = new THREE.DirectionalLight(0x38bdf8, 3.0);
+        const rectLight = new THREE.DirectionalLight(0x38bdf8, 1.0);
         rectLight.position.set(-6, 4, -6);
         scene.add(rectLight);
 
