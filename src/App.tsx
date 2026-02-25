@@ -297,14 +297,93 @@ const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
 };
 
 const createTable = () => {
-    const geometry = new THREE.BoxGeometry(12, 0.2, 6);
-    const material = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.8 });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.receiveShadow = true;
-    const grid = new THREE.GridHelper(10, 20, 0x38bdf8, 0x1e293b);
+    const group = new THREE.Group();
+
+    // 1. Table Top (Dark Slate)
+    const geometry = new THREE.BoxGeometry(14, 0.2, 8);
+    const material = new THREE.MeshStandardMaterial({
+        color: 0x0f172a,
+        roughness: 0.2,
+        metalness: 0.5
+    });
+    const tableTop = new THREE.Mesh(geometry, material);
+    tableTop.receiveShadow = true;
+    group.add(tableTop);
+
+    // 2. Quantum Grid (Glowing Cyan)
+    // We use a GridHelper but boost its color for the bloom effect
+    const grid = new THREE.GridHelper(12, 24, 0x06b6d4, 0x1e293b);
     grid.position.y = 0.11;
-    mesh.add(grid);
-    return mesh;
+    // Enhance grid material for bloom
+    (grid.material as THREE.LineBasicMaterial).color.setHex(0x22d3ee); // Brighter cyan
+    (grid.material as THREE.LineBasicMaterial).opacity = 0.6;
+    (grid.material as THREE.LineBasicMaterial).transparent = true;
+    group.add(grid);
+
+    // 3. Emissive Rim (The "Holographic" Edge)
+    const rimGeo = new THREE.BoxGeometry(14.05, 0.22, 8.05);
+    const rimMat = new THREE.MeshBasicMaterial({
+        color: 0x0891b2, // Cyan-700
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.BackSide // Render inside out for a "shell" effect
+    });
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    group.add(rim);
+
+    return group;
+};
+
+const createHeater = () => {
+    const group = new THREE.Group();
+
+    // 1. Base Unit
+    const baseGeo = new THREE.BoxGeometry(1.2, 0.15, 1.2);
+    const baseMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b, // Slate-800
+        roughness: 0.4,
+        metalness: 0.8
+    });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    base.castShadow = true;
+    base.receiveShadow = true;
+    group.add(base);
+
+    // 2. Heating Plate (The part that glows)
+    const plateGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.05, 32);
+    const plateMat = new THREE.MeshStandardMaterial({
+        color: 0x334155, // Dark grey initially
+        roughness: 0.6,
+        metalness: 0.5,
+        emissive: 0x000000,
+        emissiveIntensity: 0
+    });
+    const plate = new THREE.Mesh(plateGeo, plateMat);
+    plate.position.y = 0.1;
+    plate.userData.isHeaterPlate = true; // Tag for updates
+    group.add(plate);
+
+    // 3. UI/Knob Details
+    const knobGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.1, 16);
+    const knob = new THREE.Mesh(knobGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
+    knob.rotateX(Math.PI / 2);
+    knob.position.set(0, 0, 0.6);
+    group.add(knob);
+
+    // Label
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+        ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,128,64);
+        ctx.fillStyle = '#f97316'; ctx.font = 'bold 20px monospace';
+        ctx.textAlign = 'center'; ctx.fillText('HEAT', 64, 40);
+    }
+    const label = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.15), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas) }));
+    label.position.set(0, 0.08, 0.61);
+    group.add(label);
+
+    return group;
 };
 
 const createLabel = (text: string) => {
@@ -599,12 +678,13 @@ class GeminiService {
 // -----------------------------------------------------------------------------
 
 const LabScene: React.FC<{
+    heaterTemp: number;
     containers: ContainerState[];
     lastEffect: string | null;
     lastEffectPos: [number, number, number] | null;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
-}> = ({ containers, lastEffect, lastEffectPos, onMove, onPour }) => {
+}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour }) => {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -619,6 +699,7 @@ const LabScene: React.FC<{
     const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.11)); // Drag plane at table height
     const particleSystemRef = useRef<ParticleSystem | null>(null);
     const analyzerRef = useRef<{ group: THREE.Group; texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } | null>(null);
+    const heaterRef = useRef<THREE.Group | null>(null);
 
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
@@ -725,42 +806,51 @@ const LabScene: React.FC<{
         composer.addPass(bloomPass);
         composerRef.current = composer;
 
-        const pmremGenerator = new THREE.PMREMGenerator(renderer);
-        scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-
+        // STUDIO DARK SETUP
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        scene.add(new THREE.AmbientLight(0x475569, 0.4)); // Dark Slate Ambient
+        // 1. Ambient - Low and Cool
+        scene.add(new THREE.AmbientLight(0x1e293b, 0.4));
 
-        // Key Light - Neutral White for sharp definition
-        const spotLight = new THREE.SpotLight(0xffffff, 80);
-        spotLight.position.set(8, 12, 8);
-        spotLight.angle = Math.PI / 4;
-        spotLight.penumbra = 0.3;
+        // 2. Key Light - Focused Spotlight on Center Table
+        const spotLight = new THREE.SpotLight(0xffffff, 120);
+        spotLight.position.set(5, 12, 5);
+        spotLight.angle = Math.PI / 6; // Tighter beam
+        spotLight.penumbra = 0.5; // Soft edge
         spotLight.castShadow = true;
         spotLight.shadow.mapSize.width = 2048;
         spotLight.shadow.mapSize.height = 2048;
         spotLight.shadow.bias = -0.0001;
         scene.add(spotLight);
 
-        // Rim Light - Neon Cyan for Cyber Edge
-        const rectLight = new THREE.DirectionalLight(0x06b6d4, 2.0);
-        rectLight.position.set(-6, 4, -6);
-        scene.add(rectLight);
+        // 3. Rim Light - Strong Cyan Backlight (Cyberpunk edge)
+        const rimLight = new THREE.DirectionalLight(0x06b6d4, 4.0);
+        rimLight.position.set(0, 5, -8); // Behind and above
+        scene.add(rimLight);
 
-        // Fill Light - Warm Orange from below for contrast
-        const fillLight = new THREE.PointLight(0xf97316, 0.8);
-        fillLight.position.set(0, -2, 2);
-        scene.add(fillLight);
+        // 4. Fill Lights - Colorful accents for Glass/Liquids
+        const fillMagenta = new THREE.PointLight(0xd946ef, 1.5, 20);
+        fillMagenta.position.set(6, 2, -2);
+        scene.add(fillMagenta);
+
+        const fillBlue = new THREE.PointLight(0x3b82f6, 1.5, 20);
+        fillBlue.position.set(-6, 2, -2);
+        scene.add(fillBlue);
 
         scene.add(createTable());
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 2.5), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 }));
         shelf.position.set(0, 0.5, -3.5);
         shelf.receiveShadow = true;
         scene.add(shelf);
+
+        // HEATER (Magnetic Stirrer)
+        const heater = createHeater();
+        heater.position.set(-1.5, 0.19, 0); // Positioned under the left beaker slot
+        scene.add(heater);
+        heaterRef.current = heater;
 
         const analyzer = createAnalyzerMachine();
         analyzer.group.position.set(4, 0, 1.5);
@@ -847,7 +937,16 @@ const LabScene: React.FC<{
         };
 
         const animateDrop = (group: THREE.Group, id: string) => {
-            const targetY = 0.11;
+            // Check if dropping on heater
+            const heaterPos = new THREE.Vector3(-1.5, 0.19, 0);
+            const dist = new THREE.Vector2(group.position.x, group.position.z).distanceTo(new THREE.Vector2(heaterPos.x, heaterPos.z));
+            let targetY = 0.11;
+            if (dist < 0.6) {
+                targetY = 0.42; // Height of heater plate + beaker base offset
+                group.position.x = heaterPos.x; // Snap to heater center X
+                group.position.z = heaterPos.z; // Snap to heater center Z
+            }
+
             const animate = () => {
                 if (group.position.y > targetY + 0.01) {
                     group.position.y = THREE.MathUtils.lerp(group.position.y, targetY, 0.2);
@@ -868,6 +967,18 @@ const LabScene: React.FC<{
             requestAnimationFrame(animate);
             controls.update();
             particleSystemRef.current?.update();
+
+            // HEATER UPDATE LOOP
+            if (heaterRef.current) {
+                const plate = heaterRef.current.children.find(c => c.userData.isHeaterPlate) as THREE.Mesh;
+                if (plate) {
+                    const mat = plate.material as THREE.MeshStandardMaterial;
+                    // Map 25-1000 degrees to color/intensity
+                    const t = (heaterTemp - 25) / 975; // 0 to 1
+                    mat.emissive.setHSL(0.05 + (0.05 * (1-t)), 1.0, 0.5 * t); // Red-Orange glow
+                    mat.emissiveIntensity = t * 2.0;
+                }
+            }
 
             // FIXED: ANALYZER UPDATE LOOP
             if (analyzerRef.current) {
@@ -908,7 +1019,6 @@ const LabScene: React.FC<{
             window.removeEventListener('pointerup', onPointerUp);
             mountRef.current?.removeChild(renderer.domElement);
             renderer.dispose();
-            pmremGenerator.dispose();
         };
     }, []);
 
@@ -1253,14 +1363,32 @@ const LabUI: React.FC<{
                     <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         KHO HÓA CHẤT
                     </div>
-                    <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
-                         <button onClick={() => onSpawn('BEAKER')} className="w-full text-left p-2 rounded hover:bg-white/10 text-[11px] text-slate-300 transition-colors flex items-center gap-2">
-                            <span className="w-2 h-2 border border-slate-500 rounded-full"></span> Cốc Thí Nghiệm
+                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
+                         <button
+                            onClick={() => onSpawn('BEAKER')}
+                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                         >
+                            <div>
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">Cốc Thí Nghiệm</div>
+                                <div className="text-[10px] font-mono text-slate-500 mt-1">Dụng cụ chứa</div>
+                            </div>
+                            <span className="w-2 h-2 border border-slate-500 rounded-full group-hover:bg-slate-500 transition-colors"></span>
                          </button>
+
                          {Object.values(CHEMICALS).map(chem => (
-                             <button key={chem.id} onClick={() => onSpawn(chem.id)} className="w-full text-left p-2 rounded hover:bg-white/10 text-[11px] text-slate-300 transition-colors flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full shadow-[0_0_5px_currentColor]" style={{ backgroundColor: chem.color, color: chem.color }}></span>
-                                {chem.name}
+                             <button
+                                key={chem.id}
+                                onClick={() => onSpawn(chem.id)}
+                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                             >
+                                <div>
+                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name}</div>
+                                    <div className="text-[10px] font-mono text-slate-500 mt-1">{chem.formula}</div>
+                                </div>
+                                <span
+                                    className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
+                                    style={{ backgroundColor: chem.color, boxShadow: `0 0 10px ${chem.color}` }}
+                                ></span>
                              </button>
                          ))}
                     </div>
@@ -1331,7 +1459,7 @@ export default function App() {
     const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
 
     const initialContainers: ContainerState[] = [
-        { id: 'beaker-1', position: [-1.5, 0.11, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
+        { id: 'beaker-1', position: [-1.5, 0.42, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
         { id: 'beaker-2', position: [1.5, 0.11, 0], contents: null }
     ];
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
@@ -1468,6 +1596,7 @@ export default function App() {
             <div className="absolute inset-0 bg-tech-grid opacity-20 pointer-events-none" />
 
             <LabScene
+                heaterTemp={heaterTemp}
                 containers={containers}
                 lastEffect={lastEffect}
                 lastEffectPos={lastEffectPos}
