@@ -195,26 +195,43 @@ class ParticleSystem {
 // -- GEOMETRY GENERATORS --
 const createFlaskGeometry = () => {
     const points = [];
-    for (let i = 0; i <= 10; i++) {
-        const t = i / 10;
-        const x = 0.5 * (1 - t) + 0.15 * t;
-        points.push(new THREE.Vector2(x, t * 0.8));
+    // Base curve
+    points.push(new THREE.Vector2(0.0, 0.0));
+    points.push(new THREE.Vector2(0.5, 0.0));
+    // Body curve
+    for (let i = 0; i <= 20; i++) {
+        const t = i / 20;
+        const x = 0.5 * (1 - t) + 0.2 * t * t + 0.15 * t; // Smooth transition
+        const y = t * 0.7;
+        points.push(new THREE.Vector2(x, y));
     }
+    // Neck
+    points.push(new THREE.Vector2(0.15, 0.7));
     points.push(new THREE.Vector2(0.15, 1.0));
+    // Rim
     points.push(new THREE.Vector2(0.18, 1.05));
-    return new THREE.LatheGeometry(points, 24);
+    points.push(new THREE.Vector2(0.15, 1.05)); // Inner lip
+    return new THREE.LatheGeometry(points, 64);
 };
 
 const createCanisterGeometry = () => {
-    const geo = new THREE.CapsuleGeometry(0.3, 0.8, 4, 12);
+    const geo = new THREE.CapsuleGeometry(0.3, 0.8, 8, 32);
     geo.translate(0, 0.4, 0);
     return geo;
 };
 
 const createMoundGeometry = () => {
-    const geo = new THREE.ConeGeometry(0.4, 0.4, 16, 1, true);
+    const geo = new THREE.ConeGeometry(0.4, 0.4, 64, 1, true);
     geo.translate(0, 0.2, 0);
     return geo;
+};
+
+const createRockGeometry = () => {
+    return new THREE.IcosahedronGeometry(0.3, 1);
+};
+
+const createCrystalGeometry = () => {
+    return new THREE.IcosahedronGeometry(0.3, 0);
 };
 
 const createGlassMaterial = () => {
@@ -253,12 +270,17 @@ const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
 
 const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
     const points = [];
-    points.push(new THREE.Vector2(0, 0));
-    points.push(new THREE.Vector2(radius * 0.9, 0));
+    points.push(new THREE.Vector2(0, 0)); // Center bottom
+    points.push(new THREE.Vector2(radius * 0.9, 0)); // Flat bottom edge
+    // Smooth curve to wall
     points.push(new THREE.Vector2(radius, 0.1));
+    // Wall
     points.push(new THREE.Vector2(radius, height));
-    points.push(new THREE.Vector2(radius + 0.05, height + 0.02));
-    return new THREE.LatheGeometry(points, 32);
+    // Rim (thickened)
+    points.push(new THREE.Vector2(radius + 0.05, height + 0.02)); // Outer rim top
+    points.push(new THREE.Vector2(radius - 0.02, height + 0.02)); // Inner rim top
+    points.push(new THREE.Vector2(radius - 0.02, height)); // Inner wall start
+    return new THREE.LatheGeometry(points, 64);
 };
 
 const createTable = () => {
@@ -820,16 +842,23 @@ const LabScene: React.FC<{
                          flask.add(innerLiquid);
                          mesh = flask;
                     } else if (chem.meshStyle === 'rock') {
-                        mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(0.3, 0), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true }));
+                        // High-poly rock
+                        mesh = new THREE.Mesh(createRockGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true }));
                     } else if (chem.meshStyle === 'crystal') {
-                        mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.3, 0), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true }));
+                        // Complex crystal
+                        mesh = new THREE.Mesh(createCrystalGeometry(), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true }));
                     } else if (chem.meshStyle === 'mound') {
                         mesh = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 1.0 }));
                     } else if (chem.meshStyle === 'canister') {
                         mesh = new THREE.Mesh(createCanisterGeometry(), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.4 }));
-                        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.1, 32), new THREE.MeshBasicMaterial({ color }));
+                        // Color Band
+                        const band = new THREE.Mesh(new THREE.CylinderGeometry(0.305, 0.305, 0.1, 64), new THREE.MeshBasicMaterial({ color }));
                         band.position.y = 0.5;
                         mesh.add(band);
+                        // Metallic Valve
+                        const valve = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.15, 32), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 }));
+                        valve.position.y = 0.85;
+                        mesh.add(valve);
                     } else {
                         mesh = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.4,0.4), new THREE.MeshStandardMaterial({color}));
                     }
