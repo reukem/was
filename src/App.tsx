@@ -596,7 +596,7 @@ const LabScene: React.FC<{
         // BLOOM ADJUSTMENT: Strength 0.6, Threshold 0.85
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.6, 0.4, 0.85
+            0.6, 0.2, 0.85
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
@@ -863,7 +863,7 @@ const LabScene: React.FC<{
                         mat.color.copy(glowColor);
                         mat.attenuationColor.copy(glowColor);
                         mat.emissive.copy(new THREE.Color(0xff2200));
-                        mat.emissiveIntensity = heatFactor;
+                        mat.emissiveIntensity = Math.min(heatFactor * 0.2, 0.15);
                     } else {
                         mat.color.copy(baseColor);
                         mat.attenuationColor.copy(baseColor);
@@ -1047,7 +1047,7 @@ const LabUI: React.FC<{
                     </h1>
                     <div className="flex items-center gap-2 mt-1">
                         <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">CÔNG CỤ THỰC TẾ LƯỢNG TỬ</span>
+                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
                     </div>
                     <div className="flex gap-2 mt-3">
                          <button className="border border-blue-500/50 text-blue-400 rounded-xl px-3 py-1 text-xs font-bold hover:bg-blue-500/10 transition-colors">
