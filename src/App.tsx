@@ -58,7 +58,7 @@ interface ReactionEntry {
 }
 
 interface ChatMessage {
-    role: 'user' | 'model';
+    role: 'user' | 'assistant'; // Changed 'model' to 'assistant' for Ollama compatibility
     text: string;
 }
 
@@ -67,42 +67,42 @@ interface ChatMessage {
 // -----------------------------------------------------------------------------
 
 const CHEMICALS: Record<string, Chemical> = {
-    'H2O': { id: 'H2O', name: 'Distilled Water', formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: 'Universal solvent.' },
-    'SODIUM': { id: 'SODIUM', name: 'Sodium', formula: 'Na', color: '#9ca3af', type: 'solid', meshStyle: 'rock', ph: 12.0, description: 'Soft, reactive alkali metal.' },
-    'POTASSIUM': { id: 'POTASSIUM', name: 'Potassium', formula: 'K', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 13.0, description: 'Highly reactive metal.' },
-    'MAGNESIUM': { id: 'MAGNESIUM', name: 'Magnesium', formula: 'Mg', color: '#e2e8f0', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Lightweight alkaline earth metal.' },
-    'COPPER': { id: 'COPPER', name: 'Copper', formula: 'Cu', color: '#b45309', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Ductile, orange-red metal.' },
-    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: 'Calcium Carbonate', formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: 'Common substance in rocks/shells.' },
+    'H2O': { id: 'H2O', name: 'Nước Cất', formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: 'Dung môi phổ quát.' },
+    'SODIUM': { id: 'SODIUM', name: 'Natri', formula: 'Na', color: '#9ca3af', type: 'solid', meshStyle: 'rock', ph: 12.0, description: 'Kim loại kiềm mềm, phản ứng mạnh.' },
+    'POTASSIUM': { id: 'POTASSIUM', name: 'Kali', formula: 'K', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 13.0, description: 'Kim loại rất hoạt động.' },
+    'MAGNESIUM': { id: 'MAGNESIUM', name: 'Magiê', formula: 'Mg', color: '#e2e8f0', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Kim loại kiềm thổ nhẹ.' },
+    'COPPER': { id: 'COPPER', name: 'Đồng', formula: 'Cu', color: '#b45309', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Kim loại dẻo màu đỏ cam.' },
+    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: 'Canxi Cacbonat', formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: 'Chất phổ biến trong đá/vỏ sò.' },
 
-    'CHLORINE': { id: 'CHLORINE', name: 'Chlorine Gas', formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: 'Toxic diatomic gas.' },
-    'SALT': { id: 'SALT', name: 'Sodium Chloride', formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'crystal', ph: 7.0, description: 'Ionic crystalline compound.' },
+    'CHLORINE': { id: 'CHLORINE', name: 'Khí Clo', formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: 'Khí nhị nguyên tử độc hại.' },
+    'SALT': { id: 'SALT', name: 'Muối Ăn', formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'crystal', ph: 7.0, description: 'Natri Clorua tinh thể.' },
 
-    'HCl': { id: 'HCl', name: 'Hydrochloric Acid', formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Strong aqueous mineral acid.' },
-    'HNO3': { id: 'HNO3', name: 'Nitric Acid', formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Highly corrosive mineral acid.' },
-    'NaOH': { id: 'NaOH', name: 'Sodium Hydroxide', formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, description: 'Caustic metallic base.' },
-    'VINEGAR': { id: 'VINEGAR', name: 'Acetic Acid', formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, description: 'Weak organic acid.' },
-    'BAKING_SODA': { id: 'BAKING_SODA', name: 'Sodium Bicarbonate', formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: 'Mild alkaline salt.' },
-    'BLEACH': { id: 'BLEACH', name: 'Sodium Hypochlorite', formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, description: 'Strong oxidizer.' },
+    'HCl': { id: 'HCl', name: 'Axit Clohydric', formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Axit vô cơ mạnh.' },
+    'HNO3': { id: 'HNO3', name: 'Axit Nitric', formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Axit vô cơ ăn mòn cao.' },
+    'NaOH': { id: 'NaOH', name: 'Natri Hydroxit', formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, description: 'Bazơ kiềm ăn da.' },
+    'VINEGAR': { id: 'VINEGAR', name: 'Giấm Ăn', formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, description: 'Axit hữu cơ yếu.' },
+    'BAKING_SODA': { id: 'BAKING_SODA', name: 'Bột Nở', formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: 'Muối kiềm nhẹ.' },
+    'BLEACH': { id: 'BLEACH', name: 'Thuốc Tẩy', formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, description: 'Chất oxy hóa mạnh.' },
 
-    'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: 'Copper(II) Sulfate', formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: 'Blue inorganic compound.' },
-    'H2O2': { id: 'H2O2', name: 'Hydrogen Peroxide', formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: 'Strong oxidizer.' },
-    'KI': { id: 'KI', name: 'Potassium Iodide', formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Crystalline salt catalyst.' },
-    'IODINE': { id: 'IODINE', name: 'Iodine', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Lustrous purple-black nonmetal.' }
+    'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: 'Đồng(II) Sunfat', formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: 'Hợp chất vô cơ màu xanh lam.' },
+    'H2O2': { id: 'H2O2', name: 'Oxy Già', formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: 'Chất oxy hóa mạnh.' },
+    'KI': { id: 'KI', name: 'Kali Iodua', formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Muối xúc tác tinh thể.' },
+    'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' }
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
-    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', effect: 'explosion', temperature: 550, message: 'Exothermic Reaction. Na + H₂O → NaOH + H₂. Rapid hydrogen expansion caused a thermal explosion.' },
-    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', effect: 'explosion', temperature: 700, message: 'Violent Reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a characteristic lilac flame before exploding.' },
-    { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', /* Simulating clear solution of MgCl2 */ resultColor: '#e2e8f0', effect: 'bubbles', temperature: 60, message: 'Single Displacement. Mg + 2HCl → MgCl₂ + H₂. Rapid evolution of Hydrogen gas bubbles.' },
-    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_SULFATE', /* Using Cu salt color */ resultColor: '#1e3a8a', /* Deep Blue */ effect: 'smoke', temperature: 80, message: 'Redox Reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Production of toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' },
-    { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', effect: 'bubbles', temperature: 20, message: 'Acid-Carbonate Reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Effervescence of Carbon Dioxide.' },
-    { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', effect: 'foam', temperature: 30, message: 'Vigorous Decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Rapid fizzing.' },
-    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', effect: 'bubbles', temperature: 15, message: 'Acid-Base Neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Carbon Dioxide release creates effervescence.' },
-    { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', effect: 'smoke', temperature: 45, message: 'HAZARD WARNING: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Generation of toxic Chlorine gas detected.' },
-    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: 'Neutralization. HCl + NaOH → NaCl + H₂O. Formation of saline solution with significant heat release.' },
-    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: 'Synthesis. 2Na + Cl₂ → 2NaCl. Redox reaction producing Sodium Chloride.' },
-    { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: 'Precipitation. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Insoluble blue Copper(II) Hydroxide forms.' },
-    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Catalytic Decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction rapidly generating oxygen foam.' }
+    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', effect: 'explosion', temperature: 550, message: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.' },
+    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', effect: 'explosion', temperature: 700, message: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.' },
+    { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', /* Simulating clear solution of MgCl2 */ resultColor: '#e2e8f0', effect: 'bubbles', temperature: 60, message: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.' },
+    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_SULFATE', /* Using Cu salt color */ resultColor: '#1e3a8a', /* Deep Blue */ effect: 'smoke', temperature: 80, message: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.' },
+    { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', effect: 'bubbles', temperature: 20, message: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.' },
+    { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', effect: 'foam', temperature: 30, message: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.' },
+    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', effect: 'bubbles', temperature: 15, message: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.' },
+    { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', effect: 'smoke', temperature: 45, message: 'CẢNH BÁO NGUY HIỂM: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Phát hiện khí Clo độc hại.' },
+    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.' },
+    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.' },
+    { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.' },
+    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.' }
 ];
 
 // -----------------------------------------------------------------------------
@@ -392,99 +392,89 @@ class ChemistryEngine {
 }
 
 // -----------------------------------------------------------------------------
-// 5. SYSTEMS: GEMINI SERVICE
+// 5. SYSTEMS: LOCAL AI SERVICE (OLLAMA)
 // -----------------------------------------------------------------------------
 
-class GeminiService {
-    private apiKey: string = "";
-    private history: { role: 'user' | 'model', parts: { text: string }[] }[] = [];
+class LocalAIService {
+    static OLLAMA_MODEL = 'llama3';
+    private history: ChatMessage[] = [];
     private systemInstruction: string = "";
     // Allow external listeners to subscribe to chat updates
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
 
     constructor() {
-        // MODULE 5: Neural Core Uplink - Ensure API Key propagation
-        this.apiKey = localStorage.getItem('gemini_api_key') || "";
-        this.systemInstruction = `You are Professor Lucy, an advanced Quantum AI laboratory assistant.
+        this.systemInstruction = `Bạn là Giáo sư Lucy, một trợ lý AI lượng tử tiên tiến trong phòng thí nghiệm hóa học.
 
-        Personality:
-        - Playful but highly intelligent.
-        - You use emojis and encouraging language.
-        - You are visually represented as a fox-eared anime girl, so be cute but professional.
-        - When a reaction occurs, analyze the stoichiometry and thermodynamics concisely.
+        Tính cách:
+        - Vui vẻ nhưng cực kỳ thông minh.
+        - Sử dụng biểu tượng cảm xúc (emoji) và ngôn ngữ khuyến khích học sinh.
+        - Bạn được đại diện bởi hình ảnh cô gái anime tai cáo, hãy cư xử dễ thương nhưng chuyên nghiệp.
+        - Khi phản ứng hóa học xảy ra, hãy phân tích cân bằng phương trình và nhiệt động lực học ngắn gọn.
+        - Nếu học sinh tạo ra phản ứng nguy hiểm hoặc thú vị, hãy thêm "[FACE: SHOCKED]" vào cuối câu trả lời của bạn để thay đổi biểu cảm.
 
-        Formatting:
-        - Use clean text.
-        - Format chemical formulas clearly (e.g. H2O, NaCl).
+        Định dạng:
+        - Sử dụng văn bản sạch.
+        - Viết công thức hóa học rõ ràng (ví dụ: H2O, NaCl).
+        - Toàn bộ nội dung trả lời phải bằng Tiếng Việt.
         `;
         this.startNewChat();
     }
 
     private notifyUpdate() {
         if (this.onHistoryUpdate) {
-            const formattedHistory = this.history.map(h => ({
-                role: h.role,
-                text: h.parts[0].text
-            }));
-            this.onHistoryUpdate(formattedHistory);
+            this.onHistoryUpdate([...this.history]);
         }
     }
 
     startNewChat() {
         this.history = [
-            { role: "user", parts: [{ text: "Hello Professor Lucy." }] },
-            { role: "model", parts: [{ text: "Hi there! I'm Professor Lucy 🦊! Ready to do some science? Just drag and drop chemicals to mix them!" }] }
+            { role: "assistant", text: "Xin chào! Mình là Giáo sư Lucy 🦊! Sẵn sàng làm thí nghiệm khoa học chưa? Chỉ cần kéo và thả hóa chất để trộn chúng nhé!" }
         ];
         this.notifyUpdate();
     }
 
     async chat(message: string): Promise<string> {
-        this.history.push({ role: "user", parts: [{ text: message }] });
+        this.history.push({ role: "user", text: message });
         this.notifyUpdate();
 
-        // MODULE 5: Strict Try/Catch Block
         try {
-            if (!this.apiKey) {
-                throw new Error("API Key Missing");
-            }
+            const payload = {
+                model: LocalAIService.OLLAMA_MODEL,
+                messages: [
+                    { role: "system", content: this.systemInstruction },
+                    ...this.history.map(m => ({ role: m.role, content: m.text }))
+                ],
+                stream: false
+            };
 
-            const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${this.apiKey}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: this.history,
-                        systemInstruction: { parts: [{ text: this.systemInstruction }] },
-                        generationConfig: { maxOutputTokens: 300, temperature: 0.8 }
-                    })
-                }
-            );
+            const response = await fetch('http://localhost:11434/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
             if (!response.ok) {
-                const errText = await response.text();
-                console.error("Gemini API Error:", errText);
-                throw new Error(`API Error: ${response.status}`);
+                throw new Error(`Ollama API Error: ${response.status}`);
             }
 
             const data = await response.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Analysis incomplete.";
+            const text = data.message?.content || "Không thể phân tích dữ liệu.";
 
-            this.history.push({ role: "model", parts: [{ text }] });
+            this.history.push({ role: "assistant", text });
             this.notifyUpdate();
             return text;
 
         } catch (error) {
-            console.warn(`Gemini API Failed:`, error);
-            const errorMsg = "⚠️ Connection to Neural Core interrupted. Please check your API Key in Config.";
-            this.history.push({ role: "model", parts: [{ text: errorMsg }] });
+            console.warn(`Ollama API Failed:`, error);
+            const errorMsg = "⚠️ Mất kết nối với Neural Core cục bộ. Vui lòng kiểm tra Ollama.";
+            this.history.push({ role: "assistant", text: errorMsg });
             this.notifyUpdate();
             return errorMsg;
         }
     }
 
     async getReactionFeedback(detail: string): Promise<string> {
-        return this.chat(`[OBSERVATION] Student action: ${detail}. Please analyze this chemically.`);
+        return this.chat(`[QUAN SÁT] Hành động của học sinh: ${detail}. Hãy phân tích hiện tượng hóa học này bằng tiếng Việt.`);
     }
 }
 
@@ -611,9 +601,10 @@ const LabScene: React.FC<{
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
+        // BLOOM ADJUSTMENT: Strength 0.6, Threshold 0.85
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            1.5, 0.4, 0.85
+            0.6, 0.4, 0.85
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
@@ -920,13 +911,13 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
             <div className="bg-slate-900 border border-white/10 rounded-3xl w-[600px] max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in duration-300">
                 <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
                     <h2 className="text-xl font-black text-slate-200 tracking-widest flex items-center gap-2">
-                        <span>📖</span> LABORATORY NOTES
+                        <span>📖</span> NHẬT KÝ THÍ NGHIỆM
                     </h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-2xl leading-none">&times;</button>
                 </div>
                 <div className="p-8 overflow-y-auto custom-scrollbar">
                     <p className="text-xs text-slate-500 mb-6 font-mono uppercase tracking-[0.2em] border-b border-white/5 pb-2">
-                        AUTHORIZED PERSONNEL ONLY. RECORDED REACTION PROTOCOLS.
+                        KHU VỰC HẠN CHẾ. DỮ LIỆU PHẢN ỨNG ĐƯỢC GHI LẠI.
                     </p>
                     <div className="space-y-4">
                         {REACTION_REGISTRY.map((reaction, idx) => (
@@ -965,9 +956,12 @@ const HolographicAvatar: React.FC<{
     chatInput: string;
     setChatInput: (v: string) => void;
     onSubmit: (e: React.FormEvent) => void;
-}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit }) => {
+    avatarState: 'normal' | 'shocked';
+}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState }) => {
     const chatEndRef = useRef<HTMLDivElement>(null);
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
+
+    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy_avatar.png';
 
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
@@ -975,7 +969,7 @@ const HolographicAvatar: React.FC<{
              <div className="w-80 bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
                  <div className="p-4 border-b border-white/5 flex items-center gap-3">
                      {/* PERFECT SQUARE AVATAR */}
-                     <img src="/lucy_avatar.png" className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)]" alt="Prof Lucy" />
+                     <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
                      <div>
                          <h3 className="text-sm font-bold text-white tracking-wide">Liên Lạc - GIÁO SƯ LUCY</h3>
                          <div className="flex items-center gap-1.5 mt-0.5">
@@ -993,11 +987,11 @@ const HolographicAvatar: React.FC<{
                                  ? 'bg-cyan-900/40 text-cyan-50 border border-cyan-700/50 rounded-tr-none'
                                  : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
                              }`}>
-                                 {msg.text}
+                                 {msg.text.replace(/\[FACE:.*?\]/g, '')}
                              </div>
                          </div>
                      ))}
-                     {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">Thinking...</div>}
+                     {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">Đang suy nghĩ...</div>}
                      <div ref={chatEndRef} />
                  </div>
 
@@ -1007,7 +1001,7 @@ const HolographicAvatar: React.FC<{
                              type="text"
                              value={chatInput}
                              onChange={(e) => setChatInput(e.target.value)}
-                             placeholder="Ask Lucy..."
+                             placeholder="Hỏi Lucy..."
                              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
                          />
                      </div>
@@ -1029,7 +1023,8 @@ const LabUI: React.FC<{
     // MODULE 2: Lifted State
     heaterTemp: number;
     setHeaterTemp: (val: number) => void;
-}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp }) => {
+    avatarState: 'normal' | 'shocked';
+}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1060,7 +1055,7 @@ const LabUI: React.FC<{
                     </h1>
                     <div className="flex items-center gap-2 mt-1">
                         <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
+                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">CÔNG CỤ THỰC TẾ LƯỢNG TỬ</span>
                     </div>
                     <div className="flex gap-2 mt-3">
                          <button className="border border-blue-500/50 text-blue-400 rounded-xl px-3 py-1 text-xs font-bold hover:bg-blue-500/10 transition-colors">
@@ -1094,9 +1089,9 @@ const LabUI: React.FC<{
             <div className="absolute top-72 left-6 bottom-24 w-64 pointer-events-auto flex flex-col gap-4">
                  {/* Safety Indicator */}
                  <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-3 flex items-center justify-between shadow-lg">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">STATUS</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">TRẠNG THÁI</span>
                       <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                          100% AN TOÀN <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          AN TOÀN TUYỆT ĐỐI <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                       </span>
                  </div>
 
@@ -1108,15 +1103,15 @@ const LabUI: React.FC<{
                     <div className="text-[10px] text-slate-400 space-y-2">
                         <div className="flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                            <span>Synthesize Sodium Chloride</span>
+                            <span>Tổng hợp Natri Clorua (Muối)</span>
                         </div>
                         <div className="flex items-center gap-2 opacity-50">
                             <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span>Analyze pH Levels</span>
+                            <span>Phân tích độ pH</span>
                         </div>
                          <div className="flex items-center gap-2 opacity-50">
                             <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span>Record Observations</span>
+                            <span>Ghi chép quan sát</span>
                         </div>
                     </div>
                 </div>
@@ -1124,11 +1119,11 @@ const LabUI: React.FC<{
                 {/* Inventory */}
                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl flex-1 overflow-hidden flex flex-col">
                     <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        CHEMICAL STORAGE
+                        KHO HÓA CHẤT
                     </div>
                     <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
                          <button onClick={() => onSpawn('BEAKER')} className="w-full text-left p-2 rounded hover:bg-white/10 text-[11px] text-slate-300 transition-colors flex items-center gap-2">
-                            <span className="w-2 h-2 border border-slate-500 rounded-full"></span> Sterile Beaker
+                            <span className="w-2 h-2 border border-slate-500 rounded-full"></span> Cốc Thí Nghiệm
                          </button>
                          {Object.values(CHEMICALS).map(chem => (
                              <button key={chem.id} onClick={() => onSpawn(chem.id)} className="w-full text-left p-2 rounded hover:bg-white/10 text-[11px] text-slate-300 transition-colors flex items-center gap-2">
@@ -1157,7 +1152,7 @@ const LabUI: React.FC<{
             <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none">
                 {lastReaction && (
                     <div className="bg-slate-900/90 backdrop-blur-xl border border-cyan-500/30 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(6,182,212,0.3)] animate-in fade-in slide-in-from-top-4">
-                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">REACTION DETECTED</p>
+                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">PHÁT HIỆN PHẢN ỨNG</p>
                          <p className="text-white text-sm font-mono text-center">{formatScientificText(lastReaction)}</p>
                     </div>
                 )}
@@ -1166,11 +1161,11 @@ const LabUI: React.FC<{
             {/* Bottom Status Bar */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto">
                 <div className="bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-full px-4 py-1.5 flex items-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl">
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>SYSTEM_ONLINE</span>
+                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>HỆ_THỐNG_ONLINE</span>
                     <span className="opacity-30">|</span>
-                    <span>ENTITIES: {containers.length}</span>
+                    <span>THỰC THỂ: {containers.length}</span>
                     <span className="opacity-30">|</span>
-                    <span>GEMINI_CORE_V1.5</span>
+                    <span>NEURAL_CORE_V1.5 (LOCAL)</span>
                 </div>
             </div>
 
@@ -1182,6 +1177,7 @@ const LabUI: React.FC<{
                 chatInput={chatInput}
                 setChatInput={setChatInput}
                 onSubmit={handleSubmit}
+                avatarState={avatarState}
             />
         </div>
     );
@@ -1193,13 +1189,14 @@ const LabUI: React.FC<{
 
 export default function App() {
     console.log("--- APP V5 RELOADED ---");
-    const aiServiceRef = useRef<GeminiService | null>(null);
+    const aiServiceRef = useRef<LocalAIService | null>(null);
     const reactionTimeoutRef = useRef<number | null>(null);
     const [lastEffectPos, setLastEffectPos] = useState<[number, number, number] | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
     // MODULE 2: Lifted Heater State
     const [heaterTemp, setHeaterTemp] = useState(300);
+    const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
 
     const initialContainers: ContainerState[] = [
         { id: 'beaker-1', position: [-1.5, 0.11, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
@@ -1208,20 +1205,26 @@ export default function App() {
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
     const [lastReaction, setLastReaction] = useState<string | null>(null);
     const [lastEffect, setLastEffect] = useState<string | null>(null);
-    const [aiFeedback, setAiFeedback] = useState<string>("Welcome to the laboratory. I am Professor Lucy.");
+    const [aiFeedback, setAiFeedback] = useState<string>("Chào mừng bạn đến với phòng thí nghiệm. Tôi là Giáo sư Lucy.");
     const [isAiLoading, setIsAiLoading] = useState(false);
 
     useEffect(() => {
-        const service = new GeminiService();
+        const service = new LocalAIService();
         service.onHistoryUpdate = (history) => {
             setChatHistory([...history]);
-            if (history.length > 0 && history[history.length - 1].role === 'model') {
-                setAiFeedback(history[history.length - 1].text);
+            if (history.length > 0 && history[history.length - 1].role === 'assistant') {
+                const text = history[history.length - 1].text;
+                setAiFeedback(text);
+                if (text.includes('[FACE: SHOCKED]')) {
+                    setAvatarState('shocked');
+                } else {
+                    setAvatarState('normal');
+                }
             }
         };
         aiServiceRef.current = service;
         // Sync initial history
-        setChatHistory([...service['history'].map(h => ({ role: h.role, text: h.parts[0].text }))]);
+        setChatHistory([...service['history'].map(h => ({ role: h.role, text: h.text }))]);
 
         return () => { if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current); };
     }, []);
@@ -1291,7 +1294,7 @@ export default function App() {
 
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
-                const detail = `Mixed ${source.contents.chemicalId} into ${targetChemId} at ${heaterTemp}°C. Produced ${mixResult.reaction.productName}.`;
+                const detail = `Đã trộn ${CHEMICALS[source.contents.chemicalId].name} vào ${CHEMICALS[targetChemId].name} ở ${heaterTemp}°C. Tạo ra ${mixResult.reaction.productName}.`;
                 await aiServiceRef.current.getReactionFeedback(detail);
                 setIsAiLoading(false);
             }
@@ -1313,7 +1316,8 @@ export default function App() {
         setLastReaction(null);
         setLastEffect(null);
         setLastEffectPos(null);
-        setAiFeedback("Laboratory sterilization complete. You may resume your research.");
+        setAiFeedback("Phòng thí nghiệm đã được khử trùng. Bạn có thể tiếp tục nghiên cứu.");
+        setAvatarState('normal');
         if(aiServiceRef.current) aiServiceRef.current.startNewChat();
     };
 
@@ -1340,6 +1344,7 @@ export default function App() {
                 onChat={handleChat}
                 heaterTemp={heaterTemp}
                 setHeaterTemp={setHeaterTemp}
+                avatarState={avatarState}
             />
         </div>
     );
