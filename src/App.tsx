@@ -220,32 +220,34 @@ const createMoundGeometry = () => {
 const createGlassMaterial = () => {
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
-        metalness: 0,
+        metalness: 0.1,
         roughness: 0.05,
-        transmission: 1.0,
-        thickness: 0.1,
-        ior: 1.5,
+        transmission: 1.0, // High transmission for clear glass
+        thickness: 0.2, // Increased thickness for physical presence
+        ior: 1.5, // Realistic Index of Refraction for glass
         clearcoat: 1.0,
         clearcoatRoughness: 0,
         transparent: true,
-        side: THREE.FrontSide,
+        side: THREE.DoubleSide, // Double side for better refraction effects
         depthWrite: false,
+        envMapIntensity: 1.5
     });
 };
 
 const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
     return new THREE.MeshPhysicalMaterial({
         color: color,
-        metalness: 0.1,
-        roughness: 0.1,
-        transmission: 0.6,
-        thickness: 0.8,
+        metalness: 0.2,
+        roughness: 0.05,
+        transmission: 0.65,
+        thickness: 1.2, // Volumetric liquid feel
         ior: 1.33,
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: true,
         attenuationColor: new THREE.Color(color),
-        attenuationDistance: 1.0,
+        attenuationDistance: 0.5, // Shorter distance for richer color density
+        envMapIntensity: 1.2
     });
 };
 
@@ -624,14 +626,26 @@ const LabScene: React.FC<{
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-        const spotLight = new THREE.SpotLight(0xffffff, 200);
-        spotLight.position.set(5, 10, 5);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.2)); // Lower ambient for contrast
+
+        // Key Light - Warm white for specular highlights
+        const spotLight = new THREE.SpotLight(0xffffff, 300);
+        spotLight.position.set(8, 12, 8);
+        spotLight.angle = Math.PI / 4;
+        spotLight.penumbra = 0.5;
         spotLight.castShadow = true;
+        spotLight.shadow.bias = -0.0001;
         scene.add(spotLight);
-        const rectLight = new THREE.DirectionalLight(0x38bdf8, 2.0);
-        rectLight.position.set(-5, 5, -5);
+
+        // Rim Light - Cool blue for sci-fi edge
+        const rectLight = new THREE.DirectionalLight(0x38bdf8, 3.0);
+        rectLight.position.set(-6, 4, -6);
         scene.add(rectLight);
+
+        // Fill Light - Soft purple from below
+        const fillLight = new THREE.PointLight(0xa855f7, 0.5);
+        fillLight.position.set(0, -2, 0);
+        scene.add(fillLight);
 
         scene.add(createTable());
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 2.5), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 }));
@@ -956,42 +970,45 @@ const HolographicAvatar: React.FC<{
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
 
     return (
-        <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end">
+        <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
              {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
-             <div className="w-80 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+             <div className="w-80 bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
                  <div className="p-4 border-b border-white/5 flex items-center gap-3">
                      {/* PERFECT SQUARE AVATAR */}
-                     <img src="/lucy_avatar.png" className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0" alt="Prof Lucy" />
+                     <img src="/lucy_avatar.png" className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)]" alt="Prof Lucy" />
                      <div>
-                         <h3 className="text-sm font-bold text-white">Professor Lucy</h3>
-                         <div className="text-[10px] text-cyan-400 animate-pulse">● ONLINE</div>
+                         <h3 className="text-sm font-bold text-white tracking-wide">Liên Lạc - GIÁO SƯ LUCY</h3>
+                         <div className="flex items-center gap-1.5 mt-0.5">
+                             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                             <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
+                         </div>
                      </div>
                  </div>
 
-                 <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-900/50">
+                 <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
                      {chatHistory.map((msg, i) => (
                          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                             <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${
+                             <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
                                  msg.role === 'user'
-                                 ? 'bg-blue-900/50 text-blue-100 border border-blue-800/50'
-                                 : 'bg-slate-800 text-slate-300 border border-slate-700'
+                                 ? 'bg-cyan-900/40 text-cyan-50 border border-cyan-700/50 rounded-tr-none'
+                                 : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
                              }`}>
                                  {msg.text}
                              </div>
                          </div>
                      ))}
-                     {isAiLoading && <div className="text-[10px] text-slate-500 italic">Thinking...</div>}
+                     {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">Thinking...</div>}
                      <div ref={chatEndRef} />
                  </div>
 
-                 <form onSubmit={onSubmit} className="p-3 bg-slate-950 border-t border-white/5">
+                 <form onSubmit={onSubmit} className="p-3 bg-slate-900/50 border-t border-white/5">
                      <div className="relative">
                          <input
                              type="text"
                              value={chatInput}
                              onChange={(e) => setChatInput(e.target.value)}
                              placeholder="Ask Lucy..."
-                             className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-xs text-white focus:outline-none focus:border-cyan-500/50"
+                             className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
                          />
                      </div>
                  </form>
@@ -1036,41 +1053,76 @@ const LabUI: React.FC<{
             </div>
 
             {/* MODULE 3: Top-Left (Command Header) */}
-            <div className="absolute top-6 left-6 flex flex-col gap-2 pointer-events-auto">
-                <h1 className="text-4xl font-mono font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] tracking-wider">
-                    CHEMIC-AI
-                </h1>
-                <div className="text-[10px] text-cyan-400 tracking-[0.3em] font-bold">QUANTUM REALITY ENGINE</div>
-                <div className="flex gap-2 mt-1">
-                    <span className="bg-indigo-600 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-lg shadow-indigo-500/50">AAA</span>
-                    <span className="bg-slate-800 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
-                        AN TOÀN <span className="animate-pulse">100%</span>
-                    </span>
+            <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
+                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-[2rem] p-5 shadow-2xl">
+                    <h1 className="bg-gradient-to-b from-white to-slate-400 text-transparent bg-clip-text font-black text-4xl drop-shadow-lg">
+                        CHEMIC-AI
+                    </h1>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-3 py-1 text-xs font-bold hover:bg-blue-500/10 transition-colors">
+                             💎 AAA
+                         </button>
+                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 transition-colors">
+                             ⚙️
+                         </button>
+                    </div>
+                </div>
+
+                {/* Thermal Slider */}
+                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
+                     <div className="flex justify-between items-center mb-2">
+                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">BẾP NHIỆT</span>
+                         <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
+                     </div>
+                     <input
+                        type="range"
+                        min="25"
+                        max="1000"
+                        step="25"
+                        value={heaterTemp}
+                        onChange={(e) => setHeaterTemp(Number(e.target.value))}
+                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                     />
                 </div>
             </div>
 
-            {/* MODULE 3: Mid-Left (The Quest Board) */}
-            <div className="absolute top-48 left-6 w-64 pointer-events-auto">
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
+            {/* Left Sidebar (Below Header) */}
+            <div className="absolute top-72 left-6 bottom-24 w-64 pointer-events-auto flex flex-col gap-4">
+                 {/* Safety Indicator */}
+                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-3 flex items-center justify-between shadow-lg">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">STATUS</span>
+                      <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                          100% AN TOÀN <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                      </span>
+                 </div>
+
+                 {/* Quest Board */}
+                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
                     <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
-                        NHIỆM VỤ HIỆN TẠI
+                        NHIỆM VỤ (3)
                     </h2>
                     <div className="text-[10px] text-slate-400 space-y-2">
                         <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
                             <span>Synthesize Sodium Chloride</span>
                         </div>
                         <div className="flex items-center gap-2 opacity-50">
                             <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
                             <span>Analyze pH Levels</span>
                         </div>
+                         <div className="flex items-center gap-2 opacity-50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                            <span>Record Observations</span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* MODULE 3: Bottom-Left (Inventory Wing) */}
-            <div className="absolute bottom-6 left-6 w-64 max-h-64 pointer-events-auto">
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl overflow-hidden flex flex-col">
+                {/* Inventory */}
+                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl flex-1 overflow-hidden flex flex-col">
                     <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         CHEMICAL STORAGE
                     </div>
@@ -1089,48 +1141,16 @@ const LabUI: React.FC<{
             </div>
 
             {/* MODULE 3: Top-Right (Action Deck) */}
-            <div className="absolute top-6 right-6 flex items-center gap-2 pointer-events-auto">
-                 <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95">
+            <div className="absolute top-6 right-6 flex items-center gap-3 pointer-events-auto">
+                 <button className="bg-slate-900/80 backdrop-blur-md border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
                      BẮT ĐẦU THI
                  </button>
-                 <button onClick={() => setIsSettingsOpen(true)} className="w-9 h-9 bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all">
-                     ⚙️
-                 </button>
-                 <button onClick={() => setIsNotebookOpen(true)} className="w-9 h-9 bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
                      📖
                  </button>
-                 <button onClick={onReset} className="w-9 h-9 bg-red-500/10 backdrop-blur-md rounded-xl border border-red-500/20 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all">
+                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
                      ⟳
                  </button>
-            </div>
-
-            {/* MODULE 2: Thermal Control (Integrated into Top-Right or Floating? Prompt says "Action Deck" is Top Right buttons.
-               Wait, "Control Deck" usually implies the slider. The prompt says "Top-Right (Action Deck): Dock the utility buttons".
-               It doesn't explicitly say where the slider goes, BUT Module 2 says "The CONTROL DECK thermal slider...".
-               I will place the Thermal Slider floating near the top right or bottom center.
-               Actually, usually "Control Deck" is bottom center. Let's keep the slider bottom center but style it with the new theme.
-               The prompt says "The layout is scattered... blocking the 3D workspace".
-               I'll put the Thermal Slider in the Top-Right Action Deck as a dropdown or just below it?
-               Or maybe bottom center is fine if it's "Soft, rounded".
-               Let's dock it next to the Inventory or Action Deck.
-               Actually, I'll put it Top-Right *below* the buttons to keep the workspace clear.
-            */}
-            <div className="absolute top-20 right-6 w-64 pointer-events-auto">
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
-                     <div className="flex justify-between items-center mb-2">
-                         <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">THERMAL</span>
-                         <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
-                     </div>
-                     <input
-                        type="range"
-                        min="25"
-                        max="1000"
-                        step="25"
-                        value={heaterTemp}
-                        onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                     />
-                 </div>
             </div>
 
             {/* MODULE 4: Notification Alignment Matrix */}
@@ -1141,6 +1161,17 @@ const LabUI: React.FC<{
                          <p className="text-white text-sm font-mono text-center">{formatScientificText(lastReaction)}</p>
                     </div>
                 )}
+            </div>
+
+            {/* Bottom Status Bar */}
+            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto">
+                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-full px-4 py-1.5 flex items-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl">
+                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>SYSTEM_ONLINE</span>
+                    <span className="opacity-30">|</span>
+                    <span>ENTITIES: {containers.length}</span>
+                    <span className="opacity-30">|</span>
+                    <span>GEMINI_CORE_V1.5</span>
+                </div>
             </div>
 
             <HolographicAvatar
