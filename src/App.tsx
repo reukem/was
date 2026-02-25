@@ -58,7 +58,7 @@ interface ReactionEntry {
 }
 
 interface ChatMessage {
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'model'; // 'model' for gemini compatibility
     text: string;
 }
 
@@ -119,45 +119,48 @@ class ParticleSystem {
     }
 
     createExplosion(position: THREE.Vector3, intensity: number = 1.0) {
-        // Sparks
-        const sparkCount = Math.floor(100 * intensity);
-        const sparkGeo = new THREE.BoxGeometry(0.08, 0.08, 0.08);
-        const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+        // Enhanced Sparks (Glowing)
+        const sparkCount = Math.floor(150 * intensity);
+        const sparkGeo = new THREE.BoxGeometry(0.06, 0.06, 0.06);
+        const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 }); // Brighter gold
 
         for (let i = 0; i < sparkCount; i++) {
-            const mesh = new THREE.Mesh(sparkGeo, sparkMat);
+            const mesh = new THREE.Mesh(sparkGeo, sparkMat.clone());
             mesh.position.copy(position);
             // Higher velocity spread for intensity
             const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 12 * intensity,
-                (Math.random() * 8 + 4) * intensity,
-                (Math.random() - 0.5) * 12 * intensity
+                (Math.random() - 0.5) * 14 * intensity,
+                (Math.random() * 10 + 5) * intensity,
+                (Math.random() - 0.5) * 14 * intensity
             );
             this.scene.add(mesh);
-            this.particles.push({ mesh, velocity, life: 0, maxLife: 50 + Math.random() * 30, type: 'spark' });
+            this.particles.push({ mesh, velocity, life: 0, maxLife: 60 + Math.random() * 40, type: 'spark' });
         }
 
-        // Smoke
-        const smokeCount = Math.floor(60 * intensity);
-        const smokeGeo = new THREE.DodecahedronGeometry(0.3, 0);
+        // Cinematic Smoke (Dark & Volumetric feel)
+        const smokeCount = Math.floor(80 * intensity);
+        const smokeGeo = new THREE.IcosahedronGeometry(0.25, 0); // Low poly but effective
         const smokeMat = new THREE.MeshStandardMaterial({
-            color: 0x888888,
+            color: 0x334155, // Slate smoke
             transparent: true,
-            opacity: 0.6,
-            roughness: 1.0
+            opacity: 0.8,
+            roughness: 1.0,
+            flatShading: true
         });
 
         for (let i = 0; i < smokeCount; i++) {
-            const mesh = new THREE.Mesh(smokeGeo, smokeMat);
+            const mesh = new THREE.Mesh(smokeGeo, smokeMat.clone());
             mesh.position.copy(position);
             mesh.position.y += 0.5; // Start slightly higher
             const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 4,
-                (Math.random() * 4 + 1) * intensity,
-                (Math.random() - 0.5) * 4
+                (Math.random() - 0.5) * 5,
+                (Math.random() * 5 + 2) * intensity,
+                (Math.random() - 0.5) * 5
             );
+            // Random initial rotation
+            mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
             this.scene.add(mesh);
-            this.particles.push({ mesh, velocity, life: 0, maxLife: 120 + Math.random() * 60, type: 'smoke' });
+            this.particles.push({ mesh, velocity, life: 0, maxLife: 150 + Math.random() * 80, type: 'smoke' });
         }
     }
 
@@ -169,17 +172,31 @@ class ParticleSystem {
             p.mesh.position.add(p.velocity.clone().multiplyScalar(0.016));
 
             if (p.type === 'spark') {
-                p.velocity.y -= 0.25; // Strong gravity
-                p.mesh.rotation.x += 0.2;
-                p.mesh.rotation.z += 0.2;
-                p.mesh.scale.multiplyScalar(0.96);
+                p.velocity.y -= 0.35; // Stronger gravity for weight
+                p.mesh.rotation.x += 0.3;
+                p.mesh.rotation.z += 0.3;
+                p.mesh.scale.multiplyScalar(0.95);
+                // Color shift from yellow to red
+                const mat = p.mesh.material as THREE.MeshBasicMaterial;
+                if (mat) {
+                    const progress = p.life / p.maxLife;
+                    mat.color.lerp(new THREE.Color(0xff4500), 0.1); // Shift to orange-red
+                    if (progress > 0.8) mat.opacity = (1 - progress) * 5; // Fade out quickly at end
+                }
             } else if (p.type === 'smoke') {
-                p.velocity.y *= 0.98;
-                p.velocity.x *= 0.95;
-                p.velocity.z *= 0.95;
-                p.mesh.scale.multiplyScalar(1.015);
-                const mat = p.mesh.material as THREE.Material;
-                if(mat) mat.opacity = 0.6 * (1 - (p.life / p.maxLife));
+                p.velocity.y *= 0.96; // Drag
+                p.velocity.x *= 0.92;
+                p.velocity.z *= 0.92;
+                p.mesh.scale.multiplyScalar(1.02); // Expand
+                p.mesh.rotation.x += 0.02;
+                p.mesh.rotation.y += 0.03;
+
+                const mat = p.mesh.material as THREE.MeshStandardMaterial;
+                if(mat) {
+                    mat.opacity = 0.8 * (1 - (p.life / p.maxLife)); // Smooth fade
+                    // Darken over time
+                    mat.color.lerp(new THREE.Color(0x0f172a), 0.05);
+                }
             }
 
             if (p.life > p.maxLife || p.mesh.position.y < -2) {
@@ -233,19 +250,20 @@ const createCrystalGeometry = () => {
 };
 
 const createGlassMaterial = () => {
-    // Hyper-realistic refractive glass
+    // Hyper-realistic refractive glass (AAA Fidelity)
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         metalness: 0.1,
-        roughness: 0.02,
-        transmission: 1.0, // Fully transparent to let light through
-        thickness: 0.3,    // Gives the glass physical weight/refraction
-        ior: 1.5,          // Index of Refraction for real glass
+        roughness: 0.05,   // Slightly more surface imperfection for realism
+        transmission: 0.99, // High transmission
+        thickness: 0.6,    // Thicker glass for better refraction
+        ior: 1.52,         // Target IOR for Borosilicate Glass
         clearcoat: 1.0,
-        clearcoatRoughness: 0.01,
+        clearcoatRoughness: 0.05,
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: false,
+        envMapIntensity: 1.5,
     });
 };
 
@@ -409,24 +427,45 @@ class ChemistryEngine {
 }
 
 // -----------------------------------------------------------------------------
-// 5. SYSTEMS: HEURISTIC BRAIN SERVICE (LOCAL DATABASE)
+// 5. SYSTEMS: GEMINI SERVICE (LIVE + OFFLINE FALLBACK)
 // -----------------------------------------------------------------------------
 
-class HeuristicBrainService {
-    private responseDatabase = {
-        greetings: ["Xin chào! Mình là Giáo sư Lucy 🦊! Hôm nay chúng ta làm nổ... à nhầm, làm thí nghiệm gì đây? :3", "Chào bạn! Sẵn sàng khám phá thế giới lượng tử chưa? ^^"],
-        praise: ["Giỏi quá đi! ^^ Phản ứng chuẩn không cần chỉnh!", "Đỉnh chóp! :3 Cứ thế phát huy nhé!"],
-        explosions: ["[FACE: SHOCKED] Trời ơiiii! Bạn vừa làm nổ phòng lab của mình rồi! 3: Coi chừng đi tông hàng lông mày của mình đó!", "[FACE: SHOCKED] Á á á! Cháy rồi cháy rồi! 3: Lần sau pha hóa chất từ từ thôi nha!"],
-        toxic: ["[FACE: SHOCKED] Êu ơi, khí độc kìa! 3: Phản ứng này tạo ra chất nguy hiểm lắm đó, cẩn thận nha!", "[FACE: SHOCKED] Khói mù mịt luôn! ^^ Bạn vừa tạo ra phản ứng tỏa nhiều nhiệt hoặc khí độc rồi!"],
-        unknown: ["Câu này khó nha... 3: Nhưng mà trong phòng lab thì cứ thực hành là hiểu liền! ^^", "Hì hì, mình đang tập trung vào hóa chất quá nên chưa hiểu ý bạn lắm! :3 Kéo thả mấy cái bình kia đi!"]
-    };
-
+class GeminiService {
     private history: ChatMessage[] = [];
-
-    // Allow external listeners to subscribe to chat updates
+    private apiKey: string | null = null;
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
 
+    // OFFLINE PERSONA DATABASE (Fallback)
+    private offlineDatabase = {
+        greetings: [
+            "Yo! Giáo sư Lucy here! 🦊 Hôm nay quậy banh phòng lab không nè? :3",
+            "Hế lô! Sẵn sàng 'cook' vài phản ứng hóa học chưa? ^^",
+            "Chào bạn nhá! Nay mình chế thuốc gì đây? Đừng nổ là được nha! xD"
+        ],
+        praise: [
+            "Đỉnh nóc kịch trần luôn! 🤩 Phản ứng này 10 điểm không có nhưng!",
+            "U là trời, xịn sò quá dzậy! :3 Tiếp tục phát huy nhá!",
+            "OMG! Chuẩn không cần chỉnh! Bạn có khiếu làm nhà khoa học đó nha! ^^"
+        ],
+        explosions: [
+            "[FACE: SHOCKED] Á á á! Cứu tuiii! 🤯 Bạn vừa cho nổ tung cái lab rồi kìa!",
+            "[FACE: SHOCKED] Trời đất ơi! Bùm chéo! 😱 Tém tém lại nha bạn êi!",
+            "[FACE: SHOCKED] SOS! Cháy nhà rồi! 🔥 Gọi 114 gấp! Đùa thôi chứ cẩn thận nha! 3:"
+        ],
+        toxic: [
+            "[FACE: SHOCKED] Ewww, mùi gì ghê dzậy! 🤢 Khí độc đó nha, coi chừng ngất xỉu!",
+            "[FACE: SHOCKED] Cảnh báo! Toxic alert! ☠️ Đừng hít vào nha bạn ơi!",
+            "Khói um sùm luôn! 🌫️ Phản ứng này hơi bị căng nha! ^^"
+        ],
+        unknown: [
+            "Ủa là sao ta? 🤔 Cái này Lucy chưa load kịp, thử lại coi nào!",
+            "Hmm... Ca này khó! 😅 Kéo thả đại đi xem có nổ không! :3",
+            "Đang load data... 🦊 Chờ xíu nha, mạng lag quá à! xD"
+        ]
+    };
+
     constructor() {
+        this.apiKey = localStorage.getItem('gemini_api_key');
         this.startNewChat();
     }
 
@@ -436,15 +475,29 @@ class HeuristicBrainService {
         }
     }
 
+    updateApiKey(key: string) {
+        this.apiKey = key;
+        localStorage.setItem('gemini_api_key', key);
+        // Announce switch to online mode
+        this.history.push({
+            role: 'assistant', // 'model' equivalent
+            text: "Đã kết nối Neural Core! 🧠 Giáo sư Lucy đã được nâng cấp lên Gemini 2.5! Hỏi gì khó khó đi! 😎"
+        });
+        this.notifyUpdate();
+    }
+
     startNewChat() {
         this.history = [
-            { role: "assistant", text: "Xin chào! Mình là Giáo sư Lucy 🦊! Sẵn sàng làm thí nghiệm khoa học chưa? Chỉ cần kéo và thả hóa chất để trộn chúng nhé!" }
+            {
+                role: "model",
+                text: "Xin chào! Mình là Giáo sư Lucy 🦊! Sẵn sàng làm thí nghiệm khoa học chưa? Chỉ cần kéo và thả hóa chất để trộn chúng nhé! Nếu cần key Gemini thì vào Settings nha! 😉"
+            }
         ];
         this.notifyUpdate();
     }
 
-    private getRandomResponse(key: keyof typeof this.responseDatabase): string {
-        const options = this.responseDatabase[key];
+    private getOfflineResponse(key: keyof typeof this.offlineDatabase): string {
+        const options = this.offlineDatabase[key];
         return options[Math.floor(Math.random() * options.length)];
     }
 
@@ -452,37 +505,91 @@ class HeuristicBrainService {
         this.history.push({ role: "user", text: message });
         this.notifyUpdate();
 
-        // Simulate thinking delay
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // 1. CHECK FOR API KEY
+        if (this.apiKey) {
+            try {
+                return await this.callGeminiAPI(message);
+            } catch (error) {
+                console.error("Gemini API Error:", error);
+                this.history.push({ role: "model", text: "Lỗi kết nối Neural Core! 😵 Chuyển về chế độ Offline nha! (Check API Key đi bạn êi)" });
+                this.notifyUpdate();
+                // Fallthrough to offline logic
+            }
+        } else {
+             // Simulate network delay for realism
+            await new Promise(resolve => setTimeout(resolve, 800));
+        }
 
+        // 2. OFFLINE LOGIC (Fallback)
         let response = "";
         const lowerMsg = message.toLowerCase();
 
-        // Keyword Matching Engine
         if (message.includes("[OBSERVATION]")) {
-            // Reaction Feedback Logic
             if (lowerMsg.includes("explosion") || lowerMsg.includes("fire") || lowerMsg.includes("sodium")) {
-                response = this.getRandomResponse('explosions');
+                response = this.getOfflineResponse('explosions');
             } else if (lowerMsg.includes("smoke") || lowerMsg.includes("toxic") || lowerMsg.includes("acid") || lowerMsg.includes("chlorine")) {
-                response = this.getRandomResponse('toxic');
+                response = this.getOfflineResponse('toxic');
             } else {
-                response = this.getRandomResponse('praise');
+                response = this.getOfflineResponse('praise');
             }
         } else if (lowerMsg.includes("chào") || lowerMsg.includes("hello") || lowerMsg.includes("hi")) {
-            response = this.getRandomResponse('greetings');
+            response = this.getOfflineResponse('greetings');
         } else if (lowerMsg.includes("giỏi") || lowerMsg.includes("đúng") || lowerMsg.includes("tốt") || lowerMsg.includes("hay")) {
-            response = this.getRandomResponse('praise');
+            response = this.getOfflineResponse('praise');
         } else {
-            response = this.getRandomResponse('unknown');
+            response = this.getOfflineResponse('unknown');
         }
 
-        this.history.push({ role: "assistant", text: response });
+        this.history.push({ role: "model", text: response });
         this.notifyUpdate();
         return response;
     }
 
+    async callGeminiAPI(userMessage: string): Promise<string> {
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+
+        const systemInstruction = `
+        Bạn là Giáo sư Lucy, một trợ lý ảo phòng thí nghiệm Gen-Z, năng động, hài hước và am hiểu hóa học.
+        Phong cách: Sử dụng emoji (🦊, 🧪, 💥), ngôn ngữ teen (ukie, hoy, nha, :3, ^^), nhưng kiến thức phải chuẩn xác.
+        Nhiệm vụ: Giải thích hiện tượng hóa học, cảnh báo an toàn, và reaction khi người dùng làm nổ phòng thí nghiệm.
+        Nếu người dùng gửi [OBSERVATION], hãy phân tích phản ứng đó.
+        Nếu có cháy nổ, hãy tỏ ra hoảng hốt ([FACE: SHOCKED]).
+        Luôn ngắn gọn (dưới 3 câu) vì chatbox nhỏ.
+        `;
+
+        // Format history for Gemini
+        const contents = [
+            { role: "user", parts: [{ text: systemInstruction }] }, // System prompt injection
+            ...this.history.filter(m => m.role !== 'model').map(m => ({
+                role: m.role === 'user' ? 'user' : 'model',
+                parts: [{ text: m.text }]
+            })),
+            { role: "user", parts: [{ text: userMessage }] } // Current message
+        ];
+
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: contents,
+                generationConfig: {
+                    temperature: 0.9, // Creative & Fun
+                    maxOutputTokens: 150,
+                }
+            })
+        });
+
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mất kết nối với vũ trụ rồi! 😵 Thử lại nha!";
+
+        this.history.push({ role: "model", text: text });
+        this.notifyUpdate();
+        return text;
+    }
+
     async getReactionFeedback(detail: string): Promise<string> {
-        // Pass observation tag for special handling
         return this.chat(`[OBSERVATION] ${detail}`);
     }
 }
@@ -603,17 +710,17 @@ const LabScene: React.FC<{
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.7;
+        renderer.toneMappingExposure = 1.2; // AAA Brightness Target
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        // BLOOM ADJUSTMENT: Strength 0.4, Threshold 0.85
+        // BLOOM ADJUSTMENT: Strength 0.6, Threshold 0.85 (Subtle, High-Quality Glow)
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.4, 0.2, 0.85
+            0.6, 0.4, 0.85
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
@@ -626,25 +733,27 @@ const LabScene: React.FC<{
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.2)); // Lower ambient for contrast
+        scene.add(new THREE.AmbientLight(0x475569, 0.4)); // Dark Slate Ambient
 
-        // Key Light - Warm white for specular highlights
-        const spotLight = new THREE.SpotLight(0xffffff, 50);
+        // Key Light - Neutral White for sharp definition
+        const spotLight = new THREE.SpotLight(0xffffff, 80);
         spotLight.position.set(8, 12, 8);
         spotLight.angle = Math.PI / 4;
-        spotLight.penumbra = 0.5;
+        spotLight.penumbra = 0.3;
         spotLight.castShadow = true;
+        spotLight.shadow.mapSize.width = 2048;
+        spotLight.shadow.mapSize.height = 2048;
         spotLight.shadow.bias = -0.0001;
         scene.add(spotLight);
 
-        // Rim Light - Cool blue for sci-fi edge
-        const rectLight = new THREE.DirectionalLight(0x38bdf8, 1.0);
+        // Rim Light - Neon Cyan for Cyber Edge
+        const rectLight = new THREE.DirectionalLight(0x06b6d4, 2.0);
         rectLight.position.set(-6, 4, -6);
         scene.add(rectLight);
 
-        // Fill Light - Soft purple from below
-        const fillLight = new THREE.PointLight(0xa855f7, 0.5);
-        fillLight.position.set(0, -2, 0);
+        // Fill Light - Warm Orange from below for contrast
+        const fillLight = new THREE.PointLight(0xf97316, 0.8);
+        fillLight.position.set(0, -2, 2);
         scene.add(fillLight);
 
         scene.add(createTable());
@@ -760,13 +869,20 @@ const LabScene: React.FC<{
             controls.update();
             particleSystemRef.current?.update();
 
+            // FIXED: ANALYZER UPDATE LOOP
             if (analyzerRef.current) {
                 let foundChem = null, foundTemp = 25;
                 const analyzerPos = analyzerRef.current.group.position;
+                let closestDist = Infinity;
+
                 containers.forEach(c => {
-                    if (new THREE.Vector3(...c.position).distanceTo(analyzerPos) < 2.0 && c.contents) {
-                        foundChem = c.contents.chemicalId;
-                        foundTemp = c.contents.temperature || 25;
+                    const dist = new THREE.Vector3(...c.position).distanceTo(analyzerPos);
+                    if (dist < 1.5 && dist < closestDist) { // Check distance range
+                        closestDist = dist;
+                        if (c.contents) {
+                            foundChem = c.contents.chemicalId;
+                            foundTemp = c.contents.temperature || 25;
+                        }
                     }
                 });
                 updateAnalyzerDisplay(foundChem, foundTemp);
@@ -1181,7 +1297,7 @@ const LabUI: React.FC<{
                     <span className="opacity-30">|</span>
                     <span>THỰC THỂ: {containers.length}</span>
                     <span className="opacity-30">|</span>
-                    <span>NEURAL_CORE_V1.5 (LOCAL)</span>
+                    <span>NEURAL_CORE_V1.5 (GEMINI)</span>
                 </div>
             </div>
 
@@ -1205,7 +1321,7 @@ const LabUI: React.FC<{
 
 export default function App() {
     console.log("--- APP V5 RELOADED ---");
-    const aiServiceRef = useRef<HeuristicBrainService | null>(null);
+    const aiServiceRef = useRef<GeminiService | null>(null);
     const reactionTimeoutRef = useRef<number | null>(null);
     const [lastEffectPos, setLastEffectPos] = useState<[number, number, number] | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -1225,10 +1341,10 @@ export default function App() {
     const [isAiLoading, setIsAiLoading] = useState(false);
 
     useEffect(() => {
-        const service = new HeuristicBrainService();
+        const service = new GeminiService();
         service.onHistoryUpdate = (history) => {
             setChatHistory([...history]);
-            if (history.length > 0 && history[history.length - 1].role === 'assistant') {
+            if (history.length > 0 && (history[history.length - 1].role === 'assistant' || history[history.length - 1].role === 'model')) {
                 const text = history[history.length - 1].text;
                 setAiFeedback(text);
                 if (text.includes('[FACE: SHOCKED]')) {
