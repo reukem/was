@@ -195,32 +195,30 @@ class ParticleSystem {
 // -- GEOMETRY GENERATORS --
 const createFlaskGeometry = () => {
     const points = [];
-    // Base curve
-    points.push(new THREE.Vector2(0.0, 0.0));
-    points.push(new THREE.Vector2(0.5, 0.0));
-    // Body curve
-    for (let i = 0; i <= 20; i++) {
-        const t = i / 20;
-        const x = 0.5 * (1 - t) + 0.2 * t * t + 0.15 * t; // Smooth transition
-        const y = t * 0.7;
-        points.push(new THREE.Vector2(x, y));
+    // High-poly smooth curve for the flask belly
+    for (let i = 0; i <= 40; i++) {
+        const t = i / 40;
+        const x = Math.sin(t * Math.PI) * 0.45 + 0.1;
+        points.push(new THREE.Vector2(x, t * 0.8));
     }
-    // Neck
-    points.push(new THREE.Vector2(0.15, 0.7));
-    points.push(new THREE.Vector2(0.15, 1.0));
-    // Rim
-    points.push(new THREE.Vector2(0.18, 1.05));
-    points.push(new THREE.Vector2(0.15, 1.05)); // Inner lip
-    return new THREE.LatheGeometry(points, 64);
+    points.push(new THREE.Vector2(0.12, 0.8)); // Neck base
+    points.push(new THREE.Vector2(0.12, 1.15)); // Tall neck
+    // Thick, realistic beveled laboratory rim
+    points.push(new THREE.Vector2(0.18, 1.17));
+    points.push(new THREE.Vector2(0.18, 1.20));
+    points.push(new THREE.Vector2(0.11, 1.20));
+    return new THREE.LatheGeometry(points, 128);
 };
 
 const createCanisterGeometry = () => {
-    const geo = new THREE.CapsuleGeometry(0.3, 0.8, 8, 32);
+    // High-poly pressurized tank (32 radial segments, 64 height segments)
+    const geo = new THREE.CapsuleGeometry(0.3, 0.8, 32, 64);
     geo.translate(0, 0.4, 0);
     return geo;
 };
 
 const createMoundGeometry = () => {
+    // Smooth, organic powder cone
     const geo = new THREE.ConeGeometry(0.4, 0.4, 64, 1, true);
     geo.translate(0, 0.2, 0);
     return geo;
@@ -235,52 +233,49 @@ const createCrystalGeometry = () => {
 };
 
 const createGlassMaterial = () => {
+    // Hyper-realistic refractive glass
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         metalness: 0.1,
-        roughness: 0.05,
-        transmission: 1.0, // High transmission for clear glass
-        thickness: 0.2, // Increased thickness for physical presence
-        ior: 1.5, // Realistic Index of Refraction for glass
+        roughness: 0.02,
+        transmission: 1.0, // Fully transparent to let light through
+        thickness: 0.3,    // Gives the glass physical weight/refraction
+        ior: 1.5,          // Index of Refraction for real glass
         clearcoat: 1.0,
-        clearcoatRoughness: 0,
+        clearcoatRoughness: 0.01,
         transparent: true,
-        side: THREE.DoubleSide, // Double side for better refraction effects
+        side: THREE.DoubleSide,
         depthWrite: false,
-        envMapIntensity: 1.5
     });
 };
 
 const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
+    // Volumetric, glowing liquid
     return new THREE.MeshPhysicalMaterial({
         color: color,
-        metalness: 0.2,
-        roughness: 0.05,
-        transmission: 0.65,
-        thickness: 1.2, // Volumetric liquid feel
-        ior: 1.33,
+        metalness: 0.0,
+        roughness: 0.0,
+        transmission: 0.9,
+        thickness: 1.2, // Deep volumetric thickness
+        ior: 1.33,      // Index of Refraction for water
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: true,
         attenuationColor: new THREE.Color(color),
-        attenuationDistance: 0.5, // Shorter distance for richer color density
-        envMapIntensity: 1.2
+        attenuationDistance: 0.5,
     });
 };
 
 const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
     const points = [];
-    points.push(new THREE.Vector2(0, 0)); // Center bottom
-    points.push(new THREE.Vector2(radius * 0.9, 0)); // Flat bottom edge
-    // Smooth curve to wall
-    points.push(new THREE.Vector2(radius, 0.1));
-    // Wall
+    points.push(new THREE.Vector2(0, 0));
+    points.push(new THREE.Vector2(radius, 0));
     points.push(new THREE.Vector2(radius, height));
-    // Rim (thickened)
-    points.push(new THREE.Vector2(radius + 0.05, height + 0.02)); // Outer rim top
-    points.push(new THREE.Vector2(radius - 0.02, height + 0.02)); // Inner rim top
-    points.push(new THREE.Vector2(radius - 0.02, height)); // Inner wall start
-    return new THREE.LatheGeometry(points, 64);
+    // Pronounced, thick glass rim for the beaker
+    points.push(new THREE.Vector2(radius + 0.08, height + 0.03));
+    points.push(new THREE.Vector2(radius + 0.08, height + 0.07));
+    points.push(new THREE.Vector2(radius - 0.03, height + 0.07));
+    return new THREE.LatheGeometry(points, 128);
 };
 
 const createTable = () => {
