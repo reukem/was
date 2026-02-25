@@ -326,7 +326,7 @@ const createAnalyzerMachine = () => {
         ctx.font = 'bold 30px monospace';
         ctx.fillStyle = '#22c55e';
         ctx.textAlign = 'center';
-        ctx.fillText('ANALYZER', 128, 70);
+        ctx.fillText('MÁY PHÂN TÍCH', 128, 70);
     }
     const texture = new THREE.CanvasTexture(canvas);
     const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.25), new THREE.MeshBasicMaterial({ map: texture }));
@@ -400,7 +400,7 @@ class HeuristicBrainService {
         greetings: ["Xin chào! Mình là Giáo sư Lucy 🦊! Hôm nay chúng ta làm nổ... à nhầm, làm thí nghiệm gì đây? :3", "Chào bạn! Sẵn sàng khám phá thế giới lượng tử chưa? ^^"],
         praise: ["Giỏi quá đi! ^^ Phản ứng chuẩn không cần chỉnh!", "Đỉnh chóp! :3 Cứ thế phát huy nhé!"],
         explosions: ["[FACE: SHOCKED] Trời ơiiii! Bạn vừa làm nổ phòng lab của mình rồi! 3: Coi chừng đi tông hàng lông mày của mình đó!", "[FACE: SHOCKED] Á á á! Cháy rồi cháy rồi! 3: Lần sau pha hóa chất từ từ thôi nha!"],
-        toxic: ["[FACE: WORRIED] Êu ơi, khí độc kìa! 3: Phản ứng này tạo ra chất nguy hiểm lắm đó, cẩn thận nha!", "[FACE: WORRIED] Khói mù mịt luôn! ^^ Bạn vừa tạo ra phản ứng tỏa nhiều nhiệt hoặc khí độc rồi!"],
+        toxic: ["[FACE: SHOCKED] Êu ơi, khí độc kìa! 3: Phản ứng này tạo ra chất nguy hiểm lắm đó, cẩn thận nha!", "[FACE: SHOCKED] Khói mù mịt luôn! ^^ Bạn vừa tạo ra phản ứng tỏa nhiều nhiệt hoặc khí độc rồi!"],
         unknown: ["Câu này khó nha... 3: Nhưng mà trong phòng lab thì cứ thực hành là hiểu liền! ^^", "Hì hì, mình đang tập trung vào hóa chất quá nên chưa hiểu ý bạn lắm! :3 Kéo thả mấy cái bình kia đi!"]
     };
 
@@ -565,7 +565,7 @@ const LabScene: React.FC<{
         } else {
             // Delete hardcoded string fallbacks if any, use consistent "Empty" state or Standby
             ctx.font = 'bold 32px monospace';
-            ctx.fillText('STANDBY', 128, 70);
+            ctx.fillText('CHỜ', 128, 70);
         }
         analyzerRef.current.texture.needsUpdate = true;
     };
@@ -593,10 +593,10 @@ const LabScene: React.FC<{
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        // BLOOM ADJUSTMENT: Strength 0.2, Threshold 0.85
+        // BLOOM ADJUSTMENT: Strength 0.4, Threshold 0.85
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.2, 0.2, 0.85
+            0.4, 0.2, 0.85
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
@@ -1090,7 +1090,7 @@ const LabUI: React.FC<{
                  {/* Quest Board */}
                  <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
                     <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
-                        NHIỆM VỤ (3)
+                        TIẾN ĐỘ (3)
                     </h2>
                     <div className="text-[10px] text-slate-400 space-y-2">
                         <div className="flex items-center gap-2">
@@ -1209,7 +1209,7 @@ export default function App() {
                 setAiFeedback(text);
                 if (text.includes('[FACE: SHOCKED]')) {
                     setAvatarState('shocked');
-                } else {
+                } else if (!lastEffect) {
                     setAvatarState('normal');
                 }
             }
@@ -1220,6 +1220,15 @@ export default function App() {
 
         return () => { if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current); };
     }, []);
+
+    // MODULE 2: Reaction-based Avatar State
+    useEffect(() => {
+        if (lastEffect === 'explosion' || lastEffect === 'smoke') {
+            setAvatarState('shocked');
+        } else {
+            setAvatarState('normal');
+        }
+    }, [lastEffect]);
 
     const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
         setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
