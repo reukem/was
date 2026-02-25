@@ -58,7 +58,7 @@ interface ReactionEntry {
 }
 
 interface ChatMessage {
-    role: 'user' | 'assistant'; // Changed 'model' to 'assistant' for Ollama compatibility
+    role: 'user' | 'assistant';
     text: string;
 }
 
@@ -392,31 +392,24 @@ class ChemistryEngine {
 }
 
 // -----------------------------------------------------------------------------
-// 5. SYSTEMS: LOCAL AI SERVICE (OLLAMA)
+// 5. SYSTEMS: HEURISTIC BRAIN SERVICE (LOCAL DATABASE)
 // -----------------------------------------------------------------------------
 
-class LocalAIService {
-    static OLLAMA_MODEL = 'llama3';
+class HeuristicBrainService {
+    private responseDatabase = {
+        greetings: ["Xin chào! Mình là Giáo sư Lucy 🦊! Hôm nay chúng ta làm nổ... à nhầm, làm thí nghiệm gì đây? :3", "Chào bạn! Sẵn sàng khám phá thế giới lượng tử chưa? ^^"],
+        praise: ["Giỏi quá đi! ^^ Phản ứng chuẩn không cần chỉnh!", "Đỉnh chóp! :3 Cứ thế phát huy nhé!"],
+        explosions: ["[FACE: SHOCKED] Trời ơiiii! Bạn vừa làm nổ phòng lab của mình rồi! 3: Coi chừng đi tông hàng lông mày của mình đó!", "[FACE: SHOCKED] Á á á! Cháy rồi cháy rồi! 3: Lần sau pha hóa chất từ từ thôi nha!"],
+        toxic: ["[FACE: WORRIED] Êu ơi, khí độc kìa! 3: Phản ứng này tạo ra chất nguy hiểm lắm đó, cẩn thận nha!", "[FACE: WORRIED] Khói mù mịt luôn! ^^ Bạn vừa tạo ra phản ứng tỏa nhiều nhiệt hoặc khí độc rồi!"],
+        unknown: ["Câu này khó nha... 3: Nhưng mà trong phòng lab thì cứ thực hành là hiểu liền! ^^", "Hì hì, mình đang tập trung vào hóa chất quá nên chưa hiểu ý bạn lắm! :3 Kéo thả mấy cái bình kia đi!"]
+    };
+
     private history: ChatMessage[] = [];
-    private systemInstruction: string = "";
+
     // Allow external listeners to subscribe to chat updates
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
 
     constructor() {
-        this.systemInstruction = `Bạn là Giáo sư Lucy, một trợ lý AI lượng tử tiên tiến trong phòng thí nghiệm hóa học.
-
-        Tính cách:
-        - Vui vẻ nhưng cực kỳ thông minh.
-        - Sử dụng biểu tượng cảm xúc (emoji) và ngôn ngữ khuyến khích học sinh.
-        - Bạn được đại diện bởi hình ảnh cô gái anime tai cáo, hãy cư xử dễ thương nhưng chuyên nghiệp.
-        - Khi phản ứng hóa học xảy ra, hãy phân tích cân bằng phương trình và nhiệt động lực học ngắn gọn.
-        - Nếu học sinh tạo ra phản ứng nguy hiểm hoặc thú vị, hãy thêm "[FACE: SHOCKED]" vào cuối câu trả lời của bạn để thay đổi biểu cảm.
-
-        Định dạng:
-        - Sử dụng văn bản sạch.
-        - Viết công thức hóa học rõ ràng (ví dụ: H2O, NaCl).
-        - Toàn bộ nội dung trả lời phải bằng Tiếng Việt.
-        `;
         this.startNewChat();
     }
 
@@ -433,48 +426,47 @@ class LocalAIService {
         this.notifyUpdate();
     }
 
+    private getRandomResponse(key: keyof typeof this.responseDatabase): string {
+        const options = this.responseDatabase[key];
+        return options[Math.floor(Math.random() * options.length)];
+    }
+
     async chat(message: string): Promise<string> {
         this.history.push({ role: "user", text: message });
         this.notifyUpdate();
 
-        try {
-            const payload = {
-                model: LocalAIService.OLLAMA_MODEL,
-                messages: [
-                    { role: "system", content: this.systemInstruction },
-                    ...this.history.map(m => ({ role: m.role, content: m.text }))
-                ],
-                stream: false
-            };
+        // Simulate thinking delay
+        await new Promise(resolve => setTimeout(resolve, 800));
 
-            const response = await fetch('http://localhost:11434/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+        let response = "";
+        const lowerMsg = message.toLowerCase();
 
-            if (!response.ok) {
-                throw new Error(`Ollama API Error: ${response.status}`);
+        // Keyword Matching Engine
+        if (message.includes("[OBSERVATION]")) {
+            // Reaction Feedback Logic
+            if (lowerMsg.includes("explosion") || lowerMsg.includes("fire") || lowerMsg.includes("sodium")) {
+                response = this.getRandomResponse('explosions');
+            } else if (lowerMsg.includes("smoke") || lowerMsg.includes("toxic") || lowerMsg.includes("acid") || lowerMsg.includes("chlorine")) {
+                response = this.getRandomResponse('toxic');
+            } else {
+                response = this.getRandomResponse('praise');
             }
-
-            const data = await response.json();
-            const text = data.message?.content || "Không thể phân tích dữ liệu.";
-
-            this.history.push({ role: "assistant", text });
-            this.notifyUpdate();
-            return text;
-
-        } catch (error) {
-            console.warn(`Ollama API Failed:`, error);
-            const errorMsg = "⚠️ Mất kết nối với Neural Core cục bộ. Vui lòng kiểm tra Ollama.";
-            this.history.push({ role: "assistant", text: errorMsg });
-            this.notifyUpdate();
-            return errorMsg;
+        } else if (lowerMsg.includes("chào") || lowerMsg.includes("hello") || lowerMsg.includes("hi")) {
+            response = this.getRandomResponse('greetings');
+        } else if (lowerMsg.includes("giỏi") || lowerMsg.includes("đúng") || lowerMsg.includes("tốt") || lowerMsg.includes("hay")) {
+            response = this.getRandomResponse('praise');
+        } else {
+            response = this.getRandomResponse('unknown');
         }
+
+        this.history.push({ role: "assistant", text: response });
+        this.notifyUpdate();
+        return response;
     }
 
     async getReactionFeedback(detail: string): Promise<string> {
-        return this.chat(`[QUAN SÁT] Hành động của học sinh: ${detail}. Hãy phân tích hiện tượng hóa học này bằng tiếng Việt.`);
+        // Pass observation tag for special handling
+        return this.chat(`[OBSERVATION] ${detail}`);
     }
 }
 
@@ -1189,7 +1181,7 @@ const LabUI: React.FC<{
 
 export default function App() {
     console.log("--- APP V5 RELOADED ---");
-    const aiServiceRef = useRef<LocalAIService | null>(null);
+    const aiServiceRef = useRef<HeuristicBrainService | null>(null);
     const reactionTimeoutRef = useRef<number | null>(null);
     const [lastEffectPos, setLastEffectPos] = useState<[number, number, number] | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -1209,7 +1201,7 @@ export default function App() {
     const [isAiLoading, setIsAiLoading] = useState(false);
 
     useEffect(() => {
-        const service = new LocalAIService();
+        const service = new HeuristicBrainService();
         service.onHistoryUpdate = (history) => {
             setChatHistory([...history]);
             if (history.length > 0 && history[history.length - 1].role === 'assistant') {
