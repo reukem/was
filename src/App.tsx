@@ -250,20 +250,18 @@ const createCrystalGeometry = () => {
 };
 
 const createGlassMaterial = () => {
-    // Hyper-realistic refractive glass (AAA Fidelity)
+    // MODULE 2: HIGH-FIDELITY GLASS MANDATE (OVERRIDE)
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         metalness: 0.1,
-        roughness: 0.05,   // Slightly more surface imperfection for realism
-        transmission: 0.99, // High transmission
-        thickness: 0.6,    // Thicker glass for better refraction
-        ior: 1.52,         // Target IOR for Borosilicate Glass
+        roughness: 0.05,
+        transmission: 1.0,
+        ior: 1.52,
+        thickness: 0.2,
         clearcoat: 1.0,
-        clearcoatRoughness: 0.05,
         transparent: true,
         side: THREE.DoubleSide,
-        depthWrite: false,
-        envMapIntensity: 1.5,
+        depthWrite: false
     });
 };
 
@@ -778,7 +776,8 @@ const LabScene: React.FC<{
     useEffect(() => {
         if (!mountRef.current) return;
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a);
+        // MODULE 1: The "Sunlight" Purge (Lighting & Environment)
+        scene.background = new THREE.Color('#020617'); // Ultra-dark slate
         sceneRef.current = scene;
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -791,17 +790,18 @@ const LabScene: React.FC<{
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2; // AAA Brightness Target
+        // MODULE 1: Exposure Clamp
+        renderer.toneMappingExposure = 0.8;
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        // BLOOM ADJUSTMENT: Strength 0.6, Threshold 0.85 (Subtle, High-Quality Glow)
+        // BLOOM ADJUSTMENT: Strength 0.6, Radius 0.2, Threshold 0.85
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.6, 0.4, 0.85
+            0.6, 0.2, 0.85
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
@@ -812,8 +812,8 @@ const LabScene: React.FC<{
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        // 1. Ambient - Low and Cool
-        scene.add(new THREE.AmbientLight(0x1e293b, 0.4));
+        // 1. Ambient - SLASHED to 0.1
+        scene.add(new THREE.AmbientLight(0x1e293b, 0.1));
 
         // 2. Key Light - Focused Spotlight on Center Table
         const spotLight = new THREE.SpotLight(0xffffff, 120);
@@ -1208,7 +1208,7 @@ const HolographicAvatar: React.FC<{
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
              {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
-             <div className="w-80 bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+             <div className="w-80 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
                  <div className="p-4 border-b border-white/5 flex items-center gap-3">
                      {/* PERFECT SQUARE AVATAR */}
                      <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
@@ -1291,8 +1291,8 @@ const LabUI: React.FC<{
 
             {/* MODULE 3: Top-Left (Command Header) */}
             <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-[2rem] p-5 shadow-2xl">
-                    <h1 className="bg-gradient-to-b from-white to-slate-400 text-transparent bg-clip-text font-black text-4xl drop-shadow-lg">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-[2rem] p-5 shadow-2xl">
+                    <h1 className="text-4xl font-mono font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
                         CHEMIC-AI
                     </h1>
                     <div className="flex items-center gap-2 mt-1">
@@ -1310,7 +1310,7 @@ const LabUI: React.FC<{
                 </div>
 
                 {/* Thermal Slider */}
-                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
                      <div className="flex justify-between items-center mb-2">
                          <span className="text-[10px] font-bold text-orange-500 tracking-wider">BẾP NHIỆT</span>
                          <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
@@ -1327,13 +1327,13 @@ const LabUI: React.FC<{
                 </div>
             </div>
 
-            {/* Left Sidebar (Below Header) */}
-            <div className="absolute top-72 left-6 bottom-24 w-64 pointer-events-auto flex flex-col gap-4">
+            {/* MID-LEFT: QUESTS */}
+            <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
                  {/* Safety Indicator */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-3 flex items-center justify-between shadow-lg">
+                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-3 flex items-center justify-between shadow-lg mb-4">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">TRẠNG THÁI</span>
                       <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                          AN TOÀN TUYỆT ĐỐI <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          AN TOÀN <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
                       </span>
                  </div>
 
@@ -1357,9 +1357,11 @@ const LabUI: React.FC<{
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Inventory */}
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl flex-1 overflow-hidden flex flex-col">
+            {/* BOTTOM-LEFT: INVENTORY */}
+            <div className="absolute bottom-6 left-6 w-64 pointer-events-auto flex flex-col gap-4">
+                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl h-80 flex flex-col">
                     <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         KHO HÓA CHẤT
                     </div>
