@@ -13,7 +13,7 @@ export class PhysicsEngine {
         return false;
     }
 
-    static checkDropCondition(sourcePos: any, targetPos: any, sourceType: string): boolean {
+    static checkDropCondition(sourcePos: any, targetPos: any, sourceType: string) {
         const p1 = Array.isArray(sourcePos) ? new THREE.Vector3(...sourcePos) : sourcePos;
         const p2 = Array.isArray(targetPos) ? new THREE.Vector3(...targetPos) : targetPos;
 
