@@ -470,6 +470,7 @@ const App: React.FC = () => {
         }
     }, [containers]);
 
+    // INJECTED HANDLE DROP - FIX
     const handleDrop = useCallback((sourceId: string, targetId: string) => {
         console.log(`[PHYSICS] Dropping ${sourceId} into ${targetId}!`);
         handlePour(sourceId, targetId, 1.0);
