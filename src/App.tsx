@@ -4,6 +4,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { SSAOPass } from 'three/examples/jsm/postprocessing/SSAOPass.js';
+import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import SettingsModal from './components/SettingsModal';
 
 // -----------------------------------------------------------------------------
@@ -121,6 +125,7 @@ const REACTION_REGISTRY: ReactionEntry[] = [
 // -----------------------------------------------------------------------------
 
 // -- PARTICLE SYSTEM HELPER --
+// TASK 2: VOLUMETRIC PARTICLE SYSTEMS
 class ParticleSystem {
     particles: { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; maxLife: number; type: 'spark' | 'smoke' | 'bubble'; }[] = [];
     scene: THREE.Scene;
@@ -138,7 +143,6 @@ class ParticleSystem {
         for (let i = 0; i < sparkCount; i++) {
             const mesh = new THREE.Mesh(sparkGeo, sparkMat.clone());
             mesh.position.copy(position);
-            // Higher velocity spread for intensity
             const velocity = new THREE.Vector3(
                 (Math.random() - 0.5) * 14 * intensity,
                 (Math.random() * 10 + 5) * intensity,
@@ -148,28 +152,30 @@ class ParticleSystem {
             this.particles.push({ mesh, velocity, life: 0, maxLife: 60 + Math.random() * 40, type: 'spark' });
         }
 
-        // Cinematic Smoke (Dark & Volumetric feel)
+        // Volumetric-style Smoke (Soft Particles / Lit)
         const smokeCount = Math.floor(80 * intensity);
-        const smokeGeo = new THREE.IcosahedronGeometry(0.25, 0); // Low poly but effective
+        // Using Sphere for softer look, scaled irregularly
+        const smokeGeo = new THREE.IcosahedronGeometry(0.4, 1);
         const smokeMat = new THREE.MeshStandardMaterial({
-            color: 0x334155, // Slate smoke
+            color: 0x334155,
             transparent: true,
-            opacity: 0.8,
+            opacity: 0.6,
             roughness: 1.0,
-            flatShading: true
+            flatShading: false,
+            depthWrite: false, // Soft particle trick
         });
 
         for (let i = 0; i < smokeCount; i++) {
             const mesh = new THREE.Mesh(smokeGeo, smokeMat.clone());
             mesh.position.copy(position);
-            mesh.position.y += 0.5; // Start slightly higher
+            mesh.position.y += 0.5;
             const velocity = new THREE.Vector3(
                 (Math.random() - 0.5) * 5,
                 (Math.random() * 5 + 2) * intensity,
                 (Math.random() - 0.5) * 5
             );
-            // Random initial rotation
             mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            mesh.scale.setScalar(0.5 + Math.random());
             this.scene.add(mesh);
             this.particles.push({ mesh, velocity, life: 0, maxLife: 150 + Math.random() * 80, type: 'smoke' });
         }
@@ -183,29 +189,27 @@ class ParticleSystem {
             p.mesh.position.add(p.velocity.clone().multiplyScalar(0.016));
 
             if (p.type === 'spark') {
-                p.velocity.y -= 0.35; // Stronger gravity for weight
+                p.velocity.y -= 0.35;
                 p.mesh.rotation.x += 0.3;
                 p.mesh.rotation.z += 0.3;
                 p.mesh.scale.multiplyScalar(0.95);
-                // Color shift from yellow to red
                 const mat = p.mesh.material as THREE.MeshBasicMaterial;
                 if (mat) {
                     const progress = p.life / p.maxLife;
-                    mat.color.lerp(new THREE.Color(0xff4500), 0.1); // Shift to orange-red
-                    if (progress > 0.8) mat.opacity = (1 - progress) * 5; // Fade out quickly at end
+                    mat.color.lerp(new THREE.Color(0xff4500), 0.1);
+                    if (progress > 0.8) mat.opacity = (1 - progress) * 5;
                 }
             } else if (p.type === 'smoke') {
-                p.velocity.y *= 0.96; // Drag
+                p.velocity.y *= 0.96;
                 p.velocity.x *= 0.92;
                 p.velocity.z *= 0.92;
-                p.mesh.scale.multiplyScalar(1.02); // Expand
+                p.mesh.scale.multiplyScalar(1.02);
                 p.mesh.rotation.x += 0.02;
                 p.mesh.rotation.y += 0.03;
 
                 const mat = p.mesh.material as THREE.MeshStandardMaterial;
                 if(mat) {
-                    mat.opacity = 0.8 * (1 - (p.life / p.maxLife)); // Smooth fade
-                    // Darken over time
+                    mat.opacity = 0.6 * (1 - (p.life / p.maxLife));
                     mat.color.lerp(new THREE.Color(0x0f172a), 0.05);
                 }
             }
@@ -221,22 +225,19 @@ class ParticleSystem {
 }
 
 // -- GEOMETRY GENERATORS --
-// MODULE 3: High-Poly Geometries & Materials
 const createFlaskGeometry = () => {
     const points = [];
-    // High-poly smooth curve for the flask belly
-    for (let i = 0; i <= 64; i++) { // Increased segments
+    for (let i = 0; i <= 64; i++) {
         const t = i / 64;
         const x = Math.sin(t * Math.PI) * 0.45 + 0.1;
         points.push(new THREE.Vector2(x, t * 0.8));
     }
-    points.push(new THREE.Vector2(0.12, 0.8)); // Neck base
-    points.push(new THREE.Vector2(0.12, 1.15)); // Tall neck
-    // Thick, realistic beveled laboratory rim
+    points.push(new THREE.Vector2(0.12, 0.8));
+    points.push(new THREE.Vector2(0.12, 1.15));
     points.push(new THREE.Vector2(0.18, 1.17));
     points.push(new THREE.Vector2(0.18, 1.20));
     points.push(new THREE.Vector2(0.11, 1.20));
-    return new THREE.LatheGeometry(points, 128); // 128 radial segments
+    return new THREE.LatheGeometry(points, 128);
 };
 
 const createCanisterGeometry = () => {
@@ -252,7 +253,6 @@ const createMoundGeometry = () => {
 };
 
 const createRockGeometry = (quality: 'AAA' | 'FAST') => {
-    // MODULE 3: Quality-dependent geometry detail
     return new THREE.IcosahedronGeometry(0.3, quality === 'AAA' ? 2 : 0);
 };
 
@@ -261,11 +261,11 @@ const createCrystalGeometry = () => {
 };
 
 const createGlassMaterial = (quality: 'AAA' | 'FAST') => {
-    // MODULE 3: Dynamic Materials
     if (quality === 'FAST') return new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, roughness: 0.1 });
-    return new THREE.MeshPhysicalMaterial({
+    // TASK 1: ADVANCED GLASS (Dispersion)
+    const mat = new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
-        metalness: 0.1,
+        metalness: 0.0,
         roughness: 0.02,
         transmission: 1.0,
         ior: 1.52,
@@ -275,18 +275,20 @@ const createGlassMaterial = (quality: 'AAA' | 'FAST') => {
         side: THREE.DoubleSide,
         depthWrite: false
     });
+    // @ts-ignore
+    if (mat.dispersion !== undefined) mat.dispersion = 4; // Add dispersion if supported
+    return mat;
 };
 
 const createLiquidMaterial = (color: THREE.ColorRepresentation, quality: 'AAA' | 'FAST') => {
-    // MODULE 3: Dynamic Materials
     if (quality === 'FAST') return new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.8 });
     return new THREE.MeshPhysicalMaterial({
         color: color,
         metalness: 0.0,
         roughness: 0.0,
         transmission: 0.9,
-        thickness: 1.2, // Deep volumetric thickness
-        ior: 1.33,      // Index of Refraction for water
+        thickness: 1.2,
+        ior: 1.33,
         transparent: true,
         side: THREE.DoubleSide,
         depthWrite: true,
@@ -300,17 +302,14 @@ const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
     points.push(new THREE.Vector2(0, 0));
     points.push(new THREE.Vector2(radius, 0));
     points.push(new THREE.Vector2(radius, height));
-    // MODULE 3: Pronounced, thick glass rim
     points.push(new THREE.Vector2(radius + 0.08, height + 0.03));
     points.push(new THREE.Vector2(radius + 0.08, height + 0.07));
     points.push(new THREE.Vector2(radius - 0.03, height + 0.07));
-    return new THREE.LatheGeometry(points, 128); // 128 radial segments
+    return new THREE.LatheGeometry(points, 128);
 };
 
 const createTable = () => {
     const group = new THREE.Group();
-
-    // 1. Table Top (Dark Slate)
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
         color: 0x0f172a,
@@ -321,7 +320,6 @@ const createTable = () => {
     tableTop.receiveShadow = true;
     group.add(tableTop);
 
-    // 2. Quantum Grid (Glowing Cyan)
     const grid = new THREE.GridHelper(12, 24, 0x06b6d4, 0x1e293b);
     grid.position.y = 0.11;
     (grid.material as THREE.LineBasicMaterial).color.setHex(0x22d3ee);
@@ -329,13 +327,12 @@ const createTable = () => {
     (grid.material as THREE.LineBasicMaterial).transparent = true;
     group.add(grid);
 
-    // 3. Emissive Rim (The "Holographic" Edge)
     const rimGeo = new THREE.BoxGeometry(14.05, 0.22, 8.05);
     const rimMat = new THREE.MeshBasicMaterial({
-        color: 0x0891b2, // Cyan-700
+        color: 0x0891b2,
         transparent: true,
         opacity: 0.3,
-        side: THREE.BackSide // Render inside out for a "shell" effect
+        side: THREE.BackSide
     });
     const rim = new THREE.Mesh(rimGeo, rimMat);
     group.add(rim);
@@ -345,41 +342,26 @@ const createTable = () => {
 
 const createHeater = () => {
     const group = new THREE.Group();
-
-    // 1. Base Unit
     const baseGeo = new THREE.BoxGeometry(1.2, 0.15, 1.2);
-    const baseMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b, // Slate-800
-        roughness: 0.4,
-        metalness: 0.8
-    });
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.8 });
     const base = new THREE.Mesh(baseGeo, baseMat);
     base.castShadow = true;
     base.receiveShadow = true;
     group.add(base);
 
-    // 2. Heating Plate (The part that glows)
     const plateGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.05, 32);
-    const plateMat = new THREE.MeshStandardMaterial({
-        color: 0x334155, // Dark grey initially
-        roughness: 0.6,
-        metalness: 0.5,
-        emissive: 0x000000,
-        emissiveIntensity: 0
-    });
+    const plateMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6, metalness: 0.5, emissive: 0x000000, emissiveIntensity: 0 });
     const plate = new THREE.Mesh(plateGeo, plateMat);
     plate.position.y = 0.1;
-    plate.userData.isHeaterPlate = true; // Tag for updates
+    plate.userData.isHeaterPlate = true;
     group.add(plate);
 
-    // 3. UI/Knob Details
     const knobGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.1, 16);
     const knob = new THREE.Mesh(knobGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
     knob.rotateX(Math.PI / 2);
     knob.position.set(0, 0, 0.6);
     group.add(knob);
 
-    // Label
     const canvas = document.createElement('canvas');
     canvas.width = 128; canvas.height = 64;
     const ctx = canvas.getContext('2d');
@@ -393,29 +375,6 @@ const createHeater = () => {
     group.add(label);
 
     return group;
-};
-
-const createLabel = (text: string) => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-        ctx.fillStyle = 'rgba(0,0,0,0)';
-        ctx.clearRect(0,0, 256, 64);
-        ctx.shadowColor = "black";
-        ctx.shadowBlur = 4;
-        ctx.font = 'bold 28px Inter, Arial';
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, 128, 32);
-    }
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.9 });
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(1, 0.25, 1);
-    return sprite;
 };
 
 const createAnalyzerMachine = () => {
@@ -456,6 +415,29 @@ const createAnalyzerMachine = () => {
     screen.position.set(0, 0.1, 0.16);
     group.add(screen);
     return { group, texture, canvas };
+};
+
+const createLabel = (text: string) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.clearRect(0,0, 256, 64);
+        ctx.shadowColor = "black";
+        ctx.shadowBlur = 4;
+        ctx.font = 'bold 28px Inter, Arial';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 128, 32);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.9 });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(1, 0.25, 1);
+    return sprite;
 };
 
 // -----------------------------------------------------------------------------
@@ -742,6 +724,20 @@ const LabScene: React.FC<{
         scene.background = new THREE.Color(0x050b14);
         sceneRef.current = scene;
 
+        // TASK 4: ENVIRONMENT MAPPING (HDRI)
+        if (quality === 'AAA') {
+            const pmremGenerator = new THREE.PMREMGenerator(new THREE.WebGLRenderer());
+            pmremGenerator.compileEquirectangularShader();
+            new RGBELoader()
+                .setPath('https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/')
+                .load('empty_warehouse_01_1k.hdr', function (texture) {
+                    const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+                    scene.environment = envMap;
+                    texture.dispose();
+                    pmremGenerator.dispose();
+                });
+        }
+
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 8, 12);
         cameraRef.current = camera;
@@ -749,7 +745,7 @@ const LabScene: React.FC<{
         const renderer = new THREE.WebGLRenderer({ antialias: quality === 'AAA', alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'AAA' ? 2 : 1));
-        renderer.shadowMap.enabled = quality === 'AAA'; // MODULE 2
+        renderer.shadowMap.enabled = quality === 'AAA';
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 0.8;
@@ -760,11 +756,35 @@ const LabScene: React.FC<{
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        const bloomPass = new UnrealBloomPass(
-            new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.6, 0.2, 0.85
-        );
-        composer.addPass(bloomPass);
+
+        if (quality === 'AAA') {
+            // SSAO
+            const ssaoPass = new SSAOPass(scene, camera, window.innerWidth, window.innerHeight);
+            ssaoPass.kernelRadius = 16;
+            ssaoPass.minDistance = 0.005;
+            ssaoPass.maxDistance = 0.1;
+            composer.addPass(ssaoPass);
+
+            // Bloom
+            const bloomPass = new UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                0.6, 0.2, 0.85
+            );
+            composer.addPass(bloomPass);
+
+            // Bokeh / DoF
+            const bokehPass = new BokehPass(scene, camera, {
+                focus: 10.0,
+                aperture: 0.0001,
+                maxblur: 0.01,
+            });
+            composer.addPass(bokehPass);
+
+            // Output encoding fix
+            const outputPass = new OutputPass();
+            composer.addPass(outputPass);
+        }
+
         composerRef.current = composer;
 
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -772,20 +792,17 @@ const LabScene: React.FC<{
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        // MODULE 2: Lighting Overhaul (3-Point Setup)
-        // Key Light
+        // Lighting
         const spotLight = new THREE.SpotLight(0xffffff, 300);
         spotLight.position.set(5, 10, 5);
         spotLight.castShadow = true;
         spotLight.shadow.bias = -0.0001;
         scene.add(spotLight);
 
-        // Rim Light
         const rimLight = new THREE.DirectionalLight(0x00f3ff, 2.0);
         rimLight.position.set(-5, 5, -5);
         scene.add(rimLight);
 
-        // Fill Light
         const fillLight = new THREE.PointLight(0xbd00ff, 1.5);
         fillLight.position.set(0, -2, 2);
         scene.add(fillLight);
@@ -796,7 +813,6 @@ const LabScene: React.FC<{
         shelf.receiveShadow = true;
         scene.add(shelf);
 
-        // HEATER (Magnetic Stirrer)
         const heater = createHeater();
         heater.position.set(-1.5, 0.19, 0);
         scene.add(heater);
@@ -822,7 +838,6 @@ const LabScene: React.FC<{
                     const group = meshesRef.current.get(draggedItem.current.id);
                     if (group) {
                         group.position.copy(target.add(draggedItem.current.offset));
-                        // Lift height
                         group.position.y = Math.max(0.2, THREE.MathUtils.lerp(group.position.y, 2.5, 0.2));
                     }
                 }
@@ -855,8 +870,6 @@ const LabScene: React.FC<{
                     let poured = false;
                     meshesRef.current.forEach((otherGroup, otherId) => {
                         if (id !== otherId && !poured && otherId !== 'ANALYZER_MACHINE') {
-                             // MODULE 5: Algorithmic Determinism (Physics Lock)
-                             // Explicit 2D Euclidean Distance (XZ plane)
                             const dx = otherGroup.position.x - myPos.x;
                             const dz = otherGroup.position.z - myPos.z;
                             const distance = Math.sqrt(dx * dx + dz * dz);
@@ -865,11 +878,9 @@ const LabScene: React.FC<{
                             const sourceChem = CHEMICALS[sourceContainer?.contents?.chemicalId || 'H2O'];
 
                             if (distance < 1.4) {
-                                // Default Pour for liquids/close range
                                 onPourRef.current(id, otherId);
                                 poured = true;
                             } else if (distance < 0.8 && sourceContainer?.contents && (sourceChem.meshStyle === 'rock' || sourceChem.type === 'solid' || sourceChem.meshStyle === 'mound')) {
-                                // Explicit Solid Drop
                                 onPourRef.current(id, otherId, sourceContainer.contents.volume);
                                 poured = true;
                             }
@@ -931,7 +942,6 @@ const LabScene: React.FC<{
             controls.update();
             particleSystemRef.current?.update();
 
-            // HEATER UPDATE LOOP
             if (heaterRef.current) {
                 const plate = heaterRef.current.children.find(c => c.userData.isHeaterPlate) as THREE.Mesh;
                 if (plate) {
@@ -942,7 +952,6 @@ const LabScene: React.FC<{
                 }
             }
 
-            // ANALYZER UPDATE LOOP
             if (analyzerRef.current) {
                 let foundChem = null, foundTemp = 25;
                 const analyzerPos = analyzerRef.current.group.position;
@@ -961,7 +970,6 @@ const LabScene: React.FC<{
                 updateAnalyzerDisplay(foundChem, foundTemp);
             }
 
-            // MODULE 2: Conditional Render Pipeline
             if (quality === 'AAA' && composerRef.current) {
                 composerRef.current.render();
             } else if (rendererRef.current && sceneRef.current && cameraRef.current) {
@@ -988,7 +996,7 @@ const LabScene: React.FC<{
             mountRef.current?.removeChild(renderer.domElement);
             renderer.dispose();
         };
-    }, [quality]); // Re-init on quality change
+    }, [quality]);
 
     useEffect(() => {
         if (!sceneRef.current || !isSceneReady) return;
@@ -1031,20 +1039,16 @@ const LabScene: React.FC<{
                          flask.add(innerLiquid);
                          mesh = flask;
                     } else if (chem.meshStyle === 'rock') {
-                        // High-poly rock
                         mesh = new THREE.Mesh(createRockGeometry(quality), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true }));
                     } else if (chem.meshStyle === 'crystal') {
-                        // Complex crystal
                         mesh = new THREE.Mesh(createCrystalGeometry(), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true }));
                     } else if (chem.meshStyle === 'mound') {
                         mesh = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 1.0 }));
                     } else if (chem.meshStyle === 'canister') {
                         mesh = new THREE.Mesh(createCanisterGeometry(), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.4 }));
-                        // Color Band
                         const band = new THREE.Mesh(new THREE.CylinderGeometry(0.305, 0.305, 0.1, 64), new THREE.MeshBasicMaterial({ color }));
                         band.position.y = 0.5;
                         mesh.add(band);
-                        // Metallic Valve
                         const valve = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.15, 32), new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 }));
                         valve.position.y = 0.85;
                         mesh.add(valve);
@@ -1066,10 +1070,9 @@ const LabScene: React.FC<{
             }
             if (draggedItem.current?.id !== container.id) group.position.lerp(new THREE.Vector3(...container.position), 0.2);
 
-            // FIX: Update liquid mesh OR hide it if empty
             if (liquidMesh) {
                 if (container.contents) {
-                    liquidMesh.visible = true; // Make sure it's visible
+                    liquidMesh.visible = true;
                     const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
                     const mat = liquidMesh.material as THREE.MeshPhysicalMaterial;
@@ -1079,7 +1082,6 @@ const LabScene: React.FC<{
                         const heatFactor = Math.min((temp - 100) / 500, 1);
                         const glowColor = new THREE.Color(baseColor).lerp(new THREE.Color(0xff4400), heatFactor);
                         mat.color.copy(glowColor);
-                        // CRASH FIX: Check if attenuationColor exists before copying (FAST mode uses StandardMaterial which lacks it)
                         if ('attenuationColor' in mat) {
                             (mat as any).attenuationColor.copy(glowColor);
                         }
@@ -1094,7 +1096,6 @@ const LabScene: React.FC<{
                         mat.emissiveIntensity = 0;
                     }
                 } else {
-                    // EMPTY STATE: Shrink liquid to zero
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2);
                     if (liquidMesh.scale.y < 0.01) liquidMesh.visible = false;
                 }
