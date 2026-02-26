@@ -454,13 +454,17 @@ const App: React.FC = () => {
 
                 if (aiServiceRef.current) {
                     // We don't await here to avoid blocking the render loop
-                    const detail = `Đã trộn ${CHEMICALS[source.contents.chemicalId].name} (${source.contents.chemicalId}) vào ${CHEMICALS[targetChemId].name} (${targetChemId}). Tạo ra ${mixResult.reaction!.productName}.`;
+                    // Fallback names for safety if contents are momentarily null/undefined
+                    const sourceName = source.contents ? CHEMICALS[source.contents.chemicalId]?.name : 'Unknown';
+                    const sourceIdLog = source.contents ? source.contents.chemicalId : 'Unknown';
+
+                    const detail = `Đã trộn ${sourceName} (${sourceIdLog}) vào ${CHEMICALS[targetChemId].name} (${targetChemId}). Tạo ra ${mixResult.reaction!.productName}.`;
                     const kineticNote = mixResult.activeReaction ? ` Phản ứng diễn ra trong ${(mixResult.activeReaction.duration / 1000).toFixed(1)}s.` : '';
 
                     // Capture current state snapshot for the observation
                     const labState = containers.map(c => ({
                         id: c.id,
-                        contents: c.contents ? { chem: c.contents.chemicalId, vol: c.contents.volume.toFixed(2), temp: c.contents.temperature.toFixed(1) } : 'Empty'
+                        contents: c.contents ? { chem: c.contents.chemicalId, vol: c.contents.volume.toFixed(2), temp: (c.contents.temperature || 25).toFixed(1) } : 'Empty'
                     }));
 
                     setIsChatOpen(true);
@@ -483,7 +487,7 @@ const App: React.FC = () => {
                     chemicalId: c.contents.chemicalId,
                     chemicalName: CHEMICALS[c.contents.chemicalId]?.name,
                     volume: c.contents.volume.toFixed(2),
-                    temperature: c.contents.temperature.toFixed(1)
+                    temperature: (c.contents.temperature || 25).toFixed(1)
                 } : 'Empty'
             }));
 
