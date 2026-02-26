@@ -353,11 +353,6 @@ const App: React.FC = () => {
         }));
     }, []);
 
-    // NEW: Handle Solid Drops (Sodium -> Water)
-    const handleDrop = useCallback((sourceId: string, targetId: string) => {
-        handlePour(sourceId, targetId, 1.0); // Pour everything (solid chunk)
-    }, []);
-
     const handlePour = useCallback(async (sourceId: string, targetId: string, amountOverride?: number) => {
         const source = containers.find(c => c.id === sourceId);
         const target = containers.find(c => c.id === targetId);
@@ -474,6 +469,14 @@ const App: React.FC = () => {
             });
         }
     }, [containers]);
+
+    // NEW: Handle Solid Drops (Sodium -> Water)
+    const handleDrop = useCallback((sourceId: string, targetId: string) => {
+        // Logic: Dropping a solid container (rock/jar) into a beaker triggers a full pour
+        // but physically we might want to respawn the rock at its origin or delete it
+        // For this sim, we treat "dropping" as "adding the solid chunk"
+        handlePour(sourceId, targetId, 1.0); // 1.0 = 100% volume transfer (whole chunk)
+    }, [handlePour]);
 
     const handleUserChat = async (message: string) => {
         if (aiServiceRef.current) {

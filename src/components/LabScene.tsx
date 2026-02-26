@@ -76,10 +76,10 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
     }, [container.type]);
 
     const liquidProps = useMemo(() => {
-        if (container.type === 'beaker') return { radius: 0.46, height: 1.0 };
-        if (container.type === 'test_tube') return { radius: 0.13, height: 1.1 };
-        if (container.type === 'bottle') return { radius: 0.38, height: 0.5 };
-        if (container.type === 'burette') return { radius: 0.05, height: 1.0 };
+        if (container.type === 'beaker') return { radius: 0.44, height: 1.0 }; // Fixed clipping (0.46 -> 0.44)
+        if (container.type === 'test_tube') return { radius: 0.12, height: 1.1 }; // Fixed clipping
+        if (container.type === 'bottle') return { radius: 0.36, height: 0.5 }; // Fixed clipping (0.38 -> 0.36)
+        if (container.type === 'burette') return { radius: 0.04, height: 1.0 };
         return null;
     }, [container.type]);
 
@@ -566,11 +566,16 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                                     const sourcePos = target.position;
                                     const sourceType = target.userData.type;
 
+                                    // Check specifically for SOLID dropping into LIQUID container (Reaction trigger)
+                                    // or LIQUID pouring into LIQUID container
                                     meshesMap.current.forEach((other, otherId) => {
                                         if (otherId !== id) {
+                                            // Priority 1: Pouring (Liquid -> Container)
                                             if (PhysicsEngine.checkPourCondition(sourcePos, other.group.position, id, otherId)) {
                                                 props.onPour(id, otherId);
                                             }
+                                            // Priority 2: Dropping (Solid -> Container)
+                                            // Ensure we pass the source ID and target ID correctly
                                             else if (PhysicsEngine.checkDropCondition(sourcePos, other.group.position, sourceType)) {
                                                 props.onDrop(id, otherId);
                                             }
