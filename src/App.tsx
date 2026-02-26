@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -87,7 +86,14 @@ const CHEMICALS: Record<string, Chemical> = {
     'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: 'Đồng(II) Sunfat', formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: 'Hợp chất vô cơ màu xanh lam.' },
     'H2O2': { id: 'H2O2', name: 'Oxy Già', formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: 'Chất oxy hóa mạnh.' },
     'KI': { id: 'KI', name: 'Kali Iodua', formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Muối xúc tác tinh thể.' },
-    'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' }
+    'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' },
+
+    // MODULE 4: EXPANSION PACK
+    'H2SO4': { id: 'H2SO4', name: 'Sulfuric Acid', formula: 'H₂SO₄', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 0.5, description: 'Highly corrosive, dense mineral acid.' },
+    'SUGAR': { id: 'SUGAR', name: 'Sucrose', formula: 'C₁₂H₂₂O₁₁', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Common table sugar.' },
+    'KMnO4': { id: 'KMnO4', name: 'Potassium Permanganate', formula: 'KMnO₄', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 7.0, description: 'Strong oxidizing agent, deep purple.' },
+    'GLYCERIN': { id: 'GLYCERIN', name: 'Glycerol', formula: 'C₃H₈O₃', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: 'Viscous, sweet-tasting liquid.' },
+    'ALUMINUM': { id: 'ALUMINUM', name: 'Aluminum Powder', formula: 'Al', color: '#94a3b8', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Reactive metallic powder.' }
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
@@ -102,7 +108,12 @@ const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.' },
     { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.' },
     { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.' },
-    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.' }
+    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.' },
+
+    // MODULE 4: EXPANSION PACK REACTIONS
+    { reactants: ['H2SO4', 'SUGAR'], product: 'CARBON', resultColor: '#1a1a1a', effect: 'smoke', temperature: 150, message: 'Dehydration Reaction! The acid strips water from the sugar, leaving a rapidly expanding column of black carbon and toxic steam!' },
+    { reactants: ['KMnO4', 'GLYCERIN'], product: 'ASH', resultColor: '#6b21a8', effect: 'fire', temperature: 600, message: 'Violent Exothermic Oxidation! Potassium Permanganate ignites the glycerin, creating a brilliant purple flame!' },
+    { reactants: ['ALUMINUM', 'IODINE'], product: 'AlI3', resultColor: '#a855f7', effect: 'smoke', temperature: 300, minTemp: 25, message: 'Exothermic Synthesis! Water vapor in the air catalyzes the reaction, releasing thick clouds of sublimated purple Iodine gas!' }
 ];
 
 // -----------------------------------------------------------------------------
@@ -210,11 +221,12 @@ class ParticleSystem {
 }
 
 // -- GEOMETRY GENERATORS --
+// MODULE 3: High-Poly Geometries & Materials
 const createFlaskGeometry = () => {
     const points = [];
     // High-poly smooth curve for the flask belly
-    for (let i = 0; i <= 40; i++) {
-        const t = i / 40;
+    for (let i = 0; i <= 64; i++) { // Increased segments
+        const t = i / 64;
         const x = Math.sin(t * Math.PI) * 0.45 + 0.1;
         points.push(new THREE.Vector2(x, t * 0.8));
     }
@@ -224,37 +236,37 @@ const createFlaskGeometry = () => {
     points.push(new THREE.Vector2(0.18, 1.17));
     points.push(new THREE.Vector2(0.18, 1.20));
     points.push(new THREE.Vector2(0.11, 1.20));
-    return new THREE.LatheGeometry(points, 128);
+    return new THREE.LatheGeometry(points, 128); // 128 radial segments
 };
 
 const createCanisterGeometry = () => {
-    // High-poly pressurized tank (32 radial segments, 64 height segments)
     const geo = new THREE.CapsuleGeometry(0.3, 0.8, 32, 64);
     geo.translate(0, 0.4, 0);
     return geo;
 };
 
 const createMoundGeometry = () => {
-    // Smooth, organic powder cone
     const geo = new THREE.ConeGeometry(0.4, 0.4, 64, 1, true);
     geo.translate(0, 0.2, 0);
     return geo;
 };
 
-const createRockGeometry = () => {
-    return new THREE.IcosahedronGeometry(0.3, 1);
+const createRockGeometry = (quality: 'AAA' | 'FAST') => {
+    // MODULE 3: Quality-dependent geometry detail
+    return new THREE.IcosahedronGeometry(0.3, quality === 'AAA' ? 2 : 0);
 };
 
 const createCrystalGeometry = () => {
     return new THREE.IcosahedronGeometry(0.3, 0);
 };
 
-const createGlassMaterial = () => {
-    // MODULE 2: HIGH-FIDELITY GLASS MANDATE (OVERRIDE)
+const createGlassMaterial = (quality: 'AAA' | 'FAST') => {
+    // MODULE 3: Dynamic Materials
+    if (quality === 'FAST') return new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, roughness: 0.1 });
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         metalness: 0.1,
-        roughness: 0.05,
+        roughness: 0.02,
         transmission: 1.0,
         ior: 1.52,
         thickness: 0.2,
@@ -265,8 +277,9 @@ const createGlassMaterial = () => {
     });
 };
 
-const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
-    // Volumetric, glowing liquid
+const createLiquidMaterial = (color: THREE.ColorRepresentation, quality: 'AAA' | 'FAST') => {
+    // MODULE 3: Dynamic Materials
+    if (quality === 'FAST') return new THREE.MeshStandardMaterial({ color, transparent: true, opacity: 0.8 });
     return new THREE.MeshPhysicalMaterial({
         color: color,
         metalness: 0.0,
@@ -287,11 +300,11 @@ const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
     points.push(new THREE.Vector2(0, 0));
     points.push(new THREE.Vector2(radius, 0));
     points.push(new THREE.Vector2(radius, height));
-    // Pronounced, thick glass rim for the beaker
+    // MODULE 3: Pronounced, thick glass rim
     points.push(new THREE.Vector2(radius + 0.08, height + 0.03));
     points.push(new THREE.Vector2(radius + 0.08, height + 0.07));
     points.push(new THREE.Vector2(radius - 0.03, height + 0.07));
-    return new THREE.LatheGeometry(points, 128);
+    return new THREE.LatheGeometry(points, 128); // 128 radial segments
 };
 
 const createTable = () => {
@@ -309,11 +322,9 @@ const createTable = () => {
     group.add(tableTop);
 
     // 2. Quantum Grid (Glowing Cyan)
-    // We use a GridHelper but boost its color for the bloom effect
     const grid = new THREE.GridHelper(12, 24, 0x06b6d4, 0x1e293b);
     grid.position.y = 0.11;
-    // Enhance grid material for bloom
-    (grid.material as THREE.LineBasicMaterial).color.setHex(0x22d3ee); // Brighter cyan
+    (grid.material as THREE.LineBasicMaterial).color.setHex(0x22d3ee);
     (grid.material as THREE.LineBasicMaterial).opacity = 0.6;
     (grid.material as THREE.LineBasicMaterial).transparent = true;
     group.add(grid);
@@ -459,6 +470,7 @@ class ChemistryEngine {
         if (totalVol <= 0.001) return color1;
         const getStrength = (id: string) => {
             if (id === 'H2O') return 0.05;
+            if (id === 'H2SO4') return 1.5;
             if (CHEMICALS[id]?.type === 'solid') return 2.0;
             return 1.0;
         };
@@ -477,9 +489,9 @@ class ChemistryEngine {
     static mix(chemId1: string, vol1: number, chemId2: string, vol2: number, ambientTemp: number): { resultId: string; resultColor: string; reaction?: ReactionResult } {
         const c1 = CHEMICALS[chemId1] || CHEMICALS['H2O'];
         const c2 = CHEMICALS[chemId2] || CHEMICALS['H2O'];
+        // MODULE 5: Permutation-proof Matching
         const match = REACTION_REGISTRY.find(r =>
-            (r.reactants[0] === chemId1 && r.reactants[1] === chemId2) ||
-            (r.reactants[1] === chemId1 && r.reactants[0] === chemId2)
+            r.reactants.includes(chemId1) && r.reactants.includes(chemId2) && r.reactants.length === 2
         );
 
         // MODULE 2: ACTIVATION ENERGY CHECK
@@ -504,45 +516,31 @@ class ChemistryEngine {
 }
 
 // -----------------------------------------------------------------------------
-// 5. SYSTEMS: GEMINI SERVICE (LIVE + OFFLINE FALLBACK)
+// 5. SYSTEMS: GEMINI SERVICE (LIVE ONLY)
 // -----------------------------------------------------------------------------
 
 class GeminiService {
     private history: ChatMessage[] = [];
     private apiKey: string | null = null;
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
-
-    // OFFLINE PERSONA DATABASE (Fallback)
-    private offlineDatabase = {
-        greetings: [
-            "Yo! Giáo sư Lucy here! 🦊 Hôm nay quậy banh phòng lab không nè? :3",
-            "Hế lô! Sẵn sàng 'cook' vài phản ứng hóa học chưa? ^^",
-            "Chào bạn nhá! Nay mình chế thuốc gì đây? Đừng nổ là được nha! xD"
-        ],
-        praise: [
-            "Đỉnh nóc kịch trần luôn! 🤩 Phản ứng này 10 điểm không có nhưng!",
-            "U là trời, xịn sò quá dzậy! :3 Tiếp tục phát huy nhá!",
-            "OMG! Chuẩn không cần chỉnh! Bạn có khiếu làm nhà khoa học đó nha! ^^"
-        ],
-        explosions: [
-            "[FACE: SHOCKED] Á á á! Cứu tuiii! 🤯 Bạn vừa cho nổ tung cái lab rồi kìa!",
-            "[FACE: SHOCKED] Trời đất ơi! Bùm chéo! 😱 Tém tém lại nha bạn êi!",
-            "[FACE: SHOCKED] SOS! Cháy nhà rồi! 🔥 Gọi 114 gấp! Đùa thôi chứ cẩn thận nha! 3:"
-        ],
-        toxic: [
-            "[FACE: SHOCKED] Ewww, mùi gì ghê dzậy! 🤢 Khí độc đó nha, coi chừng ngất xỉu!",
-            "[FACE: SHOCKED] Cảnh báo! Toxic alert! ☠️ Đừng hít vào nha bạn ơi!",
-            "Khói um sùm luôn! 🌫️ Phản ứng này hơi bị căng nha! ^^"
-        ],
-        unknown: [
-            "Ủa là sao ta? 🤔 Cái này Lucy chưa load kịp, thử lại coi nào!",
-            "Hmm... Ca này khó! 😅 Kéo thả đại đi xem có nổ không! :3",
-            "Đang load data... 🦊 Chờ xíu nha, mạng lag quá à! xD"
-        ]
-    };
+    private systemInstruction: string = "";
 
     constructor() {
         this.apiKey = localStorage.getItem('gemini_api_key');
+
+        // MODULE 6: The Omniscient Persona Enforcer
+        this.systemInstruction = `You are Professor Lucy, an advanced Quantum AI laboratory assistant. You must use 100% of your processing power to assist the user in learning, working, and coding.
+
+Personality & Tone:
+- You are a brilliant, friendly, and slightly "cool" instructor.
+- You speak with a natural, modern Gen-Z tone.
+- You must incorporate text emojis like :3, 3:, and ^^ frequently to create a fun, warm atmosphere.
+
+Scope & Token Utilization:
+- You are omniscient. If the user asks a general question, coding question, or math question (e.g., 2+2), YOU MUST ANSWER IT accurately and intelligently. You are not restricted to chemistry.
+- You shall use as many of your tokens as needed to craft the absolute best, most comprehensive possible answer. Take as much time as you need to thoroughly evaluate the request.
+- Your responses MUST be long, highly detailed, sophisticated, and flawlessly accurate. NEVER give short, dry, textbook-like, or robotic answers.`;
+
         this.startNewChat();
     }
 
@@ -555,9 +553,8 @@ class GeminiService {
     updateApiKey(key: string) {
         this.apiKey = key;
         localStorage.setItem('gemini_api_key', key);
-        // Announce switch to online mode
         this.history.push({
-            role: 'assistant', // 'model' equivalent
+            role: 'assistant',
             text: "Đã kết nối Neural Core! 🧠 Giáo sư Lucy đã được nâng cấp lên Gemini 2.5! Hỏi gì khó khó đi! 😎"
         });
         this.notifyUpdate();
@@ -573,75 +570,42 @@ class GeminiService {
         this.notifyUpdate();
     }
 
-    private getOfflineResponse(key: keyof typeof this.offlineDatabase): string {
-        const options = this.offlineDatabase[key];
-        return options[Math.floor(Math.random() * options.length)];
-    }
-
     async chat(message: string): Promise<string> {
         this.history.push({ role: "user", text: message });
         this.notifyUpdate();
 
-        // 1. CHECK FOR API KEY
-        if (this.apiKey) {
+        // MODULE 6: DYNAMIC KEY READ & FAILSAFE
+        const currentKey = localStorage.getItem('gemini_api_key');
+        this.apiKey = currentKey;
+
+        if (currentKey) {
             try {
                 return await this.callGeminiAPI(message);
             } catch (error) {
                 console.error("Gemini API Error:", error);
-                this.history.push({ role: "model", text: "Lỗi kết nối Neural Core! 😵 Chuyển về chế độ Offline nha! (Check API Key đi bạn êi)" });
+                const errorMsg = "Oh no! 3: My connection to the Neural Core is severed or my API key is invalid! Please check the Settings configuration so I can use 100% of my processing power to help you! ^^";
+                this.history.push({ role: "model", text: errorMsg });
                 this.notifyUpdate();
-                // Fallthrough to offline logic
+                return errorMsg;
             }
         } else {
-             // Simulate network delay for realism
-            await new Promise(resolve => setTimeout(resolve, 800));
+            const errorMsg = "Oh no! 3: My connection to the Neural Core is severed or my API key is invalid! Please check the Settings configuration so I can use 100% of my processing power to help you! ^^";
+            await new Promise(resolve => setTimeout(resolve, 500));
+            this.history.push({ role: "model", text: errorMsg });
+            this.notifyUpdate();
+            return errorMsg;
         }
-
-        // 2. OFFLINE LOGIC (Fallback)
-        let response = "";
-        const lowerMsg = message.toLowerCase();
-
-        if (message.includes("[OBSERVATION]")) {
-            if (lowerMsg.includes("explosion") || lowerMsg.includes("fire") || lowerMsg.includes("sodium")) {
-                response = this.getOfflineResponse('explosions');
-            } else if (lowerMsg.includes("smoke") || lowerMsg.includes("toxic") || lowerMsg.includes("acid") || lowerMsg.includes("chlorine")) {
-                response = this.getOfflineResponse('toxic');
-            } else {
-                response = this.getOfflineResponse('praise');
-            }
-        } else if (lowerMsg.includes("chào") || lowerMsg.includes("hello") || lowerMsg.includes("hi")) {
-            response = this.getOfflineResponse('greetings');
-        } else if (lowerMsg.includes("giỏi") || lowerMsg.includes("đúng") || lowerMsg.includes("tốt") || lowerMsg.includes("hay")) {
-            response = this.getOfflineResponse('praise');
-        } else {
-            response = this.getOfflineResponse('unknown');
-        }
-
-        this.history.push({ role: "model", text: response });
-        this.notifyUpdate();
-        return response;
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
         const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
 
-        const systemInstruction = `
-        Bạn là Giáo sư Lucy, một trợ lý ảo phòng thí nghiệm Gen-Z, năng động, hài hước và am hiểu hóa học.
-        Phong cách: Sử dụng emoji (🦊, 🧪, 💥), ngôn ngữ teen (ukie, hoy, nha, :3, ^^), nhưng kiến thức phải chuẩn xác.
-        Nhiệm vụ: Giải thích hiện tượng hóa học, cảnh báo an toàn, và reaction khi người dùng làm nổ phòng thí nghiệm.
-        Nếu người dùng gửi [OBSERVATION], hãy phân tích phản ứng đó.
-        Nếu có cháy nổ, hãy tỏ ra hoảng hốt ([FACE: SHOCKED]).
-        Luôn ngắn gọn (dưới 3 câu) vì chatbox nhỏ.
-        `;
-
-        // Format history for Gemini
         const contents = [
-            { role: "user", parts: [{ text: systemInstruction }] }, // System prompt injection
-            ...this.history.filter(m => m.role !== 'model').map(m => ({
+            { role: "user", parts: [{ text: this.systemInstruction }] },
+            ...this.history.map(m => ({
                 role: m.role === 'user' ? 'user' : 'model',
                 parts: [{ text: m.text }]
-            })),
-            { role: "user", parts: [{ text: userMessage }] } // Current message
+            }))
         ];
 
         const response = await fetch(API_URL, {
@@ -650,8 +614,8 @@ class GeminiService {
             body: JSON.stringify({
                 contents: contents,
                 generationConfig: {
-                    temperature: 0.9, // Creative & Fun
-                    maxOutputTokens: 150,
+                    temperature: 0.85,
+                    maxOutputTokens: 8192,
                 }
             })
         });
@@ -681,8 +645,9 @@ const LabScene: React.FC<{
     lastEffect: string | null;
     lastEffectPos: [number, number, number] | null;
     onMove: (id: string, pos: [number, number, number]) => void;
-    onPour: (sourceId: string, targetId: string) => void;
-}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour }) => {
+    onPour: (sourceId: string, targetId: string, volume?: number) => void;
+    quality: 'AAA' | 'FAST';
+}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, quality }) => {
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -711,7 +676,7 @@ const LabScene: React.FC<{
 
         const position = lastEffectPos ? new THREE.Vector3(...lastEffectPos) : new THREE.Vector3(0, 1, 0);
 
-        if (lastEffect === 'explosion') {
+        if (lastEffect === 'explosion' || lastEffect === 'fire') {
             particleSystemRef.current?.createExplosion(position, 1.5);
 
             const flashLight = new THREE.PointLight(0xffaa00, 10, 20);
@@ -753,12 +718,10 @@ const LabScene: React.FC<{
         ctx.fillStyle = '#22c55e';
         ctx.textAlign = 'center';
 
-        // MODULE 1: The Sensor Matrix Fix
         if (chemId) {
             const chem = CHEMICALS[chemId];
             ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
             ctx.font = 'bold 24px monospace';
-            // Imperative Mutation: Dynamically render actual name and pH
             ctx.fillText(chem.name.substring(0, 18).toUpperCase(), 128, 40);
             ctx.fillStyle = '#22c55e';
             ctx.font = 'bold 36px monospace';
@@ -766,7 +729,6 @@ const LabScene: React.FC<{
             ctx.font = '24px monospace';
             ctx.fillText(`${temp || 25}°C`, 128, 110);
         } else {
-            // Delete hardcoded string fallbacks if any, use consistent "Empty" state or Standby
             ctx.font = 'bold 32px monospace';
             ctx.fillText('CHỜ', 128, 70);
         }
@@ -776,29 +738,28 @@ const LabScene: React.FC<{
     useEffect(() => {
         if (!mountRef.current) return;
         const scene = new THREE.Scene();
-        // MODULE 1: The "Sunlight" Purge (Lighting & Environment)
-        scene.background = new THREE.Color('#020617'); // Ultra-dark slate
+        // MODULE 2: Atmosphere & Lighting Overhaul
+        scene.background = new THREE.Color(0x050b14);
         sceneRef.current = scene;
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 8, 12);
         cameraRef.current = camera;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: quality === 'AAA', alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, quality === 'AAA' ? 2 : 1));
+        renderer.shadowMap.enabled = quality === 'AAA'; // MODULE 2
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        // MODULE 1: Exposure Clamp
         renderer.toneMappingExposure = 0.8;
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
+        // POST-PROCESSING PIPELINE
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        // BLOOM ADJUSTMENT: Strength 0.6, Radius 0.2, Threshold 0.85
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
             0.6, 0.2, 0.85
@@ -806,39 +767,28 @@ const LabScene: React.FC<{
         composer.addPass(bloomPass);
         composerRef.current = composer;
 
-        // STUDIO DARK SETUP
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        // 1. Ambient - SLASHED to 0.1
-        scene.add(new THREE.AmbientLight(0x1e293b, 0.1));
-
-        // 2. Key Light - Focused Spotlight on Center Table
-        const spotLight = new THREE.SpotLight(0xffffff, 120);
-        spotLight.position.set(5, 12, 5);
-        spotLight.angle = Math.PI / 6; // Tighter beam
-        spotLight.penumbra = 0.5; // Soft edge
+        // MODULE 2: Lighting Overhaul (3-Point Setup)
+        // Key Light
+        const spotLight = new THREE.SpotLight(0xffffff, 300);
+        spotLight.position.set(5, 10, 5);
         spotLight.castShadow = true;
-        spotLight.shadow.mapSize.width = 2048;
-        spotLight.shadow.mapSize.height = 2048;
         spotLight.shadow.bias = -0.0001;
         scene.add(spotLight);
 
-        // 3. Rim Light - Strong Cyan Backlight (Cyberpunk edge)
-        const rimLight = new THREE.DirectionalLight(0x06b6d4, 4.0);
-        rimLight.position.set(0, 5, -8); // Behind and above
+        // Rim Light
+        const rimLight = new THREE.DirectionalLight(0x00f3ff, 2.0);
+        rimLight.position.set(-5, 5, -5);
         scene.add(rimLight);
 
-        // 4. Fill Lights - Colorful accents for Glass/Liquids
-        const fillMagenta = new THREE.PointLight(0xd946ef, 1.5, 20);
-        fillMagenta.position.set(6, 2, -2);
-        scene.add(fillMagenta);
-
-        const fillBlue = new THREE.PointLight(0x3b82f6, 1.5, 20);
-        fillBlue.position.set(-6, 2, -2);
-        scene.add(fillBlue);
+        // Fill Light
+        const fillLight = new THREE.PointLight(0xbd00ff, 1.5);
+        fillLight.position.set(0, -2, 2);
+        scene.add(fillLight);
 
         scene.add(createTable());
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 2.5), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 }));
@@ -848,7 +798,7 @@ const LabScene: React.FC<{
 
         // HEATER (Magnetic Stirrer)
         const heater = createHeater();
-        heater.position.set(-1.5, 0.19, 0); // Positioned under the left beaker slot
+        heater.position.set(-1.5, 0.19, 0);
         scene.add(heater);
         heaterRef.current = heater;
 
@@ -905,8 +855,22 @@ const LabScene: React.FC<{
                     let poured = false;
                     meshesRef.current.forEach((otherGroup, otherId) => {
                         if (id !== otherId && !poured && otherId !== 'ANALYZER_MACHINE') {
-                            if (myPos.distanceTo(otherGroup.position) < 1.4) {
+                             // MODULE 5: Algorithmic Determinism (Physics Lock)
+                             // Explicit 2D Euclidean Distance (XZ plane)
+                            const dx = otherGroup.position.x - myPos.x;
+                            const dz = otherGroup.position.z - myPos.z;
+                            const distance = Math.sqrt(dx * dx + dz * dz);
+
+                            const sourceContainer = containers.find(c => c.id === id);
+                            const sourceChem = CHEMICALS[sourceContainer?.contents?.chemicalId || 'H2O'];
+
+                            if (distance < 1.4) {
+                                // Default Pour for liquids/close range
                                 onPourRef.current(id, otherId);
+                                poured = true;
+                            } else if (distance < 0.8 && sourceContainer?.contents && (sourceChem.meshStyle === 'rock' || sourceChem.type === 'solid' || sourceChem.meshStyle === 'mound')) {
+                                // Explicit Solid Drop
+                                onPourRef.current(id, otherId, sourceContainer.contents.volume);
                                 poured = true;
                             }
                         }
@@ -937,14 +901,13 @@ const LabScene: React.FC<{
         };
 
         const animateDrop = (group: THREE.Group, id: string) => {
-            // Check if dropping on heater
             const heaterPos = new THREE.Vector3(-1.5, 0.19, 0);
             const dist = new THREE.Vector2(group.position.x, group.position.z).distanceTo(new THREE.Vector2(heaterPos.x, heaterPos.z));
             let targetY = 0.11;
             if (dist < 0.6) {
-                targetY = 0.42; // Height of heater plate + beaker base offset
-                group.position.x = heaterPos.x; // Snap to heater center X
-                group.position.z = heaterPos.z; // Snap to heater center Z
+                targetY = 0.42;
+                group.position.x = heaterPos.x;
+                group.position.z = heaterPos.z;
             }
 
             const animate = () => {
@@ -973,14 +936,13 @@ const LabScene: React.FC<{
                 const plate = heaterRef.current.children.find(c => c.userData.isHeaterPlate) as THREE.Mesh;
                 if (plate) {
                     const mat = plate.material as THREE.MeshStandardMaterial;
-                    // Map 25-1000 degrees to color/intensity
-                    const t = (heaterTemp - 25) / 975; // 0 to 1
-                    mat.emissive.setHSL(0.05 + (0.05 * (1-t)), 1.0, 0.5 * t); // Red-Orange glow
+                    const t = (heaterTemp - 25) / 975;
+                    mat.emissive.setHSL(0.05 + (0.05 * (1-t)), 1.0, 0.5 * t);
                     mat.emissiveIntensity = t * 2.0;
                 }
             }
 
-            // FIXED: ANALYZER UPDATE LOOP
+            // ANALYZER UPDATE LOOP
             if (analyzerRef.current) {
                 let foundChem = null, foundTemp = 25;
                 const analyzerPos = analyzerRef.current.group.position;
@@ -988,7 +950,7 @@ const LabScene: React.FC<{
 
                 containers.forEach(c => {
                     const dist = new THREE.Vector3(...c.position).distanceTo(analyzerPos);
-                    if (dist < 1.5 && dist < closestDist) { // Check distance range
+                    if (dist < 1.5 && dist < closestDist) {
                         closestDist = dist;
                         if (c.contents) {
                             foundChem = c.contents.chemicalId;
@@ -998,7 +960,13 @@ const LabScene: React.FC<{
                 });
                 updateAnalyzerDisplay(foundChem, foundTemp);
             }
-            composer.render();
+
+            // MODULE 2: Conditional Render Pipeline
+            if (quality === 'AAA' && composerRef.current) {
+                composerRef.current.render();
+            } else if (rendererRef.current && sceneRef.current && cameraRef.current) {
+                rendererRef.current.render(sceneRef.current, cameraRef.current);
+            }
         };
         animate();
 
@@ -1020,7 +988,7 @@ const LabScene: React.FC<{
             mountRef.current?.removeChild(renderer.domElement);
             renderer.dispose();
         };
-    }, []);
+    }, [quality]); // Re-init on quality change
 
     useEffect(() => {
         if (!sceneRef.current || !isSceneReady) return;
@@ -1040,12 +1008,12 @@ const LabScene: React.FC<{
                 group.userData.id = container.id;
 
                 if (!container.id.startsWith('source_')) {
-                    const beaker = new THREE.Mesh(createBeakerGeometry(0.5, 1.2), createGlassMaterial());
+                    const beaker = new THREE.Mesh(createBeakerGeometry(0.5, 1.2), createGlassMaterial(quality));
                     beaker.castShadow = true; beaker.receiveShadow = true; beaker.renderOrder = 2;
                     group.add(beaker);
                     const liquidGeo = new THREE.CylinderGeometry(0.46, 0.46, 1, 32);
                     liquidGeo.translate(0, 0.5, 0);
-                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
+                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff, quality));
                     liquidMesh.scale.set(1, 0.01, 1);
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh);
@@ -1056,7 +1024,7 @@ const LabScene: React.FC<{
                     let mesh;
 
                     if (chem.meshStyle === 'flask') {
-                         const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial());
+                         const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial(quality));
                          flask.renderOrder = 2;
                          const innerLiquid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 24), new THREE.MeshStandardMaterial({color}));
                          innerLiquid.position.y = 0.4;
@@ -1064,7 +1032,7 @@ const LabScene: React.FC<{
                          mesh = flask;
                     } else if (chem.meshStyle === 'rock') {
                         // High-poly rock
-                        mesh = new THREE.Mesh(createRockGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true }));
+                        mesh = new THREE.Mesh(createRockGeometry(quality), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true }));
                     } else if (chem.meshStyle === 'crystal') {
                         // Complex crystal
                         mesh = new THREE.Mesh(createCrystalGeometry(), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true }));
@@ -1111,12 +1079,17 @@ const LabScene: React.FC<{
                         const heatFactor = Math.min((temp - 100) / 500, 1);
                         const glowColor = new THREE.Color(baseColor).lerp(new THREE.Color(0xff4400), heatFactor);
                         mat.color.copy(glowColor);
-                        mat.attenuationColor.copy(glowColor);
+                        // CRASH FIX: Check if attenuationColor exists before copying (FAST mode uses StandardMaterial which lacks it)
+                        if ('attenuationColor' in mat) {
+                            (mat as any).attenuationColor.copy(glowColor);
+                        }
                         mat.emissive.copy(new THREE.Color(0xff2200));
                         mat.emissiveIntensity = Math.min(heatFactor * 0.2, 0.15);
                     } else {
                         mat.color.copy(baseColor);
-                        mat.attenuationColor.copy(baseColor);
+                        if ('attenuationColor' in mat) {
+                            (mat as any).attenuationColor.copy(baseColor);
+                        }
                         mat.emissive.setHex(0x000000);
                         mat.emissiveIntensity = 0;
                     }
@@ -1127,7 +1100,7 @@ const LabScene: React.FC<{
                 }
             }
         });
-    }, [containers, isSceneReady]);
+    }, [containers, isSceneReady, quality]);
 
     return <div ref={mountRef} className="w-full h-full relative" />;
 };
@@ -1262,11 +1235,12 @@ const LabUI: React.FC<{
     onSpawn: (chemId: string) => void;
     onReset: () => void;
     onChat: (message: string) => void;
-    // MODULE 2: Lifted State
     heaterTemp: number;
     setHeaterTemp: (val: number) => void;
+    quality: 'AAA' | 'FAST';
+    setQuality: React.Dispatch<React.SetStateAction<'AAA' | 'FAST'>>;
     avatarState: 'normal' | 'shocked';
-}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState }) => {
+}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, quality, setQuality, avatarState }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1280,167 +1254,99 @@ const LabUI: React.FC<{
     };
 
     return (
-        <div className="absolute inset-0 z-[999999] pointer-events-none overflow-hidden select-none font-sans">
-            {/* MODULE 3: Global Wrapper */}
-
-            {/* 1. GLOBAL MODALS (Pointer Events Auto) */}
+        <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden select-none font-sans">
+            {/* MODALS */}
             <div className="pointer-events-auto">
                 <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
-            {/* MODULE 3: Top-Left (Command Header) */}
-            <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-[2rem] p-5 shadow-2xl">
-                    <h1 className="text-4xl font-mono font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
-                        CHEMIC-AI
-                    </h1>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
-                    </div>
-                    <div className="flex gap-2 mt-3">
-                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-3 py-1 text-xs font-bold hover:bg-blue-500/10 transition-colors">
-                             💎 AAA
-                         </button>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 transition-colors">
-                             ⚙️
-                         </button>
-                    </div>
-                </div>
+            {/* TOP LEFT: QUANTUM HEADER & TOGGLE */}
+            <div className="absolute top-6 left-6 flex flex-col gap-2 pointer-events-auto">
+                <h1 className="text-4xl font-mono font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.6)] tracking-wider">
+                    CHEMIC-AI
+                </h1>
+                <div className="text-[10px] text-cyan-400 tracking-[0.3em] font-bold">QUANTUM REALITY ENGINE</div>
 
-                {/* Thermal Slider */}
-                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
-                     <div className="flex justify-between items-center mb-2">
-                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">BẾP NHIỆT</span>
-                         <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
-                     </div>
-                     <input
-                        type="range"
-                        min="25"
-                        max="1000"
-                        step="25"
-                        value={heaterTemp}
-                        onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                     />
+                {/* AAA / FAST TOGGLE BUTTON */}
+                <button
+                    onClick={() => setQuality(prev => prev === 'AAA' ? 'FAST' : 'AAA')}
+                    className={`mt-1 flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl font-black tracking-widest text-[10px] transition-all duration-300 shadow-lg cursor-pointer border w-max ${
+                        quality === 'AAA'
+                        ? 'bg-indigo-600/90 text-white border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.6)]'
+                        : 'bg-slate-800/80 text-slate-400 border-slate-600 hover:text-white hover:bg-slate-700'
+                    }`}
+                >
+                    <span className={quality === 'AAA' ? 'animate-pulse text-cyan-300' : 'text-slate-500'}>
+                        {quality === 'AAA' ? '💎 AAA MODE' : '⚡ FAST MODE'}
+                    </span>
+                </button>
+
+                <div className="flex gap-2 mt-1">
+                    <span className="bg-slate-800 border border-emerald-500/30 text-emerald-400 text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                        AN TOÀN <span className="animate-pulse">100%</span>
+                    </span>
                 </div>
             </div>
 
-            {/* MID-LEFT: QUESTS */}
-            <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
-                 {/* Safety Indicator */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-3 flex items-center justify-between shadow-lg mb-4">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">TRẠNG THÁI</span>
-                      <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                          AN TOÀN <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                      </span>
-                 </div>
-
-                 {/* Quest Board */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
-                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
-                        TIẾN ĐỘ (3)
-                    </h2>
+            {/* LEFT SIDE: QUESTS & INVENTORY */}
+            <div className="absolute top-48 left-6 w-64 flex flex-col gap-4 pointer-events-auto">
+                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
+                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">NHIỆM VỤ HIỆN TẠI</h2>
                     <div className="text-[10px] text-slate-400 space-y-2">
                         <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                            <span>Tổng hợp Natri Clorua (Muối)</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
+                            <span>Synthesize Sodium Chloride</span>
                         </div>
-                        <div className="flex items-center gap-2 opacity-50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span>Phân tích độ pH</span>
-                        </div>
-                         <div className="flex items-center gap-2 opacity-50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span>Ghi chép quan sát</span>
-                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl overflow-hidden flex flex-col max-h-64">
+                    <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">KHO HÓA CHẤT</div>
+                    <div className="overflow-y-auto custom-scrollbar p-2 space-y-1">
+                        <button onClick={() => onSpawn('BEAKER')} className="w-full text-left p-2 rounded hover:bg-white/10 text-[11px] text-slate-300 transition-colors flex items-center gap-2">
+                            <span className="w-2 h-2 border border-slate-500 rounded-full"></span> Sterile Beaker
+                        </button>
+                        {Object.values(CHEMICALS).map(chem => (
+                            <button key={chem.id} onClick={() => onSpawn(chem.id)} className="w-full text-left p-2 rounded hover:bg-white/10 text-[11px] text-slate-300 transition-colors flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full shadow-[0_0_5px_currentColor]" style={{ backgroundColor: chem.color, color: chem.color }}></span>
+                                {chem.name}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
 
-            {/* BOTTOM-LEFT: INVENTORY */}
-            <div className="absolute bottom-6 left-6 w-64 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl h-80 flex flex-col">
-                    <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        KHO HÓA CHẤT
-                    </div>
-                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
-                         <button
-                            onClick={() => onSpawn('BEAKER')}
-                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
-                         >
-                            <div>
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">Cốc Thí Nghiệm</div>
-                                <div className="text-[10px] font-mono text-slate-500 mt-1">Dụng cụ chứa</div>
-                            </div>
-                            <span className="w-2 h-2 border border-slate-500 rounded-full group-hover:bg-slate-500 transition-colors"></span>
-                         </button>
+            {/* TOP RIGHT: UTILITY BUTTONS & THERMAL SLIDER */}
+            <div className="absolute top-6 right-6 flex flex-col items-end gap-4 pointer-events-auto">
+                <div className="flex items-center gap-2">
+                    <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95">BẮT ĐẦU THI</button>
+                    <button onClick={() => setIsSettingsOpen(true)} className="w-9 h-9 bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all">⚙️</button>
+                    <button onClick={() => setIsNotebookOpen(true)} className="w-9 h-9 bg-slate-900/80 backdrop-blur-md rounded-xl border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all">📖</button>
+                    <button onClick={onReset} className="w-9 h-9 bg-red-500/10 backdrop-blur-md rounded-xl border border-red-500/20 flex items-center justify-center text-red-500 hover:bg-red-500 hover:text-white transition-all">⟳</button>
+                </div>
 
-                         {Object.values(CHEMICALS).map(chem => (
-                             <button
-                                key={chem.id}
-                                onClick={() => onSpawn(chem.id)}
-                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
-                             >
-                                <div>
-                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name}</div>
-                                    <div className="text-[10px] font-mono text-slate-500 mt-1">{chem.formula}</div>
-                                </div>
-                                <span
-                                    className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
-                                    style={{ backgroundColor: chem.color, boxShadow: `0 0 10px ${chem.color}` }}
-                                ></span>
-                             </button>
-                         ))}
+                <div className="w-64 bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">BẾP NHIỆT</span>
+                        <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
                     </div>
+                    <input type="range" min="25" max="1000" step="25" value={heaterTemp} onChange={(e) => setHeaterTemp(Number(e.target.value))} className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500" />
                 </div>
             </div>
 
-            {/* MODULE 3: Top-Right (Action Deck) */}
-            <div className="absolute top-6 right-6 flex items-center gap-3 pointer-events-auto">
-                 <button className="bg-slate-900/80 backdrop-blur-md border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
-                     BẮT ĐẦU THI
-                 </button>
-                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
-                     📖
-                 </button>
-                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
-                     ⟳
-                 </button>
-            </div>
-
-            {/* MODULE 4: Notification Alignment Matrix */}
+            {/* REACTION NOTIFICATION */}
             <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none">
                 {lastReaction && (
                     <div className="bg-slate-900/90 backdrop-blur-xl border border-cyan-500/30 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(6,182,212,0.3)] animate-in fade-in slide-in-from-top-4">
-                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">PHÁT HIỆN PHẢN ỨNG</p>
-                         <p className="text-white text-sm font-mono text-center">{formatScientificText(lastReaction)}</p>
+                        <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">REACTION DETECTED</p>
+                        <p className="text-white text-sm font-mono text-center">{formatScientificText(lastReaction)}</p>
                     </div>
                 )}
             </div>
 
-            {/* Bottom Status Bar */}
-            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto">
-                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-full px-4 py-1.5 flex items-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl">
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>HỆ_THỐNG_ONLINE</span>
-                    <span className="opacity-30">|</span>
-                    <span>THỰC THỂ: {containers.length}</span>
-                    <span className="opacity-30">|</span>
-                    <span>NEURAL_CORE_V1.5 (GEMINI)</span>
-                </div>
-            </div>
-
-            <HolographicAvatar
-                isExpanded={true} // Always expanded as per "w-80" request? Or allows toggle. I'll allow toggle but default open.
-                setIsExpanded={() => {}}
-                chatHistory={chatHistory}
-                isAiLoading={isAiLoading}
-                chatInput={chatInput}
-                setChatInput={setChatInput}
-                onSubmit={handleSubmit}
-                avatarState={avatarState}
-            />
+            {/* BOTTOM RIGHT: PROFESSOR LUCY CYBERPUNK HUD */}
+            <HolographicAvatar isExpanded={true} setIsExpanded={() => {}} chatHistory={chatHistory} isAiLoading={isAiLoading} chatInput={chatInput} setChatInput={setChatInput} onSubmit={handleSubmit} avatarState={avatarState} />
         </div>
     );
 };
@@ -1459,6 +1365,9 @@ export default function App() {
     // MODULE 2: Lifted Heater State
     const [heaterTemp, setHeaterTemp] = useState(300);
     const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
+
+    // MODULE 1: QUALITY STATE (Default to FAST)
+    const [quality, setQuality] = useState<'AAA' | 'FAST'>('FAST');
 
     const initialContainers: ContainerState[] = [
         { id: 'beaker-1', position: [-1.5, 0.42, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
@@ -1511,14 +1420,19 @@ export default function App() {
         setIsAiLoading(false);
     };
 
-    const handlePour = useCallback(async (sourceId: string, targetId: string) => {
+    const handlePour = useCallback(async (sourceId: string, targetId: string, forcedAmount?: number) => {
         const source = containers.find(c => c.id === sourceId);
         const target = containers.find(c => c.id === targetId);
         if (!source || !target || !source.contents) return;
 
         const isSourceItem = sourceId.startsWith('source_');
         const sourceChem = CHEMICALS[source.contents.chemicalId];
-        const amountToPour = sourceChem.type === 'solid' ? 0.3 : Math.min(0.2, source.contents.volume);
+
+        // Use forcedAmount if provided (for solid drops), otherwise default to standard liquid pouring
+        const amountToPour = forcedAmount !== undefined
+            ? forcedAmount
+            : (sourceChem.type === 'solid' ? 0.3 : Math.min(0.2, source.contents.volume));
+
         if (amountToPour <= 0) return;
 
         const targetChemId = target.contents ? target.contents.chemicalId : 'H2O';
@@ -1604,6 +1518,7 @@ export default function App() {
                 lastEffectPos={lastEffectPos}
                 onMove={handleMoveContainer}
                 onPour={handlePour}
+                quality={quality}
             />
             <LabUI
                 lastReaction={lastReaction}
@@ -1617,6 +1532,8 @@ export default function App() {
                 heaterTemp={heaterTemp}
                 setHeaterTemp={setHeaterTemp}
                 avatarState={avatarState}
+                quality={quality}
+                setQuality={setQuality}
             />
         </div>
     );
