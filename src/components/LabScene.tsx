@@ -76,10 +76,10 @@ const Container3D = forwardRef<{ group: THREE.Group }, Container3DProps>(({ cont
     }, [container.type]);
 
     const liquidProps = useMemo(() => {
-        if (container.type === 'beaker') return { radius: 0.44, height: 1.0 }; // Fixed clipping (0.46 -> 0.44)
-        if (container.type === 'test_tube') return { radius: 0.12, height: 1.1 }; // Fixed clipping
-        if (container.type === 'bottle') return { radius: 0.36, height: 0.5 }; // Fixed clipping (0.38 -> 0.36)
-        if (container.type === 'burette') return { radius: 0.04, height: 1.0 };
+        if (container.type === 'beaker') return { radius: 0.42, height: 1.0 }; // Fixed clipping (0.44 -> 0.42)
+        if (container.type === 'test_tube') return { radius: 0.11, height: 1.1 }; // Fixed clipping
+        if (container.type === 'bottle') return { radius: 0.34, height: 0.5 }; // Fixed clipping (0.36 -> 0.34)
+        if (container.type === 'burette') return { radius: 0.035, height: 1.0 };
         return null;
     }, [container.type]);
 
@@ -493,8 +493,9 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                     onDragStart={() => {
                         if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
                     }}
-                    onDragEnd={(e) => {
+                    onDragEnd={(e?: any) => {
                         if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+                        if (!e) return;
                         let target = e.object;
                         while(target.parent && !target.userData.id) target = target.parent;
                         if (target && target.userData.id === 'ANALYZER') {
@@ -549,8 +550,9 @@ const LabScene: React.FC<LabSceneProps> = (props) => {
                             onDragStart={() => {
                                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = false;
                             }}
-                            onDragEnd={(e) => {
+                            onDragEnd={(e?: any) => {
                                 if (orbitControlsRef.current) orbitControlsRef.current.enabled = true;
+                                if (!e) return;
                                 let target = e.object;
 
                                 // Climb the tree to find the top-level Container group!
