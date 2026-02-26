@@ -1,4 +1,3 @@
-// src/systems/PhysicsEngine.ts
 import * as THREE from 'three';
 
 export class PhysicsEngine {
@@ -7,8 +6,8 @@ export class PhysicsEngine {
         const distXZ = new THREE.Vector2(sourcePos.x, sourcePos.z).distanceTo(new THREE.Vector2(targetPos.x, targetPos.z));
         const distY = sourcePos.y - targetPos.y; // Source must be above target
 
-        // Heuristic: Distance < 0.6 units, source strictly above target
-        if (distXZ < 0.6 && distY > 0.1 && distY < 1.5) {
+        // Heuristic: Distance < 1.4 units (was 0.6), source strictly above target
+        if (distXZ < 1.4 && distY > 0.1 && distY < 1.5) {
             return true;
         }
         return false;
@@ -19,7 +18,8 @@ export class PhysicsEngine {
         const distXZ = new THREE.Vector2(sourcePos.x, sourcePos.z).distanceTo(new THREE.Vector2(targetPos.x, targetPos.z));
         const distY = sourcePos.y - targetPos.y;
 
-        if (distXZ < 0.4 && distY > 0.1 && distY < 1.0) {
+        // Expanded radius to 1.4 units (was 0.4) for easier drop targeting
+        if (distXZ < 1.4 && distY > 0.1 && distY < 1.0) {
             return true;
         }
         return false;

@@ -470,7 +470,7 @@ const App: React.FC = () => {
         }
     }, [containers]);
 
-    // NEW: Handle Solid Drops (Sodium -> Water)
+    // NEW: Handle Solid Drops (Sodium -> Water) - Patched for 1.4u radius logic
     const handleDrop = useCallback((sourceId: string, targetId: string) => {
         // Logic: Dropping a solid container (rock/jar) into a beaker triggers a full pour
         // but physically we might want to respawn the rock at its origin or delete it
