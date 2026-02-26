@@ -470,12 +470,9 @@ const App: React.FC = () => {
         }
     }, [containers]);
 
-    // NEW: Handle Solid Drops (Sodium -> Water) - Patched for 1.4u radius logic
     const handleDrop = useCallback((sourceId: string, targetId: string) => {
-        // Logic: Dropping a solid container (rock/jar) into a beaker triggers a full pour
-        // but physically we might want to respawn the rock at its origin or delete it
-        // For this sim, we treat "dropping" as "adding the solid chunk"
-        handlePour(sourceId, targetId, 1.0); // 1.0 = 100% volume transfer (whole chunk)
+        console.log(`[PHYSICS] Dropping ${sourceId} into ${targetId}!`);
+        handlePour(sourceId, targetId, 1.0);
     }, [handlePour]);
 
     const handleUserChat = async (message: string) => {

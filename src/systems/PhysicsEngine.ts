@@ -13,15 +13,12 @@ export class PhysicsEngine {
         return false;
     }
 
-    static checkDropCondition(sourcePos: THREE.Vector3, targetPos: THREE.Vector3, sourceType: string): boolean {
-        // Similar to pour, but for solid items dropping into containers
-        const distXZ = new THREE.Vector2(sourcePos.x, sourcePos.z).distanceTo(new THREE.Vector2(targetPos.x, targetPos.z));
-        const distY = sourcePos.y - targetPos.y;
+    static checkDropCondition(sourcePos: any, targetPos: any, sourceType: string): boolean {
+        const p1 = Array.isArray(sourcePos) ? new THREE.Vector3(...sourcePos) : sourcePos;
+        const p2 = Array.isArray(targetPos) ? new THREE.Vector3(...targetPos) : targetPos;
 
-        // Expanded radius to 1.4 units (was 0.4) for easier drop targeting
-        if (distXZ < 1.4 && distY > 0.1 && distY < 1.0) {
-            return true;
-        }
-        return false;
+        // Ignore Y-axis (height) for forgiving drops
+        const dist = Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.z - p2.z, 2));
+        return dist < 1.4 && (sourceType === 'rock' || sourceType === 'solid');
     }
 }
