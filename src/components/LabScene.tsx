@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { CHEMICALS } from '../constants';
 import { ContainerState } from '../types';
 import { PhysicsEngine } from '../systems/PhysicsEngine';
+import { ExplosionVFX } from './ExplosionVFX';
 
 // -----------------------------------------------------------------------------
 // 1. ASSETS & MATERIALS (PHASE 1: TRIPLE-A UPGRADE)
@@ -357,17 +358,9 @@ const LabScene: React.FC<{
     onDrop: (src: string, tgt: string) => void;
 }> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, onDrop }) => {
 
-    // EXPLOSION LOGIC (PHASE 1 MOCK)
-    useEffect(() => {
-        if (lastEffect === 'explosion') {
-            console.log('[EXPLOSION TRIGGERED] - Phase 1 Placeholder');
-            // In Phase 1 we rely on the logic change (color black) done in App.tsx handlePour
-            // Phase 2 will add particles here
-        }
-    }, [lastEffect]);
-
     return (
         <Canvas shadows dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 8, 12], fov: 45 }}>
+            <ExplosionVFX position={lastEffectPos || [0, 0, 0]} isActive={lastEffect === 'explosion'} />
             {/* LIGHTING: SUNSET HACKER HYBRID */}
             <ambientLight intensity={0.6} color="#bae6fd" />
             <spotLight
