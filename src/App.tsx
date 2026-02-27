@@ -128,7 +128,6 @@ class GeminiService {
         try {
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
 
-            // Force cache invalidation check
             const systemInstruction = `System: You are Professor Lucy, a highly intelligent AI chemistry assistant. Use emojis like :3 and ^^. Answer general questions playfully. Answer chemistry questions scientifically based on the current lab state.`;
 
             // Format history for Gemini
@@ -486,4 +485,192 @@ const LabUI: React.FC<{
             />
         </div>
     );
-}
+};
+
+// -----------------------------------------------------------------------------
+// 3. MAIN APP COMPONENT
+// -----------------------------------------------------------------------------
+
+const App = () => {
+    console.log("--- APP V5 RELOADED ---");
+    const aiServiceRef = useRef<GeminiService | null>(null);
+    const reactionTimeoutRef = useRef<number | null>(null);
+    const [lastEffectPos, setLastEffectPos] = useState<[number, number, number] | null>(null);
+    const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+
+    // MODULE 2: Lifted Heater State
+    const [heaterTemp, setHeaterTemp] = useState(300);
+    const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
+
+    const initialContainers: ContainerState[] = [
+        { id: 'beaker-1', position: [-1.5, 0.42, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
+        { id: 'beaker-2', position: [1.5, 0.11, 0], contents: null }
+    ];
+    const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
+    const [lastReaction, setLastReaction] = useState<string | null>(null);
+    const [lastEffect, setLastEffect] = useState<string | null>(null);
+    const [aiFeedback, setAiFeedback] = useState<string>("Chào mừng bạn đến với phòng thí nghiệm. Tôi là Giáo sư Lucy.");
+    const [isAiLoading, setIsAiLoading] = useState(false);
+
+    useEffect(() => {
+        const service = new GeminiService();
+        service.onHistoryUpdate = (history) => {
+            setChatHistory([...history]);
+            if (history.length > 0 && (history[history.length - 1].role === 'assistant' || history[history.length - 1].role === 'model')) {
+                const text = history[history.length - 1].text;
+                setAiFeedback(text);
+                if (text.includes('[FACE: SHOCKED]')) {
+                    setAvatarState('shocked');
+                } else if (!lastEffect) {
+                    setAvatarState('normal');
+                }
+            }
+        };
+        aiServiceRef.current = service;
+        // Sync initial history
+        setChatHistory([...service['history'].map(h => ({ role: h.role, text: h.text }))]);
+
+        return () => { if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current); };
+    }, []);
+
+    // MODULE 2: Reaction-based Avatar State
+    useEffect(() => {
+        if (lastEffect === 'explosion' || lastEffect === 'smoke') {
+            setAvatarState('shocked');
+        } else {
+            setAvatarState('normal');
+        }
+    }, [lastEffect]);
+
+    const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
+        setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
+    }, []);
+
+    const handleChat = async (message: string) => {
+        if (!aiServiceRef.current) return;
+        setIsAiLoading(true);
+        await aiServiceRef.current.chat(message);
+        setIsAiLoading(false);
+    };
+
+    const handlePour = useCallback(async (sourceId: string, targetId: string) => {
+        const source = containers.find(c => c.id === sourceId);
+        const target = containers.find(c => c.id === targetId);
+        if (!source || !target || !source.contents) return;
+
+        const isSourceItem = sourceId.startsWith('source_');
+        const sourceChem = CHEMICALS[source.contents.chemicalId];
+        const amountToPour = sourceChem.type === 'solid' ? 0.3 : Math.min(0.2, source.contents.volume);
+        if (amountToPour <= 0) return;
+
+        const targetChemId = target.contents ? target.contents.chemicalId : 'H2O';
+        const targetVol = target.contents ? target.contents.volume : 0;
+        // MODULE 2: Pass Heater Temp to Reaction Logic (Ambient Temp)
+        const targetTemp = target.contents?.temperature || heaterTemp;
+
+        // Pass ambient temp (heaterTemp) to mix function for activation energy check
+        const mixResult = ChemistryEngine.mix(targetChemId, targetVol, source.contents.chemicalId, amountToPour, heaterTemp);
+
+        setContainers(prev => {
+            const isReactionProduct = !!mixResult.reaction;
+            const newTemp = mixResult.reaction?.temperature || targetTemp;
+            const nextContainers = prev.map(c => {
+                if (c.id === sourceId && !isSourceItem) {
+                    const newVol = Math.max(0, c.contents!.volume - amountToPour);
+                    return { ...c, contents: newVol < 0.05 ? null : { ...c.contents!, volume: newVol } };
+                }
+                if (c.id === targetId) {
+                     return { ...c, contents: { chemicalId: mixResult.resultId, volume: Math.min(1.0, targetVol + amountToPour), color: mixResult.resultColor, temperature: isReactionProduct ? newTemp : targetTemp } };
+                }
+                return c;
+            });
+            return nextContainers.filter(c => {
+                 if (c.id === sourceId) {
+                     if (isReactionProduct) return false;
+                     if (!isSourceItem && c.contents === null) return false;
+                 }
+                 return true;
+            });
+        });
+
+        if (mixResult.reaction) {
+            setLastReaction(mixResult.reaction.message);
+            setLastEffect(mixResult.reaction.effect || null);
+            setLastEffectPos(target.position);
+
+            if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
+            reactionTimeoutRef.current = window.setTimeout(() => {
+                setLastReaction(null);
+                setLastEffect(null);
+                setLastEffectPos(null);
+            }, 6000);
+
+            if (aiServiceRef.current) {
+                setIsAiLoading(true);
+                const detail = `Đã trộn ${CHEMICALS[source.contents.chemicalId].name} vào ${CHEMICALS[targetChemId].name} ở ${heaterTemp}°C. Tạo ra ${mixResult.reaction.productName}.`;
+                await aiServiceRef.current.getReactionFeedback(detail);
+                setIsAiLoading(false);
+            }
+        }
+    }, [containers, heaterTemp]); // Add heaterTemp to dependencies
+
+    const handleDrop = useCallback((sourceId: string, targetId: string) => {
+        console.log(`[PHYSICS] Dropping ${sourceId} into ${targetId}!`);
+        handlePour(sourceId, targetId);
+    }, [handlePour]);
+
+    const handleSpawn = (chemId: string) => {
+        const isBeaker = chemId === 'BEAKER';
+        const newId = isBeaker ? `beaker-${Date.now()}` : `source_${chemId}_${Date.now()}`;
+        const chem = CHEMICALS[chemId];
+        const x = (Math.random() - 0.5) * 6;
+        const y = isBeaker ? 0.11 : 0.56;
+        const z = isBeaker ? (Math.random() * 2) : -3.5;
+        setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isBeaker ? undefined : [x, y, z], contents: isBeaker ? null : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 } }]);
+    };
+
+    const handleReset = () => {
+        setContainers(initialContainers);
+        setLastReaction(null);
+        setLastEffect(null);
+        setLastEffectPos(null);
+        setAiFeedback("Phòng thí nghiệm đã được khử trùng. Bạn có thể tiếp tục nghiên cứu.");
+        setAvatarState('normal');
+        if(aiServiceRef.current) aiServiceRef.current.startNewChat();
+    };
+
+    return (
+        <div className={`relative w-full h-screen overflow-hidden transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
+            {/* Gradient Background: Sky Blue -> Soft Pink -> Sunset Orange */}
+            <div className="absolute inset-0 bg-gradient-to-b from-sky-300 via-pink-200 to-orange-300" />
+
+            {/* Background Texture */}
+            <div className="absolute inset-0 bg-tech-grid opacity-10 pointer-events-none mix-blend-overlay" />
+
+            <LabScene
+                heaterTemp={heaterTemp}
+                containers={containers}
+                lastEffect={lastEffect}
+                lastEffectPos={lastEffectPos}
+                onMove={handleMoveContainer}
+                onPour={handlePour}
+                onDrop={handleDrop}
+            />
+            <LabUI
+                lastReaction={lastReaction}
+                containers={containers}
+                chatHistory={chatHistory}
+                aiFeedback={aiFeedback}
+                isAiLoading={isAiLoading}
+                onSpawn={handleSpawn}
+                onReset={handleReset}
+                onChat={handleChat}
+                heaterTemp={heaterTemp}
+                setHeaterTemp={setHeaterTemp}
+                avatarState={avatarState}
+            />
+        </div>
+    );
+};
+
+export default App;
