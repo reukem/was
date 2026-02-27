@@ -253,15 +253,17 @@ const createGlassMaterial = () => {
     // MODULE 2: HIGH-FIDELITY GLASS MANDATE (OVERRIDE)
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
-        metalness: 0.1,
-        roughness: 0.05,
-        transmission: 1.0,
-        ior: 1.52,
-        thickness: 0.2,
+        metalness: 0.0,
+        roughness: 0.15, // Increased for visibility
+        transmission: 0.95, // Reduced to show surface
+        ior: 1.5,
+        thickness: 0.5, // Thicker glass
         clearcoat: 1.0,
         transparent: true,
         side: THREE.DoubleSide,
-        depthWrite: false
+        depthWrite: false,
+        attenuationColor: new THREE.Color(0xffffff),
+        attenuationDistance: 0.5
     });
 };
 
@@ -308,12 +310,12 @@ const createTable = () => {
     tableTop.receiveShadow = true;
     group.add(tableTop);
 
-    // 2. Quantum Grid (Glowing Cyan)
+    // 2. Quantum Grid (Glowing Sunset Gold)
     // We use a GridHelper but boost its color for the bloom effect
-    const grid = new THREE.GridHelper(12, 24, 0x06b6d4, 0x1e293b);
+    const grid = new THREE.GridHelper(12, 24, 0xf59e0b, 0x4a044e); // Amber & Deep Purple
     grid.position.y = 0.11;
     // Enhance grid material for bloom
-    (grid.material as THREE.LineBasicMaterial).color.setHex(0x22d3ee); // Brighter cyan
+    (grid.material as THREE.LineBasicMaterial).color.setHex(0xfbbf24); // Amber-400
     (grid.material as THREE.LineBasicMaterial).opacity = 0.6;
     (grid.material as THREE.LineBasicMaterial).transparent = true;
     group.add(grid);
@@ -321,7 +323,7 @@ const createTable = () => {
     // 3. Emissive Rim (The "Holographic" Edge)
     const rimGeo = new THREE.BoxGeometry(14.05, 0.22, 8.05);
     const rimMat = new THREE.MeshBasicMaterial({
-        color: 0x0891b2, // Cyan-700
+        color: 0xea580c, // Orange-600
         transparent: true,
         opacity: 0.3,
         side: THREE.BackSide // Render inside out for a "shell" effect
@@ -778,8 +780,8 @@ const LabScene: React.FC<{
     useEffect(() => {
         if (!mountRef.current) return;
         const scene = new THREE.Scene();
-        // MODULE 1: The "Sunlight" Purge (Lighting & Environment)
-        scene.background = new THREE.Color('#020617'); // Ultra-dark slate
+        // MODULE 1: The "Sunset" Upgrade (Lighting & Environment)
+        scene.background = new THREE.Color('#2a0a18'); // Deep warm purple/brown
         sceneRef.current = scene;
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -793,54 +795,54 @@ const LabScene: React.FC<{
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         // MODULE 1: Exposure Clamp
-        renderer.toneMappingExposure = 0.8;
+        renderer.toneMappingExposure = 1.0; // Slightly brighter for sunset
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        // BLOOM ADJUSTMENT: Strength 0.6, Radius 0.2, Threshold 0.85
+        // BLOOM ADJUSTMENT: Soft glow
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.6, 0.2, 0.85
+            0.5, 0.3, 0.75
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
 
-        // STUDIO DARK SETUP
+        // STUDIO SETUP
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        // 1. Ambient - SLASHED to 0.1
-        scene.add(new THREE.AmbientLight(0x1e293b, 0.1));
+        // 1. Ambient - Warm Purple
+        scene.add(new THREE.AmbientLight(0x581c87, 0.4));
 
-        // 2. Key Light - Focused Spotlight on Center Table
-        const spotLight = new THREE.SpotLight(0xffffff, 120);
+        // 2. Key Light - Golden Sunset
+        const spotLight = new THREE.SpotLight(0xffaa00, 150);
         spotLight.position.set(5, 12, 5);
-        spotLight.angle = Math.PI / 6; // Tighter beam
-        spotLight.penumbra = 0.5; // Soft edge
+        spotLight.angle = Math.PI / 5;
+        spotLight.penumbra = 0.6;
         spotLight.castShadow = true;
         spotLight.shadow.mapSize.width = 2048;
         spotLight.shadow.mapSize.height = 2048;
         spotLight.shadow.bias = -0.0001;
         scene.add(spotLight);
 
-        // 3. Rim Light - Strong Cyan Backlight (Cyberpunk edge)
-        const rimLight = new THREE.DirectionalLight(0x06b6d4, 4.0);
+        // 3. Rim Light - Hot Orange Backlight
+        const rimLight = new THREE.DirectionalLight(0xf97316, 3.5);
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
 
-        // 4. Fill Lights - Colorful accents for Glass/Liquids
-        const fillMagenta = new THREE.PointLight(0xd946ef, 1.5, 20);
+        // 4. Fill Lights - Pink/Purple Accents
+        const fillMagenta = new THREE.PointLight(0xc026d3, 1.2, 20);
         fillMagenta.position.set(6, 2, -2);
         scene.add(fillMagenta);
 
-        const fillBlue = new THREE.PointLight(0x3b82f6, 1.5, 20);
-        fillBlue.position.set(-6, 2, -2);
-        scene.add(fillBlue);
+        const fillRose = new THREE.PointLight(0xe11d48, 1.2, 20); // Rose
+        fillRose.position.set(-6, 2, -2);
+        scene.add(fillRose);
 
         scene.add(createTable());
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 2.5), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 }));
@@ -1221,7 +1223,7 @@ const HolographicAvatar: React.FC<{
              <div className="w-80 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
                  <div className="p-4 border-b border-white/5 flex items-center gap-3">
                      {/* PERFECT SQUARE AVATAR */}
-                     <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
+                     <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-orange-500 shrink-0 shadow-[0_0_10px_rgba(249,115,22,0.3)] transition-all duration-300" alt="Prof Lucy" />
                      <div>
                          <h3 className="text-sm font-bold text-white tracking-wide">Liên Lạc - GIÁO SƯ LUCY</h3>
                          <div className="flex items-center gap-1.5 mt-0.5">
@@ -1236,7 +1238,7 @@ const HolographicAvatar: React.FC<{
                          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                              <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
                                  msg.role === 'user'
-                                 ? 'bg-cyan-900/40 text-cyan-50 border border-cyan-700/50 rounded-tr-none'
+                                 ? 'bg-orange-900/40 text-orange-50 border border-orange-700/50 rounded-tr-none'
                                  : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
                              }`}>
                                  {msg.text.replace(/\[FACE:.*?\]/g, '')}
@@ -1254,7 +1256,7 @@ const HolographicAvatar: React.FC<{
                              value={chatInput}
                              onChange={(e) => setChatInput(e.target.value)}
                              placeholder="Hỏi Lucy..."
-                             className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+                             className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-all"
                          />
                      </div>
                  </form>
@@ -1378,10 +1380,10 @@ const LabUI: React.FC<{
                     <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
                          <button
                             onClick={() => onSpawn('BEAKER')}
-                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 hover:border-orange-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
                          >
                             <div>
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">Cốc Thí Nghiệm</div>
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-orange-400 transition-colors">Cốc Thí Nghiệm</div>
                                 <div className="text-[10px] font-mono text-slate-500 mt-1">Dụng cụ chứa</div>
                             </div>
                             <span className="w-2 h-2 border border-slate-500 rounded-full group-hover:bg-slate-500 transition-colors"></span>
@@ -1391,10 +1393,10 @@ const LabUI: React.FC<{
                              <button
                                 key={chem.id}
                                 onClick={() => onSpawn(chem.id)}
-                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-orange-900/30 hover:border-orange-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
                              >
                                 <div>
-                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name}</div>
+                                    <div className="text-xs font-bold text-slate-200 group-hover:text-orange-400 transition-colors">{chem.name}</div>
                                     <div className="text-[10px] font-mono text-slate-500 mt-1">{chem.formula}</div>
                                 </div>
                                 <span
@@ -1423,8 +1425,8 @@ const LabUI: React.FC<{
             {/* MODULE 4: Notification Alignment Matrix */}
             <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none">
                 {lastReaction && (
-                    <div className="bg-slate-900/90 backdrop-blur-xl border border-cyan-500/30 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(6,182,212,0.3)] animate-in fade-in slide-in-from-top-4">
-                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">PHÁT HIỆN PHẢN ỨNG</p>
+                    <div className="bg-slate-900/90 backdrop-blur-xl border border-orange-500/30 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(249,115,22,0.3)] animate-in fade-in slide-in-from-top-4">
+                         <p className="text-orange-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">PHÁT HIỆN PHẢN ỨNG</p>
                          <p className="text-white text-sm font-mono text-center">{formatScientificText(lastReaction)}</p>
                     </div>
                 )}
