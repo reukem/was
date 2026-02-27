@@ -231,83 +231,82 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
     );
 };
 
-// -- UI COMPONENT: HOLOGRAPHIC AVATAR --
-const HolographicAvatar: React.FC<{
-    isChatOpen: boolean;
-    setIsChatOpen: (v: boolean) => void;
+// -- UI COMPONENT: LAB ASSISTANT PANEL --
+const LabAssistantPanel: React.FC<{
+    isExpanded: boolean;
+    setIsExpanded: (v: boolean) => void;
     chatHistory: ChatMessage[];
     isAiLoading: boolean;
     chatInput: string;
     setChatInput: (v: string) => void;
     onSubmit: (e: React.FormEvent) => void;
-    avatarState: 'normal' | 'shocked';
-}> = ({ isChatOpen, setIsChatOpen, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState }) => {
+}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit }) => {
     const chatEndRef = useRef<HTMLDivElement>(null);
-    useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isChatOpen]);
-
-    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy.png';
-
-    if (!isChatOpen) {
-        return (
-            <div className="absolute bottom-6 right-6 z-50 pointer-events-auto">
-                 <img
-                    src={avatarSrc}
-                    className="w-16 h-16 rounded-full border-2 border-indigo-500 cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.5)] hover:scale-105 transition-transform object-cover bg-slate-900"
-                    onClick={() => setIsChatOpen(true)}
-                    alt="Open Chat"
-                 />
-            </div>
-        );
-    }
+    useEffect(() => {
+        if (isExpanded) {
+            chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
+    }, [chatHistory, isExpanded]);
 
     return (
-        <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
-             {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
-             <div className="w-80 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                 <div className="p-4 border-b border-white/5 flex items-center justify-between">
+        <div
+            className={`absolute bottom-0 right-6 z-50 pointer-events-auto flex flex-col items-end transition-all duration-300 ease-in-out ${isExpanded ? 'h-[400px]' : 'h-16'}`}
+        >
+             <div className="w-96 bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-t-2xl shadow-2xl flex flex-col h-full overflow-hidden">
+                 {/* Header - Always visible, Click to toggle */}
+                 <div
+                    className="h-16 flex items-center justify-between px-4 bg-slate-900/50 border-b border-white/5 cursor-pointer hover:bg-slate-800/50 transition-colors shrink-0"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                 >
                      <div className="flex items-center gap-3">
-                        {/* PERFECT SQUARE AVATAR */}
-                        <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-orange-500 shrink-0 shadow-[0_0_10px_rgba(249,115,22,0.3)] transition-all duration-300" alt="Prof Lucy" />
+                        <img
+                            src="/lucy_professional.png"
+                            className="w-10 h-10 object-cover rounded-lg border border-slate-600 shadow-sm"
+                            alt="Prof Lucy"
+                        />
                         <div>
-                            <h3 className="text-sm font-bold text-white tracking-wide">Liên Lạc - GIÁO SƯ LUCY</h3>
+                            <h3 className="text-xs font-bold text-white tracking-wide uppercase">Liên Lạc - GIÁO SƯ LUCY</h3>
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
                                 <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
                             </div>
                         </div>
                      </div>
-                     <button onClick={() => setIsChatOpen(false)} className="text-slate-400 hover:text-white transition-colors">
-                         ✕
+                     <button className="text-slate-400 hover:text-white transition-colors">
+                         {isExpanded ? '▼' : '▲'}
                      </button>
                  </div>
 
-                 <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
-                     {chatHistory.map((msg, i) => (
-                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                             <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
-                                 msg.role === 'user'
-                                 ? 'bg-orange-900/40 text-orange-50 border border-orange-700/50 rounded-tr-none'
-                                 : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
-                             }`}>
-                                 {msg.text.replace(/\[FACE:.*?\]/g, '')}
+                 {/* Expanded Content - Chat History & Input */}
+                 <div className={`flex-1 flex flex-col overflow-hidden transition-opacity duration-300 ${isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                     <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
+                         {chatHistory.map((msg, i) => (
+                             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                 <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                                     msg.role === 'user'
+                                     ? 'bg-orange-900/40 text-orange-50 border border-orange-700/50 rounded-tr-none'
+                                     : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
+                                 }`}>
+                                     {msg.text.replace(/\[FACE:.*?\]/g, '')}
+                                 </div>
                              </div>
-                         </div>
-                     ))}
-                     {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">Đang suy nghĩ...</div>}
-                     <div ref={chatEndRef} />
-                 </div>
-
-                 <form onSubmit={onSubmit} className="p-3 bg-slate-900/50 border-t border-white/5">
-                     <div className="relative">
-                         <input
-                             type="text"
-                             value={chatInput}
-                             onChange={(e) => setChatInput(e.target.value)}
-                             placeholder="Hỏi Lucy..."
-                             className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-all"
-                         />
+                         ))}
+                         {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">Đang suy nghĩ...</div>}
+                         <div ref={chatEndRef} />
                      </div>
-                 </form>
+
+                     <form onSubmit={onSubmit} className="p-3 bg-slate-900/50 border-t border-white/5 shrink-0">
+                         <div className="relative">
+                             <input
+                                 type="text"
+                                 value={chatInput}
+                                 onChange={(e) => setChatInput(e.target.value)}
+                                 placeholder="Hỏi Lucy..."
+                                 className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-all"
+                             />
+                         </div>
+                     </form>
+                 </div>
              </div>
         </div>
     );
@@ -326,12 +325,12 @@ const LabUI: React.FC<{
     heaterTemp: number;
     setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
-}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState }) => {
+    isChatExpanded: boolean;
+    setIsChatExpanded: (v: boolean) => void;
+}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, isChatExpanded, setIsChatExpanded }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    // NEW: Chat toggle state
-    const [isChatOpen, setIsChatOpen] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -493,15 +492,14 @@ const LabUI: React.FC<{
                 </div>
             </div>
 
-            <HolographicAvatar
-                isChatOpen={isChatOpen}
-                setIsChatOpen={setIsChatOpen}
+            <LabAssistantPanel
+                isExpanded={isChatExpanded}
+                setIsExpanded={setIsChatExpanded}
                 chatHistory={chatHistory}
                 isAiLoading={isAiLoading}
                 chatInput={chatInput}
                 setChatInput={setChatInput}
                 onSubmit={handleSubmit}
-                avatarState={avatarState}
             />
         </div>
     );
@@ -522,6 +520,9 @@ const App = () => {
     const [heaterTemp, setHeaterTemp] = useState(300);
     const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
 
+    // MODULE 3: Chat Panel State (Lifted to support auto-expand)
+    const [isChatExpanded, setIsChatExpanded] = useState(false);
+
     const initialContainers: ContainerState[] = [
         { id: 'beaker-1', position: [-1.5, 0.42, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
         { id: 'beaker-2', position: [1.5, 0.11, 0], contents: null }
@@ -536,13 +537,18 @@ const App = () => {
         const service = new GeminiService();
         service.onHistoryUpdate = (history) => {
             setChatHistory([...history]);
-            if (history.length > 0 && (history[history.length - 1].role === 'assistant' || history[history.length - 1].role === 'model')) {
-                const text = history[history.length - 1].text;
-                setAiFeedback(text);
-                if (text.includes('[FACE: SHOCKED]')) {
-                    setAvatarState('shocked');
-                } else if (!lastEffect) {
-                    setAvatarState('normal');
+            if (history.length > 0) {
+                const lastMsg = history[history.length - 1];
+                if (lastMsg.role === 'assistant' || lastMsg.role === 'model') {
+                    const text = lastMsg.text;
+                    setAiFeedback(text);
+                    if (text.includes('[FACE: SHOCKED]')) {
+                        setAvatarState('shocked');
+                    } else if (!lastEffect) {
+                        setAvatarState('normal');
+                    }
+                    // Auto-expand on new AI message
+                    setIsChatExpanded(true);
                 }
             }
         };
@@ -569,6 +575,7 @@ const App = () => {
     const handleChat = async (message: string) => {
         if (!aiServiceRef.current) return;
         setIsAiLoading(true);
+        setIsChatExpanded(true); // Auto-expand when user types
         await aiServiceRef.current.chat(message);
         setIsAiLoading(false);
     };
@@ -688,6 +695,8 @@ const App = () => {
                 heaterTemp={heaterTemp}
                 setHeaterTemp={setHeaterTemp}
                 avatarState={avatarState}
+                isChatExpanded={isChatExpanded}
+                setIsChatExpanded={setIsChatExpanded}
             />
         </div>
     );
