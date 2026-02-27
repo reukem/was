@@ -12,6 +12,8 @@ export class ChemistryEngine {
         const getStrength = (id: string) => {
             if (id === 'H2O') return 0.05;
             if (CHEMICALS[id]?.type === 'solid') return 2.0;
+            // Strong colorants
+            if (id === 'CuSO4_LIQUID' || id === 'COPPER_SULFATE') return 3.0;
             return 1.0;
         };
 
@@ -72,15 +74,22 @@ export class ChemistryEngine {
 
         // 2. NO REACTION (PHYSICAL MIXING)
         // Dominant species logic:
-        // If one is H2O and other is not, the other takes precedence unless very diluted
         let newId = targetId;
 
-        if (targetId === 'H2O' && sourceId !== 'H2O' && sVol > 0.1) {
-            newId = sourceId;
-        } else if (sourceId === 'H2O' && targetId !== 'H2O' && tVol > 0.1) {
-            newId = targetId; // Keep target
+        // H2O Dilution Logic
+        if (targetId === 'H2O' && sourceId !== 'H2O') {
+            newId = sourceId; // Water takes the identity of solute
+            // Special case: Dissolving CuSO4 solid into water creates CuSO4_LIQUID
+            if (sourceId === 'COPPER_SULFATE' || sourceId === 'CuSO4') {
+                newId = 'CuSO4_LIQUID';
+            }
+        } else if (sourceId === 'H2O' && targetId !== 'H2O') {
+            newId = targetId; // Dilution keeps solute identity
+             if (targetId === 'COPPER_SULFATE' || targetId === 'CuSO4') {
+                newId = 'CuSO4_LIQUID';
+            }
         } else if (sVol > tVol) {
-            newId = sourceId;
+            newId = sourceId; // Larger volume dominates
         }
 
         // Blend colors

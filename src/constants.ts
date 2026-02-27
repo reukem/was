@@ -21,7 +21,17 @@ export const CHEMICALS: Record<string, Chemical> = {
     'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: 'Đồng(II) Sunfat', formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: 'Hợp chất vô cơ màu xanh lam.' },
     'H2O2': { id: 'H2O2', name: 'Oxy Già', formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: 'Chất oxy hóa mạnh.' },
     'KI': { id: 'KI', name: 'Kali Iodua', formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Muối xúc tác tinh thể.' },
-    'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' }
+    'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' },
+
+    // PHASE 3 ADDITIONS
+    'H2SO4': { id: 'H2SO4', name: 'Axit Sulfuric', formula: 'H₂SO₄', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Axit vô cơ mạnh.' },
+    'Mg': { id: 'Mg', name: 'Dây Magiê', formula: 'Mg', color: '#cbd5e1', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Kim loại bạc sáng bóng, dễ cháy.' }, // Alias or alternate form of MAGNESIUM
+    'CuSO4_LIQUID': { id: 'CuSO4_LIQUID', name: 'Dung dịch CuSO₄', formula: 'CuSO₄', color: '#3b82f6', type: 'liquid', meshStyle: 'flask', ph: 4.0, description: 'Dung dịch màu xanh lam đậm.' }, // Liquid form of COPPER_SULFATE
+    'Ca': { id: 'Ca', name: 'Canxi', formula: 'Ca', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Kim loại kiềm thổ màu xám xỉn.' },
+
+    // Product Definitions
+    'MgSO4': { id: 'MgSO4', name: 'Magiê Sunfat', formula: 'MgSO₄', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 6.0, description: 'Muối vô cơ tan trong nước.' },
+    'CaOH2': { id: 'CaOH2', name: 'Canxi Hydroxit', formula: 'Ca(OH)₂', color: '#f1f5f9', type: 'liquid', meshStyle: 'flask', ph: 12.0, description: 'Dung dịch nước vôi trong/đục.' }
 };
 
 export const REACTION_REGISTRY: ReactionEntry[] = [
@@ -36,5 +46,10 @@ export const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.' },
     { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.' },
     { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.' },
-    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.' }
+    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.' },
+
+    // PHASE 3 REACTIONS
+    { reactants: ['Mg', 'H2SO4'], product: 'MgSO4', resultColor: '#e2e8f0', effect: 'bubbles', temperature: 90, message: 'Phản ứng tỏa nhiệt mạnh! Mg + H₂SO₄ → MgSO₄ + H₂. Sủi bọt khí Hydro và dung dịch nóng lên nhanh chóng.' },
+    { reactants: ['MAGNESIUM', 'H2SO4'], product: 'MgSO4', resultColor: '#e2e8f0', effect: 'bubbles', temperature: 90, message: 'Phản ứng tỏa nhiệt mạnh! Mg + H₂SO₄ → MgSO₄ + H₂. Sủi bọt khí Hydro và dung dịch nóng lên nhanh chóng.' }, // Supporting legacy ID
+    { reactants: ['Ca', 'H2O'], product: 'CaOH2', resultColor: '#f1f5f9', effect: 'bubbles', temperature: 60, message: 'Phản ứng kiềm thổ với nước. Ca + 2H₂O → Ca(OH)₂ + H₂. Sủi bọt khí Hydro và tạo dung dịch Canxi Hydroxit đục.' }
 ];
