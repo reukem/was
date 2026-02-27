@@ -128,7 +128,7 @@ class GeminiService {
         try {
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
 
-            const systemInstruction = `System: You are Professor Lucy, a highly intelligent AI chemistry assistant. Use emojis like :3 and ^^. Answer general questions playfully. Answer chemistry questions scientifically based on the current lab state.`;
+            const systemInstruction = `System: You are Professor Lucy, a highly intelligent AI chemistry assistant. Provide accurate scientific explanations based on the current lab state.`;
 
             // Format history for Gemini
             const contents = [
@@ -162,7 +162,7 @@ class GeminiService {
             return text;
         } catch (error) {
             console.error("Gemini API Error:", error);
-            const fallback = "Lỗi kết nối mạng hoặc API key không hợp lệ. Vui lòng kiểm tra lại cấu hình.";
+            const fallback = "API Connection Error. Please check your key.";
             this.history.push({ role: "model", text: fallback });
             this.notifyUpdate();
             return fallback;

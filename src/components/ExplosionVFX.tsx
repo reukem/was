@@ -1,112 +1,51 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 
-interface ExplosionVFXProps {
-    position: [number, number, number];
-    isActive: boolean;
-    onComplete?: () => void;
-}
-
-export const ExplosionVFX: React.FC<ExplosionVFXProps> = ({ position, isActive, onComplete }) => {
+export const ExplosionVFX = ({ position, isActive }: { position: [number, number, number], isActive: boolean }) => {
+    // Refs for animation
     const lightRef = useRef<THREE.PointLight>(null);
     const shockwaveRef = useRef<THREE.Mesh>(null);
-    const [active, setActive] = useState(false);
-    const startTimeRef = useRef(0);
-    const { camera } = useThree();
-    const originalCamPos = useRef(camera.position.clone());
+    // Transient material ref to manipulate opacity without recreating
+    const matRef = useRef<THREE.MeshBasicMaterial>(null);
 
-    useEffect(() => {
-        if (isActive) {
-            setActive(true);
-            startTimeRef.current = Date.now();
-            originalCamPos.current.copy(camera.position);
+    useFrame((state, delta) => {
+        if (!isActive) return;
 
-            // Auto-reset after max duration (1.5s)
-            const timer = setTimeout(() => {
-                setActive(false);
-                if (onComplete) onComplete();
-                // Ensure camera returns to original position
-                camera.position.copy(originalCamPos.current);
-            }, 1500);
-            return () => clearTimeout(timer);
-        }
-    }, [isActive, camera, onComplete]);
-
-    useFrame(() => {
-        if (!active) return;
-
-        const elapsed = (Date.now() - startTimeRef.current) / 1000;
-
-        // 1. THE FLASH (Thermal Decay)
+        // Rapid light decay
         if (lightRef.current) {
-            // Clamp starting intensity to 10 and lerp to 0 over 0.8s
-            const intensity = Math.max(0, 10 * (1 - elapsed / 0.8));
-            lightRef.current.intensity = intensity;
+            lightRef.current.intensity = THREE.MathUtils.lerp(lightRef.current.intensity, 0, delta * 8);
         }
 
-        // 2. THE SHOCKWAVE (Additive Expansion)
-        if (shockwaveRef.current) {
-            // Cap max scale to 2.5
-            const scale = Math.min(2.5, 1 + elapsed * 10);
-            shockwaveRef.current.scale.set(scale, scale, scale);
+        // Expanding and fading shockwave
+        if (shockwaveRef.current && matRef.current) {
+            // Expand
+            const scale = shockwaveRef.current.scale.x + delta * 15;
+            shockwaveRef.current.scale.setScalar(scale);
 
-            // Fade opacity to 0 rapidly
-            const opacity = Math.max(0, 1 - elapsed / 0.5);
-            (shockwaveRef.current.material as THREE.MeshBasicMaterial).opacity = opacity;
-
-            if (opacity <= 0) {
-                shockwaveRef.current.visible = false;
-            }
-        }
-
-        // 3. CAMERA SHAKE (Clamped)
-        if (elapsed < 0.5) { // Shorter shake duration
-            const shakeIntensity = 0.05 * (1 - elapsed / 0.5); // Max 0.05 units
-            const xOffset = (Math.random() - 0.5) * shakeIntensity;
-            const yOffset = (Math.random() - 0.5) * shakeIntensity;
-            const zOffset = (Math.random() - 0.5) * shakeIntensity;
-
-            camera.position.set(
-                originalCamPos.current.x + xOffset,
-                originalCamPos.current.y + yOffset,
-                originalCamPos.current.z + zOffset
-            );
-        } else {
-            // Reset camera after shake ends
-            camera.position.lerp(originalCamPos.current, 0.1);
+            // Fade
+            matRef.current.opacity = THREE.MathUtils.lerp(matRef.current.opacity, 0, delta * 8);
         }
     });
 
-    if (!active) return null;
+    if (!isActive) return null;
 
     return (
         <group position={position}>
-            {/* THE FLASH: Thermal Orange/Red */}
-            <pointLight ref={lightRef} distance={5} decay={2} color="#ff4400" />
-
-            {/* THE SHOCKWAVE: Additive Blending */}
+            <pointLight ref={lightRef} color="#ff4400" intensity={50} distance={10} decay={2} />
             <mesh ref={shockwaveRef}>
-                <sphereGeometry args={[0.5, 32, 32]} />
+                <sphereGeometry args={[0.3, 32, 32]} />
                 <meshBasicMaterial
+                    ref={matRef}
                     color="#ff2200"
                     transparent
+                    opacity={1}
                     depthWrite={false}
                     blending={THREE.AdditiveBlending}
                 />
             </mesh>
-
-            {/* THE SPARKS: Higher Velocity */}
-            <Sparkles
-                count={150}
-                scale={3}
-                size={8}
-                speed={4}
-                opacity={1}
-                color="#ffaa00"
-                noise={2}
-            />
+            <Sparkles count={200} scale={4} size={6} speed={6} noise={2} color="#ffaa00" />
         </group>
     );
 };

@@ -87,11 +87,26 @@ const Liquid = ({ color, volume, isFlask }: { color: string; volume: number; isF
     const height = Math.max(0.1, volume * (isFlask ? 0.8 : 1.1));
     const radius = isFlask ? 0.4 : 0.46;
 
+    // Use Cylinder for Beaker, Sphere section for Flask (simulating round bottom)
+    // Note: User requested avoiding coneGeometry for Flask.
+
     return (
-        <mesh position={[0, height / 2 + 0.05, 0]} castShadow renderOrder={1}>
-            {isFlask ? <coneGeometry args={[radius, height, 32]} /> : <cylinderGeometry args={[radius, radius, height, 32]} />}
-            <meshStandardMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
-        </mesh>
+        <group position={[0, height / 2 + 0.05, 0]}>
+             {isFlask ? (
+                 // Flask Liquid: Use a cylinder that tapers or just a smaller cylinder for now to fit the neck/body
+                 // Ideally, we'd use a matching lathe, but a cylinder is safer than a cone.
+                 <mesh castShadow renderOrder={1}>
+                     <cylinderGeometry args={[radius * 0.2, radius, height, 32]} />
+                     <meshStandardMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
+                 </mesh>
+             ) : (
+                 // Beaker Liquid: Cylinder
+                 <mesh castShadow renderOrder={1}>
+                     <cylinderGeometry args={[radius, radius, height, 32]} />
+                     <meshStandardMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
+                 </mesh>
+             )}
+        </group>
     );
 };
 
@@ -362,8 +377,8 @@ const DraggableContainer = ({
                      {chem?.meshStyle === 'rock' && (
                          <mesh castShadow receiveShadow>
                              {/* UPDATED: Dodecahedron for rock/metal look */}
-                             <dodecahedronGeometry args={[0.3, 1]} />
-                             <meshStandardMaterial color="#b0b0b0" roughness={0.7} metalness={0.6} />
+                             <dodecahedronGeometry args={[0.15, 1]} />
+                             <meshStandardMaterial color="#b0b0b0" roughness={0.6} metalness={0.8} />
                          </mesh>
                      )}
                      {chem?.meshStyle === 'mound' && (
