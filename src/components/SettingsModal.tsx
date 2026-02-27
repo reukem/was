@@ -10,8 +10,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen = true, onClose })
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md">
-            <div className="bg-slate-900 border border-cyan-500/30 p-6 rounded-2xl w-[28rem] shadow-[0_0_40px_-10px_rgba(6,182,212,0.3)] transform transition-all">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md">
+            <div className="bg-slate-800/95 border border-cyan-500/30 p-6 rounded-2xl w-[28rem] shadow-[0_0_40px_-10px_rgba(6,182,212,0.3)] transform transition-all">
                 {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-cyan-400 font-mono tracking-wider flex items-center gap-2">
