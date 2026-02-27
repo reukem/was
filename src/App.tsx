@@ -797,18 +797,31 @@ const LabScene: React.FC<{
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         // MODULE 1: Exposure Clamp
         renderer.toneMappingExposure = 1.0; // Slightly brighter for sunset
+        renderer.setClearColor(0x000000, 0);
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
-        const composer = new EffectComposer(renderer);
+        const renderTarget = new THREE.WebGLRenderTarget(
+            window.innerWidth,
+            window.innerHeight,
+            {
+                minFilter: THREE.LinearFilter,
+                magFilter: THREE.LinearFilter,
+                format: THREE.RGBAFormat,
+                colorSpace: THREE.SRGBColorSpace
+            }
+        );
+
+        const composer = new EffectComposer(renderer, renderTarget);
         const renderPass = new RenderPass(scene, camera);
+        renderPass.clearAlpha = 0; // Ensure transparency
         composer.addPass(renderPass);
         // BLOOM ADJUSTMENT: Soft glow
-        const bloomPass = new UnrealBloomPass(
-            new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.5, 0.3, 0.75
-        );
-        composer.addPass(bloomPass);
+        // const bloomPass = new UnrealBloomPass(
+        //     new THREE.Vector2(window.innerWidth, window.innerHeight),
+        //     0.5, 0.3, 0.75
+        // );
+        // composer.addPass(bloomPass);
         composerRef.current = composer;
 
         // STUDIO SETUP
@@ -1216,7 +1229,7 @@ const HolographicAvatar: React.FC<{
     const chatEndRef = useRef<HTMLDivElement>(null);
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
 
-    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy_avatar.png';
+    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy.png';
 
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
