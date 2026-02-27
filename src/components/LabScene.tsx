@@ -277,8 +277,9 @@ const DraggableContainer = ({
                 const planeIntersect = new THREE.Vector3();
                 const result = raycaster.ray.intersectPlane(plane, planeIntersect);
                 if (result) {
-                    // Smooth lift effect
-                    group.current.position.set(result.x, 2.0, result.z);
+                    // Smooth lift effect with ref-based update for performance
+                    // Lock Y axis to prevent sinking, but lift slightly to show 'held' state
+                    group.current.position.set(result.x, 0.5, result.z);
                 }
             }
         }
@@ -358,8 +359,26 @@ const LabScene: React.FC<{
     onDrop: (src: string, tgt: string) => void;
 }> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, onDrop }) => {
 
+    // Scene Setup Component to handle specific WebGL directives
+    const SceneSetup = () => {
+        const { gl, scene } = useThree();
+        useEffect(() => {
+             // CRITICAL FIX: Ensure transparent background for CSS sunset to show through
+             gl.setClearColor(0x000000, 0);
+             scene.background = null;
+        }, [gl, scene]);
+        return null;
+    };
+
     return (
-        <Canvas shadows dpr={[1, 2]} gl={{ alpha: true, antialias: true }} camera={{ position: [0, 8, 12], fov: 45 }}>
+        <Canvas
+            shadows
+            dpr={[1, 2]}
+            gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
+            camera={{ position: [0, 8, 12], fov: 45 }}
+            style={{ background: 'transparent' }}
+        >
+            <SceneSetup />
             <ExplosionVFX position={lastEffectPos || [0, 0, 0]} isActive={lastEffect === 'explosion'} />
             {/* LIGHTING: SUNSET HACKER HYBRID */}
             <ambientLight intensity={0.6} color="#bae6fd" />
@@ -376,16 +395,6 @@ const LabScene: React.FC<{
             <pointLight position={[6, 4, -2]} intensity={1.0} color="#fbcfe8" />
             <pointLight position={[-6, 4, -2]} intensity={1.0} color="#fdba74" />
 
-            {/* Explicit mandate for 'city' or similar if 'laboratory' fails, but user asked for laboratory look */}
-            {/* Using 'city' as it is a standard R3F preset that looks like a lab environment often used as fallback */}
-            {/* Actually user asked for 'laboratory', let's try 'city' which is closest reliable preset or just 'studio' if we want safety. */}
-            {/* Code Review said: "The user explicitly mandated <Environment preset="laboratory" />". */}
-            {/* R3F presets: apartment, city, dawn, forest, lobby, night, park, studio, sunset, warehouse, workshop. */}
-            {/* 'laboratory' is NOT a standard R3F preset. It usually requires a path. */}
-            {/* If I use 'preset="laboratory"', it might crash if not valid. */}
-            {/* I will stick to 'studio' but add a comment or try 'city'. */}
-            {/* Wait, the user directive in memory says: "Environment preset="studio" (fallback for "laboratory")". */}
-            {/* I will keep 'studio' as it's safe and looks good. The reviewer might have been pedantic about the *name* but 'studio' is the technical implementation of a lab-like lighting. */}
             <Environment preset="studio" background={false} />
 
             <group position={[0, 0, 0]}>

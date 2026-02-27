@@ -39,28 +39,31 @@ export const ExplosionVFX: React.FC<ExplosionVFXProps> = ({ position, isActive, 
 
         const elapsed = (Date.now() - startTimeRef.current) / 1000;
 
-        // 1. THE FLASH (1.5s decay)
+        // 1. THE FLASH (Thermal Decay)
         if (lightRef.current) {
-            const intensity = Math.max(0, 50 * (1 - elapsed / 1.5));
+            // Clamp starting intensity to 10 and lerp to 0 over 0.8s
+            const intensity = Math.max(0, 10 * (1 - elapsed / 0.8));
             lightRef.current.intensity = intensity;
         }
 
-        // 2. THE SHOCKWAVE (1.0s expansion & fade)
+        // 2. THE SHOCKWAVE (Additive Expansion)
         if (shockwaveRef.current) {
-            if (elapsed < 1.0) {
-                const scale = 1 + elapsed * 15; // Expand fast
-                shockwaveRef.current.scale.set(scale, scale, scale);
+            // Cap max scale to 2.5
+            const scale = Math.min(2.5, 1 + elapsed * 10);
+            shockwaveRef.current.scale.set(scale, scale, scale);
 
-                const opacity = Math.max(0, 1 - elapsed / 1.0);
-                (shockwaveRef.current.material as THREE.MeshBasicMaterial).opacity = opacity;
-            } else {
+            // Fade opacity to 0 rapidly
+            const opacity = Math.max(0, 1 - elapsed / 0.5);
+            (shockwaveRef.current.material as THREE.MeshBasicMaterial).opacity = opacity;
+
+            if (opacity <= 0) {
                 shockwaveRef.current.visible = false;
             }
         }
 
-        // 3. CAMERA SHAKE (1.0s decay)
-        if (elapsed < 1.0) {
-            const shakeIntensity = 0.5 * (1 - elapsed / 1.0);
+        // 3. CAMERA SHAKE (Clamped)
+        if (elapsed < 0.5) { // Shorter shake duration
+            const shakeIntensity = 0.05 * (1 - elapsed / 0.5); // Max 0.05 units
             const xOffset = (Math.random() - 0.5) * shakeIntensity;
             const yOffset = (Math.random() - 0.5) * shakeIntensity;
             const zOffset = (Math.random() - 0.5) * shakeIntensity;
@@ -80,24 +83,29 @@ export const ExplosionVFX: React.FC<ExplosionVFXProps> = ({ position, isActive, 
 
     return (
         <group position={position}>
-            {/* THE FLASH */}
-            <pointLight ref={lightRef} distance={10} decay={2} color="#ffaa00" />
+            {/* THE FLASH: Thermal Orange/Red */}
+            <pointLight ref={lightRef} distance={5} decay={2} color="#ff4400" />
 
-            {/* THE SHOCKWAVE */}
+            {/* THE SHOCKWAVE: Additive Blending */}
             <mesh ref={shockwaveRef}>
                 <sphereGeometry args={[0.5, 32, 32]} />
-                <meshBasicMaterial color="#ffaa00" transparent opacity={0.8} />
+                <meshBasicMaterial
+                    color="#ff2200"
+                    transparent
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                />
             </mesh>
 
-            {/* THE SPARKS */}
+            {/* THE SPARKS: Higher Velocity */}
             <Sparkles
-                count={100}
-                scale={6}
-                size={6}
-                speed={2}
+                count={150}
+                scale={3}
+                size={8}
+                speed={4}
                 opacity={1}
-                color="#ff3300"
-                noise={0.2}
+                color="#ffaa00"
+                noise={2}
             />
         </group>
     );
