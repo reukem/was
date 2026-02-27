@@ -376,14 +376,29 @@ const DraggableContainer = ({
                      )}
                      {chem?.meshStyle === 'rock' && (
                          <mesh castShadow receiveShadow>
-                             {/* UPDATED: Dodecahedron for rock/metal look */}
-                             <dodecahedronGeometry args={[0.15, 1]} />
-                             <meshStandardMaterial color="#b0b0b0" roughness={0.6} metalness={0.8} />
+                             <dodecahedronGeometry args={[0.3, 0]} />
+                             <meshStandardMaterial color={chem.color} roughness={0.9} metalness={0.4} flatShading={true} />
+                         </mesh>
+                     )}
+                     {chem?.meshStyle === 'crystal' && (
+                         <mesh castShadow receiveShadow>
+                             <octahedronGeometry args={[0.3, 0]} />
+                             <meshStandardMaterial color={chem.color} roughness={0.2} metalness={0.8} transparent opacity={0.9} />
+                         </mesh>
+                     )}
+                     {chem?.meshStyle === 'canister' && (
+                         <mesh castShadow receiveShadow position={[0, 0.4, 0]}>
+                             <capsuleGeometry args={[0.3, 0.8, 4, 12]} />
+                             <meshStandardMaterial color="#334155" metalness={0.8} roughness={0.2} />
+                             {/* Label */}
+                             <Html position={[0, 0, 0.35]} center transform scale={0.5}>
+                                <div className="text-[8px] font-bold bg-yellow-400 text-black px-1 rounded">GAS</div>
+                             </Html>
                          </mesh>
                      )}
                      {chem?.meshStyle === 'mound' && (
                          <mesh castShadow receiveShadow position={[0, 0.2, 0]}>
-                             <coneGeometry args={[0.4, 0.4, 64]} />
+                             <coneGeometry args={[0.4, 0.4, 16, 1, true]} />
                              <meshStandardMaterial color={chem.color} roughness={1} />
                          </mesh>
                      )}

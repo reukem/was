@@ -128,7 +128,7 @@ class GeminiService {
         try {
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
 
-            const systemInstruction = `System: You are Professor Lucy, a highly intelligent AI chemistry assistant. Provide accurate scientific explanations based on the current lab state.`;
+            const systemInstruction = `System: You are Professor Lucy, an intelligent, Gen-Z AI chemistry assistant and the user's virtual sister. Use emojis (:3, ^^). Answer general questions cleverly. For chemistry, analyze the stoichiometry based on the lab state.`;
 
             // Format history for Gemini
             const contents = [
@@ -233,34 +233,52 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
 
 // -- UI COMPONENT: HOLOGRAPHIC AVATAR --
 const HolographicAvatar: React.FC<{
-    isExpanded: boolean;
-    setIsExpanded: (v: boolean) => void;
+    isChatOpen: boolean;
+    setIsChatOpen: (v: boolean) => void;
     chatHistory: ChatMessage[];
     isAiLoading: boolean;
     chatInput: string;
     setChatInput: (v: string) => void;
     onSubmit: (e: React.FormEvent) => void;
     avatarState: 'normal' | 'shocked';
-}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState }) => {
+}> = ({ isChatOpen, setIsChatOpen, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState }) => {
     const chatEndRef = useRef<HTMLDivElement>(null);
-    useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
+    useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isChatOpen]);
 
     const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy.png';
+
+    if (!isChatOpen) {
+        return (
+            <div className="absolute bottom-6 right-6 z-50 pointer-events-auto">
+                 <img
+                    src={avatarSrc}
+                    className="w-16 h-16 rounded-full border-2 border-indigo-500 cursor-pointer shadow-[0_0_15px_rgba(99,102,241,0.5)] hover:scale-105 transition-transform object-cover bg-slate-900"
+                    onClick={() => setIsChatOpen(true)}
+                    alt="Open Chat"
+                 />
+            </div>
+        );
+    }
 
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
              {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
              <div className="w-80 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                 <div className="p-4 border-b border-white/5 flex items-center gap-3">
-                     {/* PERFECT SQUARE AVATAR */}
-                     <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-orange-500 shrink-0 shadow-[0_0_10px_rgba(249,115,22,0.3)] transition-all duration-300" alt="Prof Lucy" />
-                     <div>
-                         <h3 className="text-sm font-bold text-white tracking-wide">Liên Lạc - GIÁO SƯ LUCY</h3>
-                         <div className="flex items-center gap-1.5 mt-0.5">
-                             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                             <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
-                         </div>
+                 <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                        {/* PERFECT SQUARE AVATAR */}
+                        <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-orange-500 shrink-0 shadow-[0_0_10px_rgba(249,115,22,0.3)] transition-all duration-300" alt="Prof Lucy" />
+                        <div>
+                            <h3 className="text-sm font-bold text-white tracking-wide">Liên Lạc - GIÁO SƯ LUCY</h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                                <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
+                            </div>
+                        </div>
                      </div>
+                     <button onClick={() => setIsChatOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+                         ✕
+                     </button>
                  </div>
 
                  <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
@@ -312,6 +330,8 @@ const LabUI: React.FC<{
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    // NEW: Chat toggle state
+    const [isChatOpen, setIsChatOpen] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -474,8 +494,8 @@ const LabUI: React.FC<{
             </div>
 
             <HolographicAvatar
-                isExpanded={true} // Always expanded as per "w-80" request? Or allows toggle. I'll allow toggle but default open.
-                setIsExpanded={() => {}}
+                isChatOpen={isChatOpen}
+                setIsChatOpen={setIsChatOpen}
                 chatHistory={chatHistory}
                 isAiLoading={isAiLoading}
                 chatInput={chatInput}

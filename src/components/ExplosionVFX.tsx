@@ -33,19 +33,25 @@ export const ExplosionVFX = ({ position, isActive }: { position: [number, number
 
     return (
         <group position={position}>
-            <pointLight ref={lightRef} color="#ff4400" intensity={50} distance={10} decay={2} />
+            {/* The Flash */}
+            <pointLight ref={lightRef} color="#ff4400" intensity={100} distance={20} decay={2} />
+
+            {/* The Shockwave */}
             <mesh ref={shockwaveRef}>
-                <sphereGeometry args={[0.3, 32, 32]} />
+                <sphereGeometry args={[0.5, 32, 32]} />
                 <meshBasicMaterial
                     ref={matRef}
                     color="#ff2200"
                     transparent
-                    opacity={1}
-                    depthWrite={false}
                     blending={THREE.AdditiveBlending}
                 />
             </mesh>
-            <Sparkles count={200} scale={4} size={6} speed={6} noise={2} color="#ffaa00" />
+
+            {/* Fire Particles */}
+            <Sparkles count={300} scale={6} size={12} speed={8} color="#ffaa00" />
+
+            {/* Smoke Particles */}
+            <Sparkles count={150} scale={8} size={25} speed={3} color="#444444" opacity={0.6} />
         </group>
     );
 };
