@@ -14,10 +14,8 @@ export default defineConfig(({ mode }) => {
         react(),
         tailwindcss()
       ],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
+      // REMOVED: Insecure 'define' block that injected process.env.API_KEY
+      // The application uses a "Bring Your Own Key" architecture via localStorage.
       resolve: {
         alias: {
           '@': path.resolve(__dirname, './src'),
