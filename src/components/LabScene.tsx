@@ -219,6 +219,7 @@ const DraggableContainer = ({
     const group = useRef<THREE.Group>(null);
     const [dragging, setDragging] = useState(false);
     const { camera, raycaster, gl } = useThree();
+    const controls = useThree((state) => state.controls);
     const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
 
     // Boiling Effect Refs
@@ -248,12 +249,21 @@ const DraggableContainer = ({
             // @ts-ignore
             e.target.setPointerCapture(e.pointerId);
             setDragging(true);
+            // DISABLE CAMERA CONTROLS ON DRAG START
+            if (controls) {
+                (controls as any).enabled = false;
+            }
         },
         onPointerUp: (e: any) => {
             e.stopPropagation();
             // @ts-ignore
             e.target.releasePointerCapture(e.pointerId);
             setDragging(false);
+            // RE-ENABLE CAMERA CONTROLS ON DRAG END
+            if (controls) {
+                (controls as any).enabled = true;
+            }
+
             if (group.current) {
                 // Check interactions
                 const myPos = group.current.position;
