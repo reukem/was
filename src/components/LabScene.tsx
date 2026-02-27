@@ -1,6 +1,6 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Environment, PerspectiveCamera, Html } from '@react-three/drei';
+import { OrbitControls, Environment, PerspectiveCamera, Html, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import { CHEMICALS } from '../constants';
 import { ContainerState } from '../types';
@@ -19,7 +19,8 @@ const GLASS_MATERIAL_PROPS = {
     clearcoatRoughness: 0.1,
     ior: 1.5,
     transparent: true,
-    color: '#ffffff'
+    color: '#ffffff',
+    depthWrite: false, // Transparency fix
 };
 
 const LIQUID_MATERIAL_PROPS = {
@@ -27,6 +28,7 @@ const LIQUID_MATERIAL_PROPS = {
     roughness: 0.2,
     transparent: true,
     opacity: 0.85,
+    depthWrite: true, // Transparency fix
 };
 
 // Recreated Geometries (Declarative)
@@ -47,7 +49,7 @@ const FlaskGeometry = ({ children }: { children?: React.ReactNode }) => {
     }, []);
     return (
         <group>
-             <mesh castShadow receiveShadow>
+             <mesh castShadow receiveShadow renderOrder={0}>
                 <latheGeometry args={[points, 128]} />
                 <meshPhysicalMaterial {...GLASS_MATERIAL_PROPS} />
             </mesh>
@@ -69,7 +71,7 @@ const BeakerGeometry = ({ children }: { children?: React.ReactNode }) => {
     }, []);
     return (
         <group>
-            <mesh castShadow receiveShadow>
+            <mesh castShadow receiveShadow renderOrder={0}>
                 <latheGeometry args={[points, 128]} />
                 <meshPhysicalMaterial {...GLASS_MATERIAL_PROPS} />
             </mesh>
@@ -86,7 +88,7 @@ const Liquid = ({ color, volume, isFlask }: { color: string; volume: number; isF
     const radius = isFlask ? 0.4 : 0.46;
 
     return (
-        <mesh position={[0, height / 2 + 0.05, 0]} castShadow>
+        <mesh position={[0, height / 2 + 0.05, 0]} castShadow renderOrder={1}>
             {isFlask ? <coneGeometry args={[radius, height, 32]} /> : <cylinderGeometry args={[radius, radius, height, 32]} />}
             <meshStandardMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
         </mesh>
@@ -204,20 +206,40 @@ const DraggableContainer = ({
     onMove,
     onPour,
     onDrop,
-    containers
+    containers,
+    heaterTemp
 }: {
     container: ContainerState;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (src: string, tgt: string) => void;
     onDrop: (src: string, tgt: string) => void;
     containers: ContainerState[];
+    heaterTemp: number;
 }) => {
     const group = useRef<THREE.Group>(null);
     const [dragging, setDragging] = useState(false);
     const { camera, raycaster, gl } = useThree();
-    const planeNormal = new THREE.Vector3(0, 1, 0);
-    const planeConstant = 0; // y = 0 plane (table)
-    const plane = useMemo(() => new THREE.Plane(planeNormal, planeConstant), []);
+    const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+
+    // Boiling Effect Refs
+    const liquidRef = useRef<THREE.Group>(null);
+    const chem = container.contents ? CHEMICALS[container.contents.chemicalId] : null;
+
+    // Check if on heater
+    const isOnHeater = useMemo(() => {
+        const heaterPos = new THREE.Vector3(-1.5, 0, 0);
+        const dist = new THREE.Vector2(container.position[0], container.position[2]).distanceTo(new THREE.Vector2(heaterPos.x, heaterPos.z));
+        return dist < 0.6;
+    }, [container.position]);
+
+    // Boiling Animation
+    useFrame(({ clock }) => {
+        if (isOnHeater && container.contents && liquidRef.current) {
+            // Oscillate Y scale slightly
+            const t = clock.getElapsedTime();
+            liquidRef.current.scale.y = 1 + Math.sin(t * 10) * 0.02;
+        }
+    });
 
     // Drag Logic
     const bind = {
@@ -272,13 +294,15 @@ const DraggableContainer = ({
         onPointerMove: (e: any) => {
             if (dragging && group.current) {
                 e.stopPropagation();
-                // R3F updates raycaster automatically before this event
-                // But we need intersection with the plane, not just the object
-                const planeIntersect = new THREE.Vector3();
-                const result = raycaster.ray.intersectPlane(plane, planeIntersect);
+                // R3F updates raycaster automatically.
+                // Intersect mathematically with XZ plane (y=0)
+                const intersection = new THREE.Vector3();
+                const result = raycaster.ray.intersectPlane(plane, intersection);
+
+                // Fix: Check if intersection exists (ray points away from plane it won't hit)
                 if (result) {
-                    // Smooth lift effect with ref-based update for performance
-                    // Lock Y axis to prevent sinking, but lift slightly to show 'held' state
+                    // Update ref directly
+                    // Lock Y to 0.5 (lifted height)
                     group.current.position.set(result.x, 0.5, result.z);
                 }
             }
@@ -292,19 +316,23 @@ const DraggableContainer = ({
         }
     });
 
-    const chem = container.contents ? CHEMICALS[container.contents.chemicalId] : null;
-
     return (
         <group ref={group} {...bind} position={container.position}>
              {/* Render Geometry based on type */}
              {!container.id.startsWith('source_') ? (
                  <BeakerGeometry>
-                     {container.contents && (
-                         <Liquid
-                            color={container.contents.color}
-                            volume={container.contents.volume}
-                         />
-                     )}
+                     <group ref={liquidRef}>
+                        {container.contents && (
+                            <Liquid
+                                color={container.contents.color}
+                                volume={container.contents.volume}
+                            />
+                        )}
+                        {/* Boiling Sparkles */}
+                        {isOnHeater && container.contents && (
+                             <Sparkles count={20} scale={0.4} size={2} speed={1} opacity={0.5} color="#ffffff" position={[0, 0.2, 0]} />
+                        )}
+                     </group>
                      {container.contents && (
                          <Html position={[0, 1.5, 0]} center>
                             <div className="text-white text-[10px] font-bold drop-shadow-md whitespace-nowrap bg-black/50 px-1 rounded">
@@ -323,8 +351,9 @@ const DraggableContainer = ({
                      )}
                      {chem?.meshStyle === 'rock' && (
                          <mesh castShadow receiveShadow>
-                             <icosahedronGeometry args={[0.3, 1]} />
-                             <meshStandardMaterial color={chem.color} roughness={0.9} />
+                             {/* UPDATED: Dodecahedron for rock/metal look */}
+                             <dodecahedronGeometry args={[0.3, 1]} />
+                             <meshStandardMaterial color="#b0b0b0" roughness={0.7} metalness={0.6} />
                          </mesh>
                      )}
                      {chem?.meshStyle === 'mound' && (
@@ -410,6 +439,7 @@ const LabScene: React.FC<{
                         onPour={onPour}
                         onDrop={onDrop}
                         containers={containers}
+                        heaterTemp={heaterTemp}
                     />
                 ))}
             </group>

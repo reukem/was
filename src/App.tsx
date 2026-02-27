@@ -125,47 +125,48 @@ class GeminiService {
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+        try {
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
 
-        const systemInstruction = `
-        Bạn là Giáo sư Lucy, một trợ lý ảo phòng thí nghiệm Gen-Z, năng động, hài hước và am hiểu hóa học.
-        Phong cách: Sử dụng emoji (🦊, 🧪, 💥), ngôn ngữ teen (ukie, hoy, nha, :3, ^^), nhưng kiến thức phải chuẩn xác.
-        Nhiệm vụ: Giải thích hiện tượng hóa học, cảnh báo an toàn, và reaction khi người dùng làm nổ phòng thí nghiệm.
-        Nếu người dùng gửi [OBSERVATION], hãy phân tích phản ứng đó.
-        Nếu có cháy nổ, hãy tỏ ra hoảng hốt ([FACE: SHOCKED]).
-        Luôn ngắn gọn (dưới 3 câu) vì chatbox nhỏ.
-        `;
+            const systemInstruction = `System: You are Professor Lucy, an intelligent, Gen-Z AI chemistry assistant. Use emojis (:3, ^^). If the user asks general questions (like 2+2), answer them cleverly. If the user asks about chemistry, provide accurate scientific explanations based on the current lab state.`;
 
-        // Format history for Gemini
-        const contents = [
-            { role: "user", parts: [{ text: systemInstruction }] }, // System prompt injection
-            ...this.history.filter(m => m.role !== 'model').map(m => ({
-                role: m.role === 'user' ? 'user' : 'model',
-                parts: [{ text: m.text }]
-            })),
-            { role: "user", parts: [{ text: userMessage }] } // Current message
-        ];
+            // Format history for Gemini
+            const contents = [
+                { role: "user", parts: [{ text: systemInstruction }] }, // System prompt injection
+                ...this.history.filter(m => m.role !== 'model').map(m => ({
+                    role: m.role === 'user' ? 'user' : 'model',
+                    parts: [{ text: m.text }]
+                })),
+                { role: "user", parts: [{ text: userMessage }] } // Current message
+            ];
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: contents,
-                generationConfig: {
-                    temperature: 0.9, // Creative & Fun
-                    maxOutputTokens: 150,
-                }
-            })
-        });
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: contents,
+                    generationConfig: {
+                        temperature: 0.9, // Creative & Fun
+                        maxOutputTokens: 150,
+                    }
+                })
+            });
 
-        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+            if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mất kết nối với vũ trụ rồi! 😵 Thử lại nha!";
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mất kết nối với vũ trụ rồi! 😵 Thử lại nha!";
 
-        this.history.push({ role: "model", text: text });
-        this.notifyUpdate();
-        return text;
+            this.history.push({ role: "model", text: text });
+            this.notifyUpdate();
+            return text;
+        } catch (error) {
+            console.error("Gemini API Error:", error);
+            const fallback = "Oups! Mất kết nối với Neural Core rồi... 😵 Thử lại xíu nữa nha! (Check API Key nữa nhé)";
+            this.history.push({ role: "model", text: fallback });
+            this.notifyUpdate();
+            return fallback;
+        }
     }
 
     async getReactionFeedback(detail: string): Promise<string> {
