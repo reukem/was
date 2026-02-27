@@ -781,7 +781,8 @@ const LabScene: React.FC<{
         if (!mountRef.current) return;
         const scene = new THREE.Scene();
         // MODULE 1: The "Sunset" Upgrade (Lighting & Environment)
-        scene.background = new THREE.Color('#2a0a18'); // Deep warm purple/brown
+        // Set background to null to allow CSS gradient to show through, or a sky color
+        scene.background = null;
         sceneRef.current = scene;
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -816,11 +817,11 @@ const LabScene: React.FC<{
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        // 1. Ambient - Warm Purple
-        scene.add(new THREE.AmbientLight(0x581c87, 0.4));
+        // 1. Ambient - Cool Sky Blue (Daytime)
+        scene.add(new THREE.AmbientLight(0xbae6fd, 0.6));
 
-        // 2. Key Light - Golden Sunset
-        const spotLight = new THREE.SpotLight(0xffaa00, 150);
+        // 2. Key Light - Warm Sunset Sun (Orange/Gold)
+        const spotLight = new THREE.SpotLight(0xffedd5, 120);
         spotLight.position.set(5, 12, 5);
         spotLight.angle = Math.PI / 5;
         spotLight.penumbra = 0.6;
@@ -830,19 +831,19 @@ const LabScene: React.FC<{
         spotLight.shadow.bias = -0.0001;
         scene.add(spotLight);
 
-        // 3. Rim Light - Hot Orange Backlight
-        const rimLight = new THREE.DirectionalLight(0xf97316, 3.5);
+        // 3. Rim Light - Soft Peach Backlight
+        const rimLight = new THREE.DirectionalLight(0xfdc4b6, 2.5);
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
 
-        // 4. Fill Lights - Pink/Purple Accents
-        const fillMagenta = new THREE.PointLight(0xc026d3, 1.2, 20);
-        fillMagenta.position.set(6, 2, -2);
-        scene.add(fillMagenta);
+        // 4. Fill Lights - Soft Sunset Pinks
+        const fillPink = new THREE.PointLight(0xfbcfe8, 1.0, 20);
+        fillPink.position.set(6, 4, -2);
+        scene.add(fillPink);
 
-        const fillRose = new THREE.PointLight(0xe11d48, 1.2, 20); // Rose
-        fillRose.position.set(-6, 2, -2);
-        scene.add(fillRose);
+        const fillOrange = new THREE.PointLight(0xfdba74, 1.0, 20);
+        fillOrange.position.set(-6, 4, -2);
+        scene.add(fillOrange);
 
         scene.add(createTable());
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 2.5), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 }));
@@ -1523,11 +1524,6 @@ export default function App() {
         setIsAiLoading(false);
     };
 
-    const handleDrop = useCallback((sourceId: string, targetId: string) => {
-        console.log(`[PHYSICS] Dropping ${sourceId} into ${targetId}!`);
-        handlePour(sourceId, targetId);
-    }, []); // handlePour is used but not in dep array to avoid cyclic dep if handlePour needs handleDrop (it doesn't, but safer)
-
     const handlePour = useCallback(async (sourceId: string, targetId: string) => {
         const source = containers.find(c => c.id === sourceId);
         const target = containers.find(c => c.id === targetId);
@@ -1589,6 +1585,11 @@ export default function App() {
         }
     }, [containers, heaterTemp]); // Add heaterTemp to dependencies
 
+    const handleDrop = useCallback((sourceId: string, targetId: string) => {
+        console.log(`[PHYSICS] Dropping ${sourceId} into ${targetId}!`);
+        handlePour(sourceId, targetId);
+    }, [handlePour]);
+
     const handleSpawn = (chemId: string) => {
         const isBeaker = chemId === 'BEAKER';
         const newId = isBeaker ? `beaker-${Date.now()}` : `source_${chemId}_${Date.now()}`;
@@ -1610,9 +1611,12 @@ export default function App() {
     };
 
     return (
-        <div className={`relative w-full h-screen overflow-hidden bg-slate-950 transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
+        <div className={`relative w-full h-screen overflow-hidden transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
+            {/* Gradient Background: Sky Blue -> Soft Pink -> Sunset Orange */}
+            <div className="absolute inset-0 bg-gradient-to-b from-sky-300 via-pink-200 to-orange-300" />
+
             {/* Background Texture */}
-            <div className="absolute inset-0 bg-tech-grid opacity-20 pointer-events-none" />
+            <div className="absolute inset-0 bg-tech-grid opacity-10 pointer-events-none mix-blend-overlay" />
 
             <LabScene
                 heaterTemp={heaterTemp}
