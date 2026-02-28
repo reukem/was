@@ -86,15 +86,19 @@ class GeminiService {
         this.history.push({ role: "user", text: message });
         this.notifyUpdate();
 
+        // Ensure apiKey is fresh
+        this.apiKey = localStorage.getItem('gemini_api_key');
+
         // 1. CHECK FOR API KEY
         if (this.apiKey) {
             try {
                 return await this.callGeminiAPI(message);
             } catch (error) {
                 console.error("Gemini API Error:", error);
-                this.history.push({ role: "model", text: "Lỗi kết nối Neural Core! 😵 Chuyển về chế độ Offline nha! (Check API Key đi bạn êi)" });
+                const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed...";
+                this.history.push({ role: "model", text: fallbackMsg });
                 this.notifyUpdate();
-                // Fallthrough to offline logic
+                return fallbackMsg;
             }
         } else {
              // Simulate network delay for realism
@@ -127,48 +131,47 @@ class GeminiService {
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
-        try {
-            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+        // Fetch key again to ensure it's not stale from a previous instance
+        this.apiKey = localStorage.getItem('gemini_api_key');
+        if (!this.apiKey) {
+            throw new Error("No API key found");
+        }
 
-            const systemInstruction = `System: You are Professor Lucy, an intelligent, Gen-Z AI chemistry assistant and the user's virtual sister. Use emojis (:3, ^^). Answer general questions cleverly. For chemistry, analyze the stoichiometry based on the lab state.`;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+        const systemInstruction = `System: You are Professor Lucy, an intelligent, Gen-Z AI chemistry assistant and the user's virtual sister. Use emojis (:3, ^^). Answer general questions cleverly. For chemistry, analyze the stoichiometry based on the lab state.`;
 
-            // Format history for Gemini
-            const contents = [
-                { role: "user", parts: [{ text: systemInstruction }] }, // System prompt injection
-                ...this.history.filter(m => m.role !== 'model').map(m => ({
-                    role: m.role === 'user' ? 'user' : 'model',
+        const payload = {
+            contents: [
+                { role: "user", parts: [{ text: systemInstruction }] },
+                ...this.history.filter(m => m.role === 'user' || m.role === 'model').map(m => ({
+                    role: m.role === 'model' ? 'model' : 'user',
                     parts: [{ text: m.text }]
                 })),
-                { role: "user", parts: [{ text: userMessage }] } // Current message
-            ];
+                { role: "user", parts: [{ text: userMessage }] }
+            ],
+            generationConfig: {
+                temperature: 0.85,
+                maxOutputTokens: 8192,
+            }
+        };
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: contents,
-                    generationConfig: {
-                        temperature: 0.9, // Creative & Fun
-                        maxOutputTokens: 150,
-                    }
-                })
-            });
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
 
-            if (!response.ok) throw new Error(`API Error: ${response.status}`);
-
-            const data = await response.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mất kết nối với vũ trụ rồi! 😵 Thử lại nha!";
-
-            this.history.push({ role: "model", text: text });
-            this.notifyUpdate();
-            return text;
-        } catch (error) {
-            console.error("Gemini API Error:", error);
-            const fallback = "API Connection Error. Please check your key.";
-            this.history.push({ role: "model", text: fallback });
-            this.notifyUpdate();
-            return fallback;
+        if (!response.ok) {
+            const errorData = await response.text();
+            throw new Error(`API Error: ${response.status} - ${errorData}`);
         }
+
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mất kết nối với vũ trụ rồi! 😵 Thử lại nha!";
+
+        this.history.push({ role: "model", text: text });
+        this.notifyUpdate();
+        return text;
     }
 
     async getReactionFeedback(detail: string): Promise<string> {

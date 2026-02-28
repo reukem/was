@@ -13,6 +13,33 @@ import { ExplosionVFX } from './ExplosionVFX';
 // 1. ASSETS & MATERIALS (PHASE 1: TRIPLE-A UPGRADE)
 // -----------------------------------------------------------------------------
 
+// Procedural Noise Generator for Powders
+const generateNoiseTexture = () => {
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+        const imageData = ctx.createImageData(size, size);
+        for (let i = 0; i < imageData.data.length; i += 4) {
+            const val = Math.floor(Math.random() * 255);
+            imageData.data[i] = val;
+            imageData.data[i + 1] = val;
+            imageData.data[i + 2] = val;
+            imageData.data[i + 3] = 255;
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 4);
+    return texture;
+};
+
+const powderBumpMap = generateNoiseTexture();
+
 const GLASS_MATERIAL_PROPS = {
     transmission: 1,
     thickness: 0.2,
@@ -26,10 +53,12 @@ const GLASS_MATERIAL_PROPS = {
 };
 
 const LIQUID_MATERIAL_PROPS = {
-    metalness: 0.1,
-    roughness: 0.2,
+    transmission: 0.6,
+    thickness: 0.5,
+    roughness: 0.1,
+    ior: 1.33,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.9,
     depthWrite: true, // Transparency fix
 };
 
@@ -99,13 +128,13 @@ const Liquid = ({ color, volume, isFlask }: { color: string; volume: number; isF
                  // Ideally, we'd use a matching lathe, but a cylinder is safer than a cone.
                  <mesh castShadow renderOrder={1}>
                      <cylinderGeometry args={[radius * 0.2, radius, height, 32]} />
-                     <meshStandardMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
+                     <meshPhysicalMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
                  </mesh>
              ) : (
                  // Beaker Liquid: Cylinder
                  <mesh castShadow renderOrder={1}>
                      <cylinderGeometry args={[radius, radius, height, 32]} />
-                     <meshStandardMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
+                     <meshPhysicalMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
                  </mesh>
              )}
         </group>
@@ -384,7 +413,13 @@ const DraggableContainer = ({
                      {chem?.meshStyle === 'rock' && (
                          <mesh castShadow receiveShadow>
                              <dodecahedronGeometry args={[0.3, 0]} />
-                             <meshStandardMaterial color={chem.color} roughness={0.9} metalness={0.4} flatShading={true} />
+                             {chem.id === 'GOLD' || chem.id === 'Au' ? (
+                                 <meshStandardMaterial color={chem.color} metalness={1.0} roughness={0.15} flatShading={true} />
+                             ) : chem.id === 'ZINC' || chem.id === 'Zn' ? (
+                                 <meshStandardMaterial color={chem.color} metalness={1.0} roughness={0.6} flatShading={true} />
+                             ) : (
+                                 <meshStandardMaterial color={chem.color} roughness={0.9} metalness={0.4} flatShading={true} />
+                             )}
                          </mesh>
                      )}
                      {chem?.meshStyle === 'crystal' && (
@@ -406,7 +441,14 @@ const DraggableContainer = ({
                      {chem?.meshStyle === 'mound' && (
                          <mesh castShadow receiveShadow position={[0, 0.2, 0]}>
                              <coneGeometry args={[0.4, 0.4, 16, 1, true]} />
-                             <meshStandardMaterial color={chem.color} roughness={1} />
+                             {/* Granular Shader logic for Powders */}
+                             <meshStandardMaterial
+                                 color={chem.color}
+                                 roughness={1}
+                                 metalness={0}
+                                 bumpMap={powderBumpMap}
+                                 bumpScale={0.05}
+                             />
                          </mesh>
                      )}
                      {/* Labels for shelf items */}

@@ -9,7 +9,7 @@ export const CHEMICALS: Record<string, Chemical> = {
     'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: 'Canxi Cacbonat', formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: 'Chất phổ biến trong đá/vỏ sò.' },
 
     'CHLORINE': { id: 'CHLORINE', name: 'Khí Clo', formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: 'Khí nhị nguyên tử độc hại.' },
-    'SALT': { id: 'SALT', name: 'Muối Ăn', formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'crystal', ph: 7.0, description: 'Natri Clorua tinh thể.' },
+    'SALT': { id: 'SALT', name: 'Muối Ăn', formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Natri Clorua tinh thể.' },
 
     'HCl': { id: 'HCl', name: 'Axit Clohydric', formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Axit vô cơ mạnh.' },
     'HNO3': { id: 'HNO3', name: 'Axit Nitric', formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Axit vô cơ ăn mòn cao.' },
@@ -30,8 +30,8 @@ export const CHEMICALS: Record<string, Chemical> = {
     'Ca': { id: 'Ca', name: 'Canxi', formula: 'Ca', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Kim loại kiềm thổ màu xám xỉn.' },
 
     // Product Definitions
-    'MgSO4': { id: 'MgSO4', name: 'Magiê Sunfat', formula: 'MgSO₄', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 6.0, description: 'Muối vô cơ tan trong nước.' },
-    'CaOH2': { id: 'CaOH2', name: 'Canxi Hydroxit', formula: 'Ca(OH)₂', color: '#f1f5f9', type: 'liquid', meshStyle: 'flask', ph: 12.0, description: 'Dung dịch nước vôi trong/đục.' }
+    'MgSO4': { id: 'MgSO4', name: 'Magiê Sunfat', formula: 'MgSO₄', color: '#e2e8f0', type: 'solid', meshStyle: 'mound', ph: 6.0, description: 'Muối vô cơ tan trong nước.' },
+    'CaOH2': { id: 'CaOH2', name: 'Canxi Hydroxit', formula: 'Ca(OH)₂', color: '#f1f5f9', type: 'solid', meshStyle: 'mound', ph: 12.0, description: 'Dung dịch nước vôi trong/đục.' }
 };
 
 export const REACTION_REGISTRY: ReactionEntry[] = [
