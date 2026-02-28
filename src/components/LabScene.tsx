@@ -514,7 +514,7 @@ const LabScene: React.FC<{
             <pointLight position={[6, 4, -2]} intensity={1.0} color="#fbcfe8" />
             <pointLight position={[-6, 4, -2]} intensity={1.0} color="#fdba74" />
 
-            <Environment preset="studio" background={false} />
+            <Environment preset="warehouse" background={false} />
 
             <group position={[0, 0, 0]}>
                 <Table />
