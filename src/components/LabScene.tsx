@@ -53,12 +53,12 @@ const GLASS_MATERIAL_PROPS = {
 };
 
 const LIQUID_MATERIAL_PROPS = {
-    transmission: 0.6,
+    transmission: 1.0,
     thickness: 0.5,
-    roughness: 0.1,
+    roughness: 0.0,
     ior: 1.33,
     transparent: true,
-    opacity: 0.9,
+    opacity: 1.0,
     depthWrite: true, // Transparency fix
 };
 
@@ -114,26 +114,61 @@ const BeakerGeometry = ({ children }: { children?: React.ReactNode }) => {
 const Liquid = ({ color, volume, isFlask }: { color: string; volume: number; isFlask?: boolean }) => {
     if (volume <= 0.01) return null;
 
-    // Scale height based on volume
-    const height = Math.max(0.1, volume * (isFlask ? 0.8 : 1.1));
-    const radius = isFlask ? 0.4 : 0.46;
+    // Dynamic height based on volume (max fill height)
+    const maxHeight = isFlask ? 0.8 : 1.1; // Match visual height limits
+    const height = Math.max(0.05, volume * maxHeight);
 
-    // Use Cylinder for Beaker, Sphere section for Flask (simulating round bottom)
-    // Note: User requested avoiding coneGeometry for Flask.
+    // Beaker cylinder properties
+    const beakerRadius = 0.46; // Slightly less than beaker inner radius (0.5) to prevent z-fighting
+    const beakerYOffset = height / 2 + 0.05;
+
+    // Flask internal hull points generator
+    const flaskPoints = useMemo(() => {
+        if (!isFlask) return [];
+        const pts = [];
+        // Base starting point
+        pts.push(new THREE.Vector2(0, 0.05));
+
+        // Generate lathe points mirroring the inner wall of the FlaskGeometry up to current fill level
+        // We evaluate the same formula used in FlaskGeometry, restricted by height.
+        // We also slightly inset the radius (e.g., * 0.98) to avoid z-fighting with the glass.
+        const numSegments = 40;
+        for (let i = 0; i <= numSegments; i++) {
+            const t = i / numSegments;
+            const y = 0.05 + t * 0.8; // Map t to y-coordinate matching the flask body height (0.05 base + 0.8 body)
+
+            if (y > height + 0.05) {
+                // Liquid reached max height, cap it
+                // We calculate x at the exact cutoff height
+                const tCutoff = (height) / 0.8;
+                const xCutoff = (Math.sin(tCutoff * Math.PI) * 0.45 + 0.1) * 0.95;
+                pts.push(new THREE.Vector2(xCutoff, height + 0.05));
+                pts.push(new THREE.Vector2(0, height + 0.05)); // Close top
+                break;
+            }
+
+            const x = (Math.sin(t * Math.PI) * 0.45 + 0.1) * 0.95; // Inner hull scale
+            pts.push(new THREE.Vector2(x, y));
+
+            if (i === numSegments && y <= height + 0.05) {
+                pts.push(new THREE.Vector2(0, y)); // Close top if exactly full
+            }
+        }
+        return pts;
+    }, [isFlask, height]);
 
     return (
-        <group position={[0, height / 2 + 0.05, 0]}>
+        <group>
              {isFlask ? (
-                 // Flask Liquid: Use a cylinder that tapers or just a smaller cylinder for now to fit the neck/body
-                 // Ideally, we'd use a matching lathe, but a cylinder is safer than a cone.
+                 // Flask Liquid: Lathe geometry matching inner hull
                  <mesh castShadow renderOrder={1}>
-                     <cylinderGeometry args={[radius * 0.2, radius, height, 32]} />
+                     <latheGeometry args={[flaskPoints, 64]} />
                      <meshPhysicalMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
                  </mesh>
              ) : (
                  // Beaker Liquid: Cylinder
-                 <mesh castShadow renderOrder={1}>
-                     <cylinderGeometry args={[radius, radius, height, 32]} />
+                 <mesh castShadow renderOrder={1} position={[0, beakerYOffset, 0]}>
+                     <cylinderGeometry args={[beakerRadius, beakerRadius, height, 32]} />
                      <meshPhysicalMaterial {...LIQUID_MATERIAL_PROPS} color={color} />
                  </mesh>
              )}
