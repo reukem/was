@@ -1,7 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import SettingsModal from './components/SettingsModal';
+import * as THREE from 'three';
 import LabScene from './components/LabScene';
 import { ChemistryEngine } from './systems/ChemistryEngine';
+import { AudioManager } from './systems/AudioManager';
 import { CHEMICALS, REACTION_REGISTRY } from './constants';
 import { ContainerState, ChatMessage, ReactionResult } from './types';
 
@@ -256,7 +258,11 @@ const LabAssistantPanel: React.FC<{
                  {/* Header - Always visible, Click to toggle */}
                  <div
                     className="h-16 flex items-center justify-between px-4 bg-slate-900/50 border-b border-white/5 cursor-pointer hover:bg-slate-800/50 transition-colors shrink-0"
-                    onClick={() => setIsExpanded(!isExpanded)}
+                    onClick={() => {
+                        const newState = !isExpanded;
+                        setIsExpanded(newState);
+                        AudioManager.getInstance().playSound(newState ? 'ui_panel_expand' : 'ui_panel_collapse');
+                    }}
                  >
                      <div className="flex items-center gap-3">
                         <img
@@ -528,6 +534,36 @@ const App = () => {
         { id: 'beaker-2', position: [1.5, 0.11, 0], contents: null }
     ];
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
+
+    // SFX side effect for boiling
+    useEffect(() => {
+        const heaterPos = new THREE.Vector3(-1.5, 0, 0); // known heater pos
+        if (heaterTemp >= 100) {
+            // Find containers on the heater with liquid
+            const boilingContainers = containers.filter(c => {
+                const distToHeater = new THREE.Vector2(c.position[0], c.position[2]).distanceTo(new THREE.Vector2(heaterPos.x, heaterPos.z));
+                return distToHeater < 0.6 && c.contents && c.contents.volume > 0;
+            });
+
+            boilingContainers.forEach(c => {
+                // we'll use liquid_boil for this
+                AudioManager.getInstance().playSound3D('liquid_boil', c.position, `boil_${c.id}`);
+            });
+
+            // Stop boiling sound for removed containers
+            containers.forEach(c => {
+                 if (!boilingContainers.includes(c)) {
+                      AudioManager.getInstance().stopLoop('liquid_boil', `boil_${c.id}`);
+                 }
+            });
+
+        } else {
+             // Stop all boiling sounds
+             containers.forEach(c => {
+                  AudioManager.getInstance().stopLoop('liquid_boil', `boil_${c.id}`);
+             });
+        }
+    }, [heaterTemp, containers]);
     const [lastReaction, setLastReaction] = useState<string | null>(null);
     const [lastEffect, setLastEffect] = useState<string | null>(null);
     const [aiFeedback, setAiFeedback] = useState<string>("Chào mừng bạn đến với phòng thí nghiệm. Tôi là Giáo sư Lucy.");
@@ -625,6 +661,13 @@ const App = () => {
             setLastEffect(mixResult.reaction.effect || null);
             setLastEffectPos(target.position);
 
+            // Trigger reaction SFX
+            if (mixResult.reaction.effect === 'explosion') {
+                AudioManager.getInstance().playSound3D('explosion', target.position);
+            } else if (mixResult.reaction.effect === 'smoke') {
+                AudioManager.getInstance().playSound3D('gas_hiss', target.position);
+            }
+
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
             reactionTimeoutRef.current = window.setTimeout(() => {
                 setLastReaction(null);
@@ -654,6 +697,8 @@ const App = () => {
         const y = isBeaker ? 0.11 : 0.56;
         const z = isBeaker ? (Math.random() * 2) : -3.5;
         setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isBeaker ? undefined : [x, y, z], contents: isBeaker ? null : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 } }]);
+
+        AudioManager.getInstance().playSound('ui_spawn');
     };
 
     const handleReset = () => {

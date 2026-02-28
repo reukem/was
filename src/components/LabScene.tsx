@@ -1,9 +1,11 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { AudioListenerSync } from './AudioListenerSync';
 import { OrbitControls, Environment, PerspectiveCamera, Html, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import { CHEMICALS } from '../constants';
 import { ContainerState } from '../types';
+import { AudioManager } from '../systems/AudioManager';
 import { PhysicsEngine } from '../systems/PhysicsEngine';
 import { ExplosionVFX } from './ExplosionVFX';
 
@@ -268,6 +270,9 @@ const DraggableContainer = ({
             if (controls) {
                 (controls as any).enabled = false;
             }
+            if (group.current) {
+                AudioManager.getInstance().playSound3D('glass_drag', group.current.position);
+            }
         },
         onPointerUp: (e: any) => {
             e.stopPropagation();
@@ -280,6 +285,7 @@ const DraggableContainer = ({
             }
 
             if (group.current) {
+                AudioManager.getInstance().playSound3D('glass_drop', group.current.position);
                 // Check interactions
                 const myPos = group.current.position;
                 let interacted = false;
@@ -295,6 +301,7 @@ const DraggableContainer = ({
                              interacted = true;
                         } else if (PhysicsEngine.checkPourCondition(myPos, targetPos, container.id, other.id)) {
                              onPour(container.id, other.id);
+                             AudioManager.getInstance().playSound3D('liquid_pour', group.current!.position);
                              interacted = true;
                         }
                     }
@@ -447,6 +454,7 @@ const LabScene: React.FC<{
             camera={{ position: [0, 8, 12], fov: 45 }}
             style={{ background: 'transparent' }}
         >
+            <AudioListenerSync />
             <SceneSetup />
             <ExplosionVFX position={lastEffectPos || [0, 0, 0]} isActive={lastEffect === 'explosion'} />
             {/* LIGHTING: SUNSET HACKER HYBRID */}

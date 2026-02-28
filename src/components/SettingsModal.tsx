@@ -1,5 +1,6 @@
-import React from 'react';
-import { X, Bot, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Bot, Sparkles, Volume2, VolumeX } from 'lucide-react';
+import { AudioManager } from '../systems/AudioManager';
 
 interface SettingsModalProps {
     isOpen?: boolean;
@@ -7,6 +8,29 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen = true, onClose }) => {
+    const [volume, setVolume] = useState(0.5);
+    const [isMuted, setIsMuted] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            const audioManager = AudioManager.getInstance();
+            setVolume(audioManager.getVolume());
+            setIsMuted(audioManager.getMuted());
+        }
+    }, [isOpen]);
+
+    const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newVol = parseFloat(e.target.value);
+        setVolume(newVol);
+        AudioManager.getInstance().setVolume(newVol);
+    };
+
+    const toggleMute = () => {
+        const newMute = !isMuted;
+        setIsMuted(newMute);
+        AudioManager.getInstance().setMuted(newMute);
+    };
+
     if (!isOpen) return null;
 
     return (
@@ -44,8 +68,39 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen = true, onClose })
                 </div>
 
                 {/* Settings Content */}
-                <div className="space-y-4">
-                    <p className="text-slate-400 text-sm">Advanced configuration options are currently locked by the System Administrator.</p>
+                <div className="space-y-6">
+                    {/* Audio Controls */}
+                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
+                        <h3 className="text-white font-bold text-sm font-mono mb-4 flex items-center gap-2">
+                            AUDIO CONFIGURATION
+                        </h3>
+
+                        <div className="flex items-center gap-4 mb-2">
+                            <button
+                                onClick={toggleMute}
+                                className={`p-2 rounded-lg transition-colors ${isMuted ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-cyan-900/30 text-cyan-400 border border-cyan-800/50 hover:bg-cyan-800/50'}`}
+                            >
+                                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                            </button>
+
+                            <div className="flex-1 flex flex-col gap-2">
+                                <div className="flex justify-between text-xs font-mono text-slate-400">
+                                    <span>MASTER VOLUME</span>
+                                    <span>{Math.round(volume * 100)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value={volume}
+                                    onChange={handleVolumeChange}
+                                    disabled={isMuted}
+                                    className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${isMuted ? 'bg-slate-700' : 'bg-cyan-900/50 accent-cyan-400'}`}
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Footer */}
