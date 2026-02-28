@@ -8,20 +8,20 @@ export class AudioManager {
   private sounds: Map<string, Howl> = new Map();
   private activeLoops: Map<string, number> = new Map();
 
-  // Dummy URLs as requested
+  // Asset Paths
   private readonly ASSET_MAP: Record<string, string> = {
     // UI
-    'ui_panel_expand': 'assets/audio/ui_panel_expand.mp3',
-    'ui_panel_collapse': 'assets/audio/ui_panel_collapse.mp3',
-    'ui_spawn': 'assets/audio/ui_spawn.mp3',
+    'ui_panel_expand': 'assets/audio/ui_panel_swoosh.mp3',
+    'ui_panel_collapse': 'assets/audio/ui_panel_swoosh.mp3',
+    'ui_spawn': 'assets/audio/ui_spawn_pop.mp3',
     // Interactions
-    'glass_drag': 'assets/audio/glass_drag.mp3',
-    'glass_drop': 'assets/audio/glass_drop.mp3',
+    'glass_drag': 'assets/audio/glass_clink.mp3',
+    'glass_drop': 'assets/audio/glass_clink.mp3',
     'liquid_pour': 'assets/audio/liquid_pour.mp3',
     // Reactions
-    'liquid_boil': 'assets/audio/liquid_boil.mp3',
+    'liquid_boil': 'assets/audio/boil_loop.mp3',
     'gas_hiss': 'assets/audio/gas_hiss.mp3',
-    'explosion': 'assets/audio/placeholder_sodium_boom.mp3',
+    'explosion': 'assets/audio/sodium_explosion.mp3',
   };
 
   private constructor() {

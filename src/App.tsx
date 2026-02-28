@@ -536,9 +536,11 @@ const App = () => {
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
 
     // SFX side effect for boiling
+    const activeBoilLoops = useRef<Set<string>>(new Set());
+
     useEffect(() => {
         const heaterPos = new THREE.Vector3(-1.5, 0, 0); // known heater pos
-        if (heaterTemp >= 100) {
+        if (heaterTemp >= 180) {
             // Find containers on the heater with liquid
             const boilingContainers = containers.filter(c => {
                 const distToHeater = new THREE.Vector2(c.position[0], c.position[2]).distanceTo(new THREE.Vector2(heaterPos.x, heaterPos.z));
@@ -546,21 +548,32 @@ const App = () => {
             });
 
             boilingContainers.forEach(c => {
-                // we'll use liquid_boil for this
-                AudioManager.getInstance().playSound3D('liquid_boil', c.position, `boil_${c.id}`);
+                const loopId = `boil_${c.id}`;
+                if (!activeBoilLoops.current.has(loopId)) {
+                    AudioManager.getInstance().playSound3D('liquid_boil', c.position, loopId);
+                    activeBoilLoops.current.add(loopId);
+                } else {
+                    AudioManager.getInstance().updateLoopPosition('liquid_boil', loopId, c.position);
+                }
             });
 
             // Stop boiling sound for removed containers
             containers.forEach(c => {
-                 if (!boilingContainers.includes(c)) {
-                      AudioManager.getInstance().stopLoop('liquid_boil', `boil_${c.id}`);
+                 const loopId = `boil_${c.id}`;
+                 if (!boilingContainers.includes(c) && activeBoilLoops.current.has(loopId)) {
+                      AudioManager.getInstance().stopLoop('liquid_boil', loopId);
+                      activeBoilLoops.current.delete(loopId);
                  }
             });
 
         } else {
              // Stop all boiling sounds
              containers.forEach(c => {
-                  AudioManager.getInstance().stopLoop('liquid_boil', `boil_${c.id}`);
+                 const loopId = `boil_${c.id}`;
+                 if (activeBoilLoops.current.has(loopId)) {
+                     AudioManager.getInstance().stopLoop('liquid_boil', loopId);
+                     activeBoilLoops.current.delete(loopId);
+                 }
              });
         }
     }, [heaterTemp, containers]);
@@ -665,7 +678,7 @@ const App = () => {
             if (mixResult.reaction.effect === 'explosion') {
                 AudioManager.getInstance().playSound3D('explosion', target.position);
             } else if (mixResult.reaction.effect === 'smoke') {
-                AudioManager.getInstance().playSound3D('gas_hiss', target.position);
+                AudioManager.getInstance().playSound3D('gas_hiss', target.position, `hiss_${target.id}`);
             }
 
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
@@ -673,6 +686,7 @@ const App = () => {
                 setLastReaction(null);
                 setLastEffect(null);
                 setLastEffectPos(null);
+                AudioManager.getInstance().stopLoop('gas_hiss', `hiss_${target.id}`);
             }, 6000);
 
             if (aiServiceRef.current) {
