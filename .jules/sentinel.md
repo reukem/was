@@ -1,0 +1,4 @@
+## 2024-05-24 - API Key Leakage in Vite Config
+**Vulnerability:** The Vite configuration (`vite.config.ts`) was using `define: { 'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY) }` which bakes the environment variable directly into the client-side JavaScript bundle during the build process, exposing sensitive keys to anyone who views the source.
+**Learning:** Vite's `define` option does literal string replacement in the source code. Using it for sensitive secrets like API keys essentially hardcodes them into the compiled output. The app already supports a BYOK (Bring Your Own Key) model via `localStorage` in `App.tsx` and `SettingsModal.tsx`, making the hardcoded build injection unnecessary and dangerous.
+**Prevention:** Never use `define: { 'process.env.*': ... }` for secrets in client-side build tools (like Vite, Webpack, etc.). Always rely on backend proxies or runtime configuration (like user input/localStorage) for sensitive keys.
