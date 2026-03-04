@@ -1,0 +1,4 @@
+## 2024-05-18 - [CRITICAL] Fix API Key Exposure in Build Configuration
+**Vulnerability:** Hardcoded API keys via `define` block in `vite.config.ts` mapping to `process.env.API_KEY` and `process.env.GEMINI_API_KEY`.
+**Learning:** Vite's `define` configuration replaces global constants with string literals at build time. Using `define: { 'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY) }` effectively bakes secrets into the public client-side JavaScript bundle, making them accessible to anyone who inspects the compiled code.
+**Prevention:** Never use Vite's `define` feature or `import.meta.env` to inject sensitive secrets into a client-side application. Always rely on secure runtime injection methods (e.g., retrieving keys securely from a backend API or allowing the user to provide their own key via `localStorage` BYOK architecture) when dealing with sensitive credentials.
