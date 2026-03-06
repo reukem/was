@@ -1,0 +1,4 @@
+## 2024-05-24 - API Key Leakage in Vite Config
+**Vulnerability:** The Vite configuration file (`vite.config.ts`) was using the `define` property to inject the `GEMINI_API_KEY` environment variable directly into the client-side bundle via `process.env.API_KEY` and `process.env.GEMINI_API_KEY`.
+**Learning:** Using Vite's `define` config with `loadEnv` to map environment variables exposes those values directly in the public build artifact, making sensitive secrets (like API keys) accessible to anyone inspecting the client code. This circumvents the intended BYOK (Bring Your Own Key) architecture.
+**Prevention:** Avoid injecting sensitive environment variables using Vite's `define` object for client-side builds. For a BYOK architecture, secrets should be securely managed at runtime (e.g., via `localStorage`) or injected strictly on the backend.
