@@ -623,7 +623,7 @@ class GeminiService {
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(this.apiKey || '')}`;
 
         const systemInstruction = `
         Bạn là Giáo sư Lucy, một trợ lý ảo phòng thí nghiệm Gen-Z, năng động, hài hước và am hiểu hóa học.
@@ -644,17 +644,26 @@ class GeminiService {
             { role: "user", parts: [{ text: userMessage }] } // Current message
         ];
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: contents,
-                generationConfig: {
-                    temperature: 0.9, // Creative & Fun
-                    maxOutputTokens: 150,
-                }
-            })
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+        let response;
+        try {
+            response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: contents,
+                    generationConfig: {
+                        temperature: 0.9, // Creative & Fun
+                        maxOutputTokens: 150,
+                    }
+                }),
+                signal: controller.signal
+            });
+        } finally {
+            clearTimeout(timeoutId);
+        }
 
         if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
@@ -1243,8 +1252,10 @@ const HolographicAvatar: React.FC<{
                              type="text"
                              value={chatInput}
                              onChange={(e) => setChatInput(e.target.value)}
-                             placeholder="Hỏi Lucy..."
-                             className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+                             disabled={isAiLoading}
+                             maxLength={200}
+                             placeholder={isAiLoading ? "Đang xử lý..." : "Hỏi Lucy..."}
+                             className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                          />
                      </div>
                  </form>
@@ -1505,10 +1516,13 @@ export default function App() {
     }, []);
 
     const handleChat = async (message: string) => {
-        if (!aiServiceRef.current) return;
+        if (!aiServiceRef.current || isAiLoading) return;
         setIsAiLoading(true);
-        await aiServiceRef.current.chat(message);
-        setIsAiLoading(false);
+        try {
+            await aiServiceRef.current.chat(message);
+        } finally {
+            setIsAiLoading(false);
+        }
     };
 
     const handlePour = useCallback(async (sourceId: string, targetId: string) => {
