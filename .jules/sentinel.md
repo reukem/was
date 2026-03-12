@@ -1,0 +1,4 @@
+## 2024-03-12 - Critical: Vite config bakes secrets into bundle
+**Vulnerability:** The `vite.config.ts` uses Vite's `define` feature to globally replace `process.env.API_KEY` and `process.env.GEMINI_API_KEY` with the actual string values from `env.GEMINI_API_KEY`. Because this happens at build time, if an API key is present in the build environment (e.g. CI/CD), it is permanently baked as a plaintext string into the generated public JavaScript bundle, exposing the secret.
+**Learning:** Build-time string replacement (`define`) must never be used for sensitive secrets in client-side applications. The application correctly uses a BYOK (Bring Your Own Key) architecture with `localStorage` (seen in `src/App.tsx`), making the `define` completely unnecessary and dangerous.
+**Prevention:** Remove `define` blocks containing secrets from build configuration files. Rely on secure runtime delivery or client-side storage for secrets.
