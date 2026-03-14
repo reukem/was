@@ -1,0 +1,4 @@
+## 2024-05-24 - API Key Injection in Vite Build
+**Vulnerability:** The `vite.config.ts` was injecting `GEMINI_API_KEY` directly into the public bundle using the `define` property. Also, `src/App.tsx` did not `encodeURIComponent` the API key when injecting it into the fetch URL.
+**Learning:** Build-time replacement via `define: { 'process.env.KEY': ... }` bakes the environment variable into the client-side JavaScript, exposing the secret. Furthermore, unencoded dynamic inputs in URLs risk HTTP parameter injection.
+**Prevention:** Avoid injecting secrets using Vite's `define` for client applications. Instead, use a BYOK (Bring Your Own Key) approach where the key is stored in `localStorage` or served dynamically by an authenticated backend. Also, always use `encodeURIComponent` when placing dynamic values into a URL string.
