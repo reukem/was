@@ -1,0 +1,4 @@
+## 2026-03-16 - [CRITICAL] Prevent Secret Leakage via Vite define
+**Vulnerability:** The `vite.config.ts` file used the `define` block to inject `process.env.GEMINI_API_KEY` into the client-side bundle. This bakes the secret API key into the public JavaScript bundle at build time, exposing it to anyone who inspects the compiled application. Furthermore, the application logic incorrectly constructed URLs without encoding API keys, risking parameter injection.
+**Learning:** Vite's `define` property performs static string replacement during the build process. Exposing sensitive environment variables here completely undermines client-side security mechanisms. In addition, unencoded dynamic values in URLs pose HTTP parameter injection vulnerabilities.
+**Prevention:** Never use Vite's `define` for sensitive keys. Rely strictly on explicit runtime mechanisms (like `localStorage` BYOK). Always wrap dynamically injected values in URLs with `encodeURIComponent`.
