@@ -1,0 +1,4 @@
+## 2024-03-17 - Prevent HTTP Parameter Injection in BYOK API URLs
+**Vulnerability:** User-provided API keys from localStorage were directly interpolated into fetch request URLs without URL encoding. If an attacker could inject special characters (like `&` or `#`) into the stored API key, they could alter the API request structure, potentially bypassing security controls or causing unintended backend behavior.
+**Learning:** Even though the key is a local configuration (BYOK), it acts as an input vector when constructing dynamic URLs. Untrusted or unvalidated local data can still compromise outbound network requests if not properly sanitized before use.
+**Prevention:** Always wrap variables dynamically injected into URL query parameters with `encodeURIComponent`, especially when the data originates from an external or user-modifiable source like localStorage.
