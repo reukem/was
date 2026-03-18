@@ -1,0 +1,4 @@
+## 2024-03-18 - [CRITICAL] Fix API Key Exposure via Vite Config Define
+**Vulnerability:** The application was using the `define` property in `vite.config.ts` to inject the Gemini API key into `process.env.API_KEY` and `process.env.GEMINI_API_KEY`.
+**Learning:** Vite's `define` config replaces global constants with string literals at build time. Injecting sensitive keys like `env.GEMINI_API_KEY` into the `define` block bakes the secret into the public frontend bundle, allowing anyone to extract it. This completely bypasses the local storage BYOK (Bring Your Own Key) architecture in `src/components/SettingsModal.tsx`.
+**Prevention:** Never use `define: { 'process.env': ... }` for sensitive keys in client-side applications. Always use runtime injection or local storage for client-managed keys.
