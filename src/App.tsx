@@ -623,7 +623,10 @@ class GeminiService {
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+        // SECURITY ENHANCEMENT: Prevent HTTP parameter injection by properly URL-encoding the API key,
+        // which acts as user-provided input even when stored locally.
+        const encodedKey = encodeURIComponent(this.apiKey || '');
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodedKey}`;
 
         const systemInstruction = `
         Bạn là Giáo sư Lucy, một trợ lý ảo phòng thí nghiệm Gen-Z, năng động, hài hước và am hiểu hóa học.
