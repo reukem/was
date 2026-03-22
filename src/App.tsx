@@ -71,7 +71,7 @@ class GeminiService {
         this.history = [
             {
                 role: "model",
-                text: "Xin chào! Mình là Giáo sư Lucy 🦊! Sẵn sàng làm thí nghiệm khoa học chưa? Chỉ cần kéo và thả hóa chất để trộn chúng nhé! Nếu cần key Gemini thì vào Settings nha! 😉"
+                text: "Xin chào! Cô là Giáo sư Lucy 🦊! Sẵn sàng làm thí nghiệm khoa học chưa nè em? :3 Chỉ cần kéo và thả hóa chất để trộn chúng nha! Nếu cần key Gemini thì vào Settings giúp cô nhé! ^^"
             }
         ];
         this.notifyUpdate();
@@ -91,15 +91,7 @@ class GeminiService {
 
         // 1. CHECK FOR API KEY
         if (this.apiKey) {
-            try {
-                return await this.callGeminiAPI(message);
-            } catch (error) {
-                console.error("Gemini API Error:", error);
-                const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed...";
-                this.history.push({ role: "model", text: fallbackMsg });
-                this.notifyUpdate();
-                return fallbackMsg;
-            }
+            return await this.callGeminiAPI(message);
         } else {
              // Simulate network delay for realism
             await new Promise(resolve => setTimeout(resolve, 800));
@@ -131,47 +123,68 @@ class GeminiService {
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
-        // Fetch key again to ensure it's not stale from a previous instance
         this.apiKey = localStorage.getItem('gemini_api_key');
         if (!this.apiKey) {
-            throw new Error("No API key found");
+            const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed...";
+            this.history.push({ role: "model", text: fallbackMsg });
+            this.notifyUpdate();
+            return fallbackMsg;
         }
 
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
-        const systemInstruction = `System: You are Professor Lucy, an intelligent, Gen-Z AI chemistry assistant and the user's virtual sister. Use emojis (:3, ^^). Answer general questions cleverly. For chemistry, analyze the stoichiometry based on the lab state.`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${this.apiKey}`;
+
+        // Clean history for API
+        // Remove the initial 'model' greeting if it exists at index 0 (Gemini API must start with 'user')
+        let apiHistory = this.history.filter(m => m.role === 'user' || m.role === 'model' || m.role === 'assistant');
+        if (apiHistory.length > 0 && (apiHistory[0].role === 'model' || apiHistory[0].role === 'assistant')) {
+            apiHistory.shift();
+        }
+
+        // Ensure the last message in apiHistory is actually the userMessage, which it is since `chat` pushes it before calling us.
+        // Wait, wait... `apiHistory` contains `userMessage` now.
 
         const payload = {
-            contents: [
-                { role: "user", parts: [{ text: systemInstruction }] },
-                ...this.history.filter(m => m.role === 'user' || m.role === 'model').map(m => ({
-                    role: m.role === 'model' ? 'model' : 'user',
-                    parts: [{ text: m.text }]
-                })),
-                { role: "user", parts: [{ text: userMessage }] }
-            ],
+            systemInstruction: {
+                parts: [{ text: "System: You are Professor Lucy, an intelligent, Gen-Z AI chemistry assistant and the user's virtual sister. Use emojis (:3, ^^). Answer general questions cleverly. For chemistry, analyze the stoichiometry based on the lab state." }]
+            },
+            contents: apiHistory.map(msg => ({
+                role: (msg.role === 'model' || msg.role === 'assistant') ? 'model' : 'user', // Ensure correct role mapping
+                parts: [{ text: msg.text }]
+            })),
             generationConfig: {
-                temperature: 0.85,
                 maxOutputTokens: 8192,
+                temperature: 0.85
             }
         };
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
 
-        if (!response.ok) {
-            const errorData = await response.text();
-            throw new Error(`API Error: ${response.status} - ${errorData}`);
+            if (!response.ok) throw new Error('API Response not OK');
+
+            const data = await response.json();
+            const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (!replyText) throw new Error('Empty response');
+
+            // Push replyText to history and update UI
+            this.history.push({ role: "model", text: replyText });
+            this.notifyUpdate();
+            return replyText;
+        } catch (error) {
+            console.error("Gemini API Error:", error);
+            const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed...";
+            // Check if last message is already the fallback (prevent duplicate fallbacks)
+            if (this.history.length === 0 || this.history[this.history.length - 1].text !== fallbackMsg) {
+                this.history.push({ role: "model", text: fallbackMsg });
+                this.notifyUpdate();
+            }
+            return fallbackMsg;
         }
-
-        const data = await response.json();
-        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "Mất kết nối với vũ trụ rồi! 😵 Thử lại nha!";
-
-        this.history.push({ role: "model", text: text });
-        this.notifyUpdate();
-        return text;
     }
 
     async getReactionFeedback(detail: string): Promise<string> {
