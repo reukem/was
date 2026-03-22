@@ -623,7 +623,7 @@ class GeminiService {
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(this.apiKey || '')}`;
 
         const systemInstruction = `
         Bạn là Giáo sư Lucy, một trợ lý ảo phòng thí nghiệm Gen-Z, năng động, hài hước và am hiểu hóa học.
