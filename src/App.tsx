@@ -16,35 +16,6 @@ class GeminiService {
     private apiKey: string | null = null;
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
 
-    // OFFLINE PERSONA DATABASE (Fallback)
-    private offlineDatabase = {
-        greetings: [
-            "Yo! Giáo sư Lucy here! 🦊 Hôm nay quậy banh phòng lab không nè? :3",
-            "Hế lô! Sẵn sàng 'cook' vài phản ứng hóa học chưa? ^^",
-            "Chào bạn nhá! Nay mình chế thuốc gì đây? Đừng nổ là được nha! xD"
-        ],
-        praise: [
-            "Đỉnh nóc kịch trần luôn! 🤩 Phản ứng này 10 điểm không có nhưng!",
-            "U là trời, xịn sò quá dzậy! :3 Tiếp tục phát huy nhá!",
-            "OMG! Chuẩn không cần chỉnh! Bạn có khiếu làm nhà khoa học đó nha! ^^"
-        ],
-        explosions: [
-            "[FACE: SHOCKED] Á á á! Cứu tuiii! 🤯 Bạn vừa cho nổ tung cái lab rồi kìa!",
-            "[FACE: SHOCKED] Trời đất ơi! Bùm chéo! 😱 Tém tém lại nha bạn êi!",
-            "[FACE: SHOCKED] SOS! Cháy nhà rồi! 🔥 Gọi 114 gấp! Đùa thôi chứ cẩn thận nha! 3:"
-        ],
-        toxic: [
-            "[FACE: SHOCKED] Ewww, mùi gì ghê dzậy! 🤢 Khí độc đó nha, coi chừng ngất xỉu!",
-            "[FACE: SHOCKED] Cảnh báo! Toxic alert! ☠️ Đừng hít vào nha bạn ơi!",
-            "Khói um sùm luôn! 🌫️ Phản ứng này hơi bị căng nha! ^^"
-        ],
-        unknown: [
-            "Ủa là sao ta? 🤔 Cái này Lucy chưa load kịp, thử lại coi nào!",
-            "Hmm... Ca này khó! 😅 Kéo thả đại đi xem có nổ không! :3",
-            "Đang load data... 🦊 Chờ xíu nha, mạng lag quá à! xD"
-        ]
-    };
-
     constructor() {
         this.apiKey = localStorage.getItem('gemini_api_key');
         this.startNewChat();
@@ -77,55 +48,17 @@ class GeminiService {
         this.notifyUpdate();
     }
 
-    private getOfflineResponse(key: keyof typeof this.offlineDatabase): string {
-        const options = this.offlineDatabase[key];
-        return options[Math.floor(Math.random() * options.length)];
-    }
-
     async chat(message: string): Promise<string> {
         this.history.push({ role: "user", text: message });
         this.notifyUpdate();
 
-        // Ensure apiKey is fresh
-        this.apiKey = localStorage.getItem('gemini_api_key');
-
-        // 1. CHECK FOR API KEY
-        if (this.apiKey) {
-            return await this.callGeminiAPI(message);
-        } else {
-             // Simulate network delay for realism
-            await new Promise(resolve => setTimeout(resolve, 800));
-        }
-
-        // 2. OFFLINE LOGIC (Fallback)
-        let response = "";
-        const lowerMsg = message.toLowerCase();
-
-        if (message.includes("[OBSERVATION]")) {
-            if (lowerMsg.includes("explosion") || lowerMsg.includes("fire") || lowerMsg.includes("sodium")) {
-                response = this.getOfflineResponse('explosions');
-            } else if (lowerMsg.includes("smoke") || lowerMsg.includes("toxic") || lowerMsg.includes("acid") || lowerMsg.includes("chlorine")) {
-                response = this.getOfflineResponse('toxic');
-            } else {
-                response = this.getOfflineResponse('praise');
-            }
-        } else if (lowerMsg.includes("chào") || lowerMsg.includes("hello") || lowerMsg.includes("hi")) {
-            response = this.getOfflineResponse('greetings');
-        } else if (lowerMsg.includes("giỏi") || lowerMsg.includes("đúng") || lowerMsg.includes("tốt") || lowerMsg.includes("hay")) {
-            response = this.getOfflineResponse('praise');
-        } else {
-            response = this.getOfflineResponse('unknown');
-        }
-
-        this.history.push({ role: "model", text: response });
-        this.notifyUpdate();
-        return response;
+        return await this.callGeminiAPI(message);
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
         this.apiKey = localStorage.getItem('gemini_api_key');
         if (!this.apiKey) {
-            const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed...";
+            const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed or my API key is invalid! Please check the Settings configuration! ^^";
             this.history.push({ role: "model", text: fallbackMsg });
             this.notifyUpdate();
             return fallbackMsg;
@@ -177,7 +110,7 @@ class GeminiService {
             return replyText;
         } catch (error) {
             console.error("Gemini API Error:", error);
-            const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed...";
+            const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed or my API key is invalid! Please check the Settings configuration! ^^";
             // Check if last message is already the fallback (prevent duplicate fallbacks)
             if (this.history.length === 0 || this.history[this.history.length - 1].text !== fallbackMsg) {
                 this.history.push({ role: "model", text: fallbackMsg });
