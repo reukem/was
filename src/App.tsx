@@ -226,7 +226,7 @@ const LabAssistantPanel: React.FC<{
         <div
             className={`absolute bottom-0 right-6 z-50 pointer-events-auto flex flex-col items-end transition-all duration-300 ease-in-out ${isExpanded ? 'h-[400px]' : 'h-16'}`}
         >
-             <div className="w-96 bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 rounded-t-2xl shadow-2xl flex flex-col h-full overflow-hidden">
+             <div className="w-96 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-t-2xl shadow-2xl flex flex-col h-full overflow-hidden">
                  {/* Header - Always visible, Click to toggle */}
                  <div
                     className="h-16 flex items-center justify-between px-4 bg-slate-900/50 border-b border-white/5 cursor-pointer hover:bg-slate-800/50 transition-colors shrink-0"
@@ -349,7 +349,7 @@ const LabUI: React.FC<{
                 </div>
 
                 {/* Thermal Slider */}
-                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-xl p-3 w-64 shadow-xl">
                      <div className="flex justify-between items-center mb-2">
                          <span className="text-[10px] font-bold text-orange-500 tracking-wider">BẾP NHIỆT</span>
                          <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
@@ -369,7 +369,7 @@ const LabUI: React.FC<{
             {/* MID-LEFT: QUESTS */}
             <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
                  {/* Safety Indicator */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-3 flex items-center justify-between shadow-lg mb-4">
+                 <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl p-3 flex items-center justify-between shadow-lg mb-4">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">TRẠNG THÁI</span>
                       <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
                           AN TOÀN <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
@@ -377,7 +377,7 @@ const LabUI: React.FC<{
                  </div>
 
                  {/* Quest Board */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
+                 <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl p-4">
                     <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
                         TIẾN ĐỘ (3)
                     </h2>
@@ -400,7 +400,7 @@ const LabUI: React.FC<{
 
             {/* BOTTOM-LEFT: INVENTORY */}
             <div className="absolute bottom-6 left-6 w-64 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl h-80 flex flex-col">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl h-80 flex flex-col">
                     <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         KHO HÓA CHẤT
                     </div>
@@ -438,13 +438,13 @@ const LabUI: React.FC<{
 
             {/* MODULE 3: Top-Right (Action Deck) */}
             <div className="absolute top-6 right-6 flex items-center gap-3 pointer-events-auto">
-                 <button className="bg-slate-900/80 backdrop-blur-md border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
+                 <button className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
                      BẮT ĐẦU THI
                  </button>
-                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
+                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-slate-900/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
                      📖
                  </button>
-                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
+                 <button onClick={onReset} className="w-10 h-10 bg-slate-900/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
                      ⟳
                  </button>
             </div>
@@ -452,7 +452,7 @@ const LabUI: React.FC<{
             {/* MODULE 4: Notification Alignment Matrix */}
             <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none">
                 {lastReaction && (
-                    <div className="bg-slate-900/90 backdrop-blur-xl border border-orange-500/30 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(249,115,22,0.3)] animate-in fade-in slide-in-from-top-4">
+                    <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(249,115,22,0.3)] animate-in fade-in slide-in-from-top-4">
                          <p className="text-orange-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">PHÁT HIỆN PHẢN ỨNG</p>
                          <p className="text-white text-sm font-mono text-center">{formatScientificText(lastReaction)}</p>
                     </div>
@@ -461,7 +461,7 @@ const LabUI: React.FC<{
 
             {/* Bottom Status Bar */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto">
-                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-full px-4 py-1.5 flex items-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-full px-4 py-1.5 flex items-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl">
                     <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>HỆ_THỐNG_ONLINE</span>
                     <span className="opacity-30">|</span>
                     <span>THỰC THỂ: {containers.length}</span>
@@ -699,9 +699,6 @@ const App = () => {
 
     return (
         <div className={`relative w-full h-screen overflow-hidden transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
-            {/* Gradient Background: Sky Blue -> Soft Pink -> Sunset Orange */}
-            <div className="absolute inset-0 bg-gradient-to-b from-sky-300 via-pink-200 to-orange-300" />
-
             {/* Background Texture */}
             <div className="absolute inset-0 bg-tech-grid opacity-10 pointer-events-none mix-blend-overlay" />
 
