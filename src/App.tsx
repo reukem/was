@@ -67,23 +67,42 @@ class GeminiService {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${this.apiKey}`;
 
         // Clean history for API
-        // Remove the initial 'model' greeting if it exists at index 0 (Gemini API must start with 'user')
-        let apiHistory = this.history.filter(m => m.role === 'user' || m.role === 'model' || m.role === 'assistant');
-        if (apiHistory.length > 0 && (apiHistory[0].role === 'model' || apiHistory[0].role === 'assistant')) {
-            apiHistory.shift();
+        // Remove empty messages
+        let apiHistory = this.history.filter(m => m.text.trim() !== "");
+
+        // Ensure strict alternating roles (user, model, user, model) starting with 'user'
+        const sanitizedContents: { role: string, parts: { text: string }[] }[] = [];
+        let expectedRole = 'user';
+
+        for (const msg of apiHistory) {
+            const mappedRole = (msg.role === 'model' || msg.role === 'assistant') ? 'model' : 'user';
+
+            if (mappedRole === expectedRole) {
+                sanitizedContents.push({ role: mappedRole, parts: [{ text: msg.text }] });
+                expectedRole = expectedRole === 'user' ? 'model' : 'user';
+            } else {
+                // If we get consecutive same-role messages, we append the text to the last one
+                if (sanitizedContents.length > 0) {
+                    sanitizedContents[sanitizedContents.length - 1].parts[0].text += `\n${msg.text}`;
+                } else if (mappedRole === 'model') {
+                    // Skip 'model' messages if they are at the very beginning
+                    continue;
+                }
+            }
         }
 
-        // Ensure the last message in apiHistory is actually the userMessage, which it is since `chat` pushes it before calling us.
-        // Wait, wait... `apiHistory` contains `userMessage` now.
+        // Ensure the final message is from 'user' (since we are making a request)
+        if (sanitizedContents.length > 0 && sanitizedContents[sanitizedContents.length - 1].role === 'model') {
+            // This shouldn't normally happen because chat() pushes the user message right before calling this.
+            // But just in case, pop the last model message.
+            sanitizedContents.pop();
+        }
 
         const payload = {
             systemInstruction: {
                 parts: [{ text: "System: You are Professor Lucy, an intelligent, Gen-Z AI chemistry assistant and the user's virtual sister. Use emojis (:3, ^^). Answer general questions cleverly. For chemistry, analyze the stoichiometry based on the lab state." }]
             },
-            contents: apiHistory.map(msg => ({
-                role: (msg.role === 'model' || msg.role === 'assistant') ? 'model' : 'user', // Ensure correct role mapping
-                parts: [{ text: msg.text }]
-            })),
+            contents: sanitizedContents,
             generationConfig: {
                 maxOutputTokens: 8192,
                 temperature: 0.85
@@ -97,7 +116,11 @@ class GeminiService {
                 body: JSON.stringify(payload)
             });
 
-            if (!response.ok) throw new Error('API Response not OK');
+            if (!response.ok) {
+                const errorData = await response.json();
+                const exactError = errorData?.error?.message || `HTTP ${response.status}: Unknown Error`;
+                throw new Error(exactError);
+            }
 
             const data = await response.json();
             const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -108,15 +131,15 @@ class GeminiService {
             this.history.push({ role: "model", text: replyText });
             this.notifyUpdate();
             return replyText;
-        } catch (error) {
-            console.error("Gemini API Error:", error);
-            const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed or my API key is invalid! Please check the Settings configuration! ^^";
+        } catch (error: any) {
+            console.error("CRITICAL API FAILURE:", error);
+            const errorMsg = `Oh no! 3: API Failed! Reason: ${error.message}`;
             // Check if last message is already the fallback (prevent duplicate fallbacks)
-            if (this.history.length === 0 || this.history[this.history.length - 1].text !== fallbackMsg) {
-                this.history.push({ role: "model", text: fallbackMsg });
+            if (this.history.length === 0 || this.history[this.history.length - 1].text !== errorMsg) {
+                this.history.push({ role: "model", text: errorMsg });
                 this.notifyUpdate();
             }
-            return fallbackMsg;
+            return errorMsg;
         }
     }
 
