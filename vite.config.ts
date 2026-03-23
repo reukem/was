@@ -1,10 +1,9 @@
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
-export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
+export default defineConfig(() => {
     return {
       server: {
         port: 3000,
@@ -14,10 +13,8 @@ export default defineConfig(({ mode }) => {
         react(),
         tailwindcss()
       ],
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
+      // SECURITY: Do not use `define: { 'process.env': ... }` to inject env vars.
+      // The app relies on a BYOK architecture reading from localStorage.
       resolve: {
         alias: {
           '@': path.resolve(__dirname, './src'),
