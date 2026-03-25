@@ -623,7 +623,7 @@ class GeminiService {
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(this.apiKey || '')}`;
 
         const systemInstruction = `
         Bạn là Giáo sư Lucy, một trợ lý ảo phòng thí nghiệm Gen-Z, năng động, hài hước và am hiểu hóa học.
@@ -1244,7 +1244,9 @@ const HolographicAvatar: React.FC<{
                              value={chatInput}
                              onChange={(e) => setChatInput(e.target.value)}
                              placeholder="Hỏi Lucy..."
-                             className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all"
+                             maxLength={200}
+                             disabled={isAiLoading}
+                             className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                          />
                      </div>
                  </form>
@@ -1273,6 +1275,7 @@ const LabUI: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        if (isAiLoading) return;
         if (chatInput.trim()) {
             onChat(chatInput);
             setChatInput("");
