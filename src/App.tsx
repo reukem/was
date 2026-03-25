@@ -226,7 +226,7 @@ const LabAssistantPanel: React.FC<{
         <div
             className={`absolute bottom-0 right-6 z-50 pointer-events-auto flex flex-col items-end transition-all duration-300 ease-in-out ${isExpanded ? 'h-[400px]' : 'h-16'}`}
         >
-             <div className="w-96 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-t-2xl shadow-2xl flex flex-col h-full overflow-hidden">
+             <div className="w-96 bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-t-2xl shadow-2xl flex flex-col h-full overflow-hidden">
                  {/* Header - Always visible, Click to toggle */}
                  <div
                     className="h-16 flex items-center justify-between px-4 bg-slate-900/50 border-b border-white/5 cursor-pointer hover:bg-slate-800/50 transition-colors shrink-0"
@@ -330,7 +330,7 @@ const LabUI: React.FC<{
 
             {/* MODULE 3: Top-Left (Command Header) */}
             <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-[2rem] p-5 shadow-2xl">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-[2rem] p-5 shadow-2xl">
                     <h1 className="text-4xl font-mono font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
                         CHEMIC-AI
                     </h1>
@@ -349,7 +349,7 @@ const LabUI: React.FC<{
                 </div>
 
                 {/* Thermal Slider */}
-                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-xl p-3 w-64 shadow-xl">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
                      <div className="flex justify-between items-center mb-2">
                          <span className="text-[10px] font-bold text-orange-500 tracking-wider">BẾP NHIỆT</span>
                          <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
@@ -369,7 +369,7 @@ const LabUI: React.FC<{
             {/* MID-LEFT: QUESTS */}
             <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
                  {/* Safety Indicator */}
-                 <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl p-3 flex items-center justify-between shadow-lg mb-4">
+                 <div className="bg-slate-900/80 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-3 flex items-center justify-between shadow-lg mb-4">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">TRẠNG THÁI</span>
                       <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
                           AN TOÀN <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
@@ -438,7 +438,7 @@ const LabUI: React.FC<{
 
             {/* MODULE 3: Top-Right (Action Deck) */}
             <div className="absolute top-6 right-6 flex items-center gap-3 pointer-events-auto">
-                 <button className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
+                 <button className="bg-slate-900/80 backdrop-blur-md border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
                      BẮT ĐẦU THI
                  </button>
                  <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-slate-900/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
@@ -699,6 +699,9 @@ const App = () => {
 
     return (
         <div className={`relative w-full h-screen overflow-hidden transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
+            {/* Gradient Background: Sky Blue -> Soft Pink -> Sunset Orange */}
+            <div className="absolute inset-0 bg-gradient-to-b from-sky-300 via-pink-200 to-orange-300" />
+
             {/* Background Texture */}
             <div className="absolute inset-0 bg-tech-grid opacity-10 pointer-events-none mix-blend-overlay" />
 

@@ -516,7 +516,9 @@ const LabScene: React.FC<{
     const SceneSetup = () => {
         const { gl, scene } = useThree();
         useEffect(() => {
-             scene.background = new THREE.Color('#050b14');
+             // CRITICAL FIX: Ensure transparent background for CSS sunset to show through
+             gl.setClearColor(0x000000, 0);
+             scene.background = null;
         }, [gl, scene]);
         return null;
     };
@@ -525,25 +527,27 @@ const LabScene: React.FC<{
         <Canvas
             shadows
             dpr={[1, 2]}
-            gl={{ antialias: true, preserveDrawingBuffer: true, toneMappingExposure: 1.0 }}
+            gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
             camera={{ position: [0, 8, 12], fov: 45 }}
+            style={{ background: 'transparent' }}
         >
             <AudioListenerSync />
             <SceneSetup />
             <ExplosionVFX position={lastEffectPos || [0, 0, 0]} isActive={lastEffect === 'explosion'} />
-            {/* LIGHTING: TRIPLE-A DARK MOODY */}
-            <ambientLight intensity={0.2} color="#ffffff" />
+            {/* LIGHTING: SUNSET HACKER HYBRID */}
+            <ambientLight intensity={0.6} color="#bae6fd" />
             <spotLight
-                position={[5, 10, 5]}
-                angle={Math.PI / 6}
-                penumbra={1}
-                intensity={1.5}
+                position={[5, 12, 5]}
+                angle={Math.PI / 5}
+                penumbra={0.6}
+                intensity={120}
                 castShadow
-                color="#ffffff"
+                color="#ffedd5"
                 shadow-bias={-0.0001}
             />
-            <directionalLight position={[-5, 5, -5]} intensity={1.0} color="#ffffff" />
-            <pointLight position={[0, -2, 2]} intensity={0.5} color="#ffffff" />
+            <directionalLight position={[0, 5, -8]} intensity={2.5} color="#fdc4b6" />
+            <pointLight position={[6, 4, -2]} intensity={1.0} color="#fbcfe8" />
+            <pointLight position={[-6, 4, -2]} intensity={1.0} color="#fdba74" />
 
             <Environment preset="warehouse" background={false} />
 
