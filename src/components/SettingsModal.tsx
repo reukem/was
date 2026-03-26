@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { X, Bot, Sparkles, Volume2, VolumeX } from 'lucide-react';
-import { AudioManager } from '../systems/AudioManager';
+import React, { useState } from 'react';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -15,29 +13,7 @@ const setStoredKey = (key: string) => {
 };
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-    const [volume, setVolume] = useState(0.5);
-    const [isMuted, setIsMuted] = useState(false);
     const [apiKey, setApiKey] = useState(getStoredKey());
-
-    useEffect(() => {
-        if (isOpen) {
-            const audioManager = AudioManager.getInstance();
-            setVolume(audioManager.getVolume());
-            setIsMuted(audioManager.getMuted());
-        }
-    }, [isOpen]);
-
-    const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const newVol = parseFloat(e.target.value);
-        setVolume(newVol);
-        AudioManager.getInstance().setVolume(newVol);
-    };
-
-    const toggleMute = () => {
-        const newMute = !isMuted;
-        setIsMuted(newMute);
-        AudioManager.getInstance().setMuted(newMute);
-    };
 
     const handleSave = () => {
         setStoredKey(apiKey.trim());
@@ -49,7 +25,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200" style={{ pointerEvents: 'auto' }}>
+        <div className="absolute inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200" style={{ pointerEvents: 'auto' }}>
             <div className="bg-[#0f172a]/90 border border-indigo-500/30 p-8 rounded-[2rem] shadow-2xl w-[500px] max-w-full backdrop-blur-xl transform transition-all scale-100 ring-1 ring-white/10">
                 <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 mb-6 tracking-tight flex items-center gap-3">
                     ⚙️ CÀI ĐẶT HỆ THỐNG
@@ -81,39 +57,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                     XÓA
                                 </button>
                             )}
-                        </div>
-                    </div>
-
-                    {/* Audio Controls */}
-                    <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50">
-                        <h3 className="text-white font-bold text-sm font-mono mb-4 flex items-center gap-2">
-                            CẤU HÌNH ÂM THANH
-                        </h3>
-
-                        <div className="flex items-center gap-4 mb-2">
-                            <button
-                                onClick={toggleMute}
-                                className={`p-2 rounded-lg transition-colors ${isMuted ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-cyan-900/30 text-cyan-400 border border-cyan-800/50 hover:bg-cyan-800/50'}`}
-                            >
-                                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                            </button>
-
-                            <div className="flex-1 flex flex-col gap-2">
-                                <div className="flex justify-between text-xs font-mono text-slate-400">
-                                    <span>MASTER VOLUME</span>
-                                    <span>{Math.round(volume * 100)}%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="1"
-                                    step="0.01"
-                                    value={volume}
-                                    onChange={handleVolumeChange}
-                                    disabled={isMuted}
-                                    className={`w-full h-2 rounded-lg appearance-none cursor-pointer ${isMuted ? 'bg-slate-700' : 'bg-cyan-900/50 accent-cyan-400'}`}
-                                />
-                            </div>
                         </div>
                     </div>
 
