@@ -1,0 +1,4 @@
+## 2024-03-27 - Parameter injection vulnerability in API URL
+**Vulnerability:** The Gemini API Key parameter was concatenated into the REST API URL without URL encoding (`encodeURIComponent`), leading to a potential HTTP parameter injection vulnerability.
+**Learning:** If the user inputted API Key contains special URL characters (e.g., `&`, `=`, `?`), it could allow attackers to manipulate the API URL by injecting unexpected query parameters. This is specifically risky in BYOK architecture because users supply their own keys via localStorage.
+**Prevention:** Always wrap dynamically injected parameters in fetch request URLs with `encodeURIComponent`, especially user-provided values like API keys.
