@@ -755,8 +755,22 @@ const LabScene: React.FC<{
     useEffect(() => {
         if (!mountRef.current) return;
         const scene = new THREE.Scene();
-        // MODULE 1: The "Sunlight" Purge (Lighting & Environment)
-        scene.background = new THREE.Color('#020617'); // Ultra-dark slate
+
+        // MODULE 1: Native Three.js Gradient Background
+        const bgCanvas = document.createElement('canvas');
+        bgCanvas.width = 2;
+        bgCanvas.height = 512;
+        const bgContext = bgCanvas.getContext('2d');
+        if (bgContext) {
+            const gradient = bgContext.createLinearGradient(0, 0, 0, 512);
+            gradient.addColorStop(0, '#7dd3fc'); // cyan-300
+            gradient.addColorStop(0.5, '#fbcfe8'); // pink-200
+            gradient.addColorStop(1, '#fdba74'); // orange-300
+            bgContext.fillStyle = gradient;
+            bgContext.fillRect(0, 0, 2, 512);
+        }
+        const bgTexture = new THREE.CanvasTexture(bgCanvas);
+        scene.background = bgTexture; // Apply to scene
         sceneRef.current = scene;
 
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -1589,7 +1603,7 @@ export default function App() {
     };
 
     return (
-        <div className={`relative w-full h-screen overflow-hidden bg-slate-950 transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
+        <div className={`relative w-full h-screen overflow-hidden transition-all duration-300 ${lastEffect === 'explosion' ? 'brightness-125' : ''}`}>
             {/* Background Texture */}
             <div className="absolute inset-0 bg-tech-grid opacity-20 pointer-events-none" />
 
