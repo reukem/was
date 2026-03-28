@@ -791,10 +791,10 @@ const LabScene: React.FC<{
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        // BLOOM ADJUSTMENT: Strength 0.6, Radius 0.2, Threshold 0.85
+        // BLOOM ADJUSTMENT: Strength 0.6, Radius 0.2, Threshold 0.90
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.6, 0.2, 0.85
+            0.6, 0.2, 0.90
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
@@ -805,11 +805,11 @@ const LabScene: React.FC<{
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        // 1. Ambient - SLASHED to 0.1
-        scene.add(new THREE.AmbientLight(0x1e293b, 0.1));
+        // 1. Ambient - Reduced intensity and warm sunset color
+        scene.add(new THREE.AmbientLight(0xfbcfe8, 0.015));
 
         // 2. Key Light - Focused Spotlight on Center Table
-        const spotLight = new THREE.SpotLight(0xffffff, 120);
+        const spotLight = new THREE.SpotLight(0xfbcfe8, 18);
         spotLight.position.set(5, 12, 5);
         spotLight.angle = Math.PI / 6; // Tighter beam
         spotLight.penumbra = 0.5; // Soft edge
@@ -819,19 +819,10 @@ const LabScene: React.FC<{
         spotLight.shadow.bias = -0.0001;
         scene.add(spotLight);
 
-        // 3. Rim Light - Strong Cyan Backlight (Cyberpunk edge)
-        const rimLight = new THREE.DirectionalLight(0x06b6d4, 4.0);
+        // 3. Rim Light - Warm Orange Backlight
+        const rimLight = new THREE.DirectionalLight(0xfdba74, 0.6);
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
-
-        // 4. Fill Lights - Colorful accents for Glass/Liquids
-        const fillMagenta = new THREE.PointLight(0xd946ef, 1.5, 20);
-        fillMagenta.position.set(6, 2, -2);
-        scene.add(fillMagenta);
-
-        const fillBlue = new THREE.PointLight(0x3b82f6, 1.5, 20);
-        fillBlue.position.set(-6, 2, -2);
-        scene.add(fillBlue);
 
         scene.add(createTable());
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 2.5), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 }));
