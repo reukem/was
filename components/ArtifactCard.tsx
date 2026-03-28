@@ -12,10 +12,10 @@ interface ArtifactCardProps {
     onClick: () => void;
 }
 
-const ArtifactCard = React.memo(({ 
-    artifact, 
-    isFocused, 
-    onClick 
+const ArtifactCard = React.memo(({
+    artifact,
+    isFocused,
+    onClick
 }: ArtifactCardProps) => {
     const codeRef = useRef<HTMLPreElement>(null);
 
@@ -29,7 +29,7 @@ const ArtifactCard = React.memo(({
     const isBlurring = artifact.status === 'streaming';
 
     return (
-        <div 
+        <div
             className={`artifact-card ${isFocused ? 'focused' : ''} ${isBlurring ? 'generating' : ''}`}
             onClick={onClick}
         >
@@ -44,9 +44,9 @@ const ArtifactCard = React.memo(({
                         </pre>
                     </div>
                 )}
-                <iframe 
-                    srcDoc={artifact.html} 
-                    title={artifact.id} 
+                <iframe
+                    srcDoc={artifact.html}
+                    title={artifact.id}
                     sandbox="allow-scripts allow-forms allow-modals allow-popups allow-presentation allow-same-origin"
                     className="artifact-iframe"
                 />

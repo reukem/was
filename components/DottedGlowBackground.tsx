@@ -96,7 +96,7 @@ export default function DottedGlowBackground({
 
         ctx.beginPath();
         ctx.arc(d.x, d.y, radius, 0, Math.PI * 2);
-        
+
         if (intensity > 0.7) {
            ctx.fillStyle = glowColor;
            ctx.shadowColor = glowColor;
@@ -105,7 +105,7 @@ export default function DottedGlowBackground({
            ctx.fillStyle = color;
            ctx.shadowBlur = 0;
         }
-        ctx.globalAlpha = opacity * (intensity > 0.7 ? 1 : 0.3 + intensity * 0.5); 
+        ctx.globalAlpha = opacity * (intensity > 0.7 ? 1 : 0.3 + intensity * 0.5);
         ctx.fill();
       });
 
