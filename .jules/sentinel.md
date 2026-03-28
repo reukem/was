@@ -1,0 +1,4 @@
+## 2024-05-20 - Exposing API Key in Vite Build Constants
+**Vulnerability:** The Vite config (`vite.config.ts`) used the `define` block to inject `env.GEMINI_API_KEY` into the client-side bundle via `process.env.API_KEY` and `process.env.GEMINI_API_KEY`.
+**Learning:** Vite's `define` config replaces global constants with string literals at build time. Injecting sensitive keys like this bakes secrets directly into the public bundle, exposing them to anyone inspecting the client-side source code. The frontend should rely strictly on BYOK (Bring Your Own Key) architecture using `localStorage` instead of baking build-time environment variables.
+**Prevention:** Never use `define: { 'process.env.SECRET': ... }` for sensitive keys in client-side applications. Use runtime injection (e.g., via backend API or localStorage for BYOK) instead.
