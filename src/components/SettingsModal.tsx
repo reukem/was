@@ -42,8 +42,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             Mã của bạn được lưu cục bộ trên trình duyệt.
                         </p>
                         <div className="relative">
+                            {/* Sentinel: Cap API key length */}
                             <input
                                 type="password"
+                                maxLength={150}
                                 value={apiKey}
                                 onChange={(e) => setApiKey(e.target.value)}
                                 placeholder="AIzaSy..."
