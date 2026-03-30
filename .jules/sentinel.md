@@ -1,0 +1,4 @@
+## 2024-05-24 - [HTTP Parameter Injection in BYOK architecture]
+**Vulnerability:** The Google Gemini API key read from `localStorage` in the Bring-Your-Own-Key (BYOK) architecture was concatenated directly into a `fetch` query string parameter (`?key=${this.apiKey}`) without any URL encoding. This could allow a malicious user or script that poisons `localStorage` to inject arbitrary parameters into the HTTP request.
+**Learning:** Even though the API key is "user-provided" in a BYOK architecture, it is still untrusted input. Any client-side state dynamically injected into request URLs, especially query parameters, must be treated as a potential injection vector.
+**Prevention:** Always wrap dynamically injected values into URL strings with `encodeURIComponent()` or use the `URL` and `URLSearchParams` classes to handle URL generation securely.
