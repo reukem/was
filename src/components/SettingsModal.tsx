@@ -48,6 +48,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                 onChange={(e) => setApiKey(e.target.value)}
                                 placeholder="AIzaSy..."
                                 className="w-full bg-slate-950/50 text-indigo-300 text-sm px-4 py-3 rounded-xl border border-white/10 focus:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
+                                maxLength={100} // [Sentinel Security Fix] Add maxLength limit to mitigate DoS
                             />
                             {apiKey && (
                                 <button
