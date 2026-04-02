@@ -1,0 +1,4 @@
+## 2026-04-02 - HTTP Parameter Injection in Gemini API Call
+**Vulnerability:** The Gemini API key stored in `localStorage` was being directly concatenated into the request URL (`https://generativelanguage.googleapis.com/...&key=${this.apiKey}`) without any URL encoding. This could allow HTTP Parameter Injection if an attacker managed to manipulate the stored API key value.
+**Learning:** Even when inputs seem relatively safe (like user-provided API keys), directly appending them to URLs without sanitization or encoding opens up potential injection vectors, as the key might contain characters like `&` that alter the request's structure. Client-side applications are especially vulnerable to storage manipulation.
+**Prevention:** Always wrap dynamically injected URL parameters with `encodeURIComponent` to ensure they are safely escaped and interpreted strictly as data, not as control characters for the URL structure.
