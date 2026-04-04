@@ -14,9 +14,13 @@ export default defineConfig(({ mode }) => {
         react(),
         tailwindcss()
       ],
+      // 🛡️ Sentinel Security Fix: Prevent API key leakage in the public bundle.
+      // Vite's define Replaces global variables at build time.
+      // Using loadEnv here would bake the secret into the frontend JS.
+      // We stub these with empty strings to prevent runtime ReferenceErrors from external libraries.
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.API_KEY': JSON.stringify(''),
+        'process.env.GEMINI_API_KEY': JSON.stringify('')
       },
       resolve: {
         alias: {
