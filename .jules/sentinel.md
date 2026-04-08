@@ -1,0 +1,4 @@
+## 2024-05-24 - [Vite Config Secrets Leakage]
+**Vulnerability:** The `vite.config.ts` file was dynamically injecting the build environment's `GEMINI_API_KEY` into the client-side bundle via the `define` block to satisfy third-party dependencies.
+**Learning:** Using `define: { 'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY) }` in Vite hardcodes the server's API key into the public JavaScript bundle shipped to users. This results in a critical secret exposure. The app uses a BYOK architecture via `localStorage`, making the baked-in key unnecessary.
+**Prevention:** Always stub `process.env` references in Vite's `define` block with empty strings (e.g., `JSON.stringify('')`) for frontend client builds. This prevents runtime `ReferenceError` crashes while ensuring no sensitive keys are baked into the public bundle.
