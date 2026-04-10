@@ -18,7 +18,7 @@ type MeshStyle = 'flask' | 'rock' | 'crystal' | 'mound' | 'canister';
 interface ReactionResult {
     productName: string;
     color: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas';
     temperature?: number; // In Celsius
     message: string;
 }
@@ -52,7 +52,7 @@ interface ReactionEntry {
     reactants: [string, string];
     product: string;
     resultColor?: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas';
     temperature?: number;
     minTemp?: number; // Activation Energy (Celsius)
     message: string;
@@ -86,6 +86,7 @@ const CHEMICALS: Record<string, Chemical> = {
     'BLEACH': { id: 'BLEACH', name: 'Thuốc Tẩy', formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, description: 'Chất oxy hóa mạnh.' },
 
     'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: 'Đồng(II) Sunfat', formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: 'Hợp chất vô cơ màu xanh lam.' },
+    'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: 'Đồng(II) Nitrat', formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, description: 'Dung dịch màu xanh lam đậm.' },
     'H2O2': { id: 'H2O2', name: 'Oxy Già', formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: 'Chất oxy hóa mạnh.' },
     'KI': { id: 'KI', name: 'Kali Iodua', formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Muối xúc tác tinh thể.' },
     'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' }
@@ -95,7 +96,7 @@ const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', effect: 'explosion', temperature: 550, message: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.' },
     { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', effect: 'explosion', temperature: 700, message: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.' },
     { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', /* Simulating clear solution of MgCl2 */ resultColor: '#e2e8f0', effect: 'bubbles', temperature: 60, message: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.' },
-    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_SULFATE', /* Using Cu salt color */ resultColor: '#1e3a8a', /* Deep Blue */ effect: 'smoke', temperature: 80, message: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.' },
+    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', effect: 'toxic_gas', temperature: 80, message: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.' },
     { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', effect: 'bubbles', temperature: 20, message: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.' },
     { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', effect: 'foam', temperature: 30, message: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.' },
     { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', effect: 'bubbles', temperature: 15, message: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.' },
@@ -112,11 +113,52 @@ const REACTION_REGISTRY: ReactionEntry[] = [
 
 // -- PARTICLE SYSTEM HELPER --
 class ParticleSystem {
-    particles: { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; maxLife: number; type: 'spark' | 'smoke' | 'bubble'; }[] = [];
+    particles: { mesh: THREE.Mesh | THREE.Points; velocity: THREE.Vector3; life: number; maxLife: number; type: 'spark' | 'smoke' | 'bubble' | 'toxic_gas'; }[] = [];
     scene: THREE.Scene;
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
+    }
+
+    createToxicGas(position: THREE.Vector3) {
+        const particleCount = 200;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const sizes = new Float32Array(particleCount);
+
+        for (let i = 0; i < particleCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 0.5;
+            positions[i * 3 + 1] = Math.random() * 0.5;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+            sizes[i] = Math.random() * 0.5 + 0.1;
+        }
+
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+        // Create a custom material that supports sizes, or just use PointsMaterial
+        const material = new THREE.PointsMaterial({
+            color: 0x854d0e, // Heavy brown gas (NO2)
+            size: 0.3,
+            transparent: true,
+            opacity: 0.8,
+            depthWrite: false,
+            blending: THREE.NormalBlending
+        });
+
+        const points = new THREE.Points(geometry, material);
+        points.position.copy(position);
+        points.position.y += 0.5; // Start slightly above the liquid
+        this.scene.add(points);
+
+        // Treat the whole points system as one "particle" object for the update loop
+        this.particles.push({
+            mesh: points,
+            velocity: new THREE.Vector3(0, 0.5, 0), // Base upward drift
+            life: 0,
+            maxLife: 300, // Long lasting gas
+            type: 'toxic_gas'
+        });
     }
 
     createExplosion(position: THREE.Vector3, intensity: number = 1.0) {
@@ -197,6 +239,22 @@ class ParticleSystem {
                     mat.opacity = 0.8 * (1 - (p.life / p.maxLife)); // Smooth fade
                     // Darken over time
                     mat.color.lerp(new THREE.Color(0x0f172a), 0.05);
+                }
+            } else if (p.type === 'toxic_gas') {
+                const points = p.mesh as THREE.Points;
+                const positions = points.geometry.attributes.position.array as Float32Array;
+
+                // Drift upward and outward
+                for (let j = 0; j < positions.length; j += 3) {
+                    positions[j] += (Math.random() - 0.5) * 0.02;     // expand X
+                    positions[j + 1] += Math.random() * 0.02;         // drift Y
+                    positions[j + 2] += (Math.random() - 0.5) * 0.02; // expand Z
+                }
+                points.geometry.attributes.position.needsUpdate = true;
+
+                const mat = points.material as THREE.PointsMaterial;
+                if (mat) {
+                    mat.opacity = 0.8 * (1 - (p.life / p.maxLife)); // Smooth fade out
                 }
             }
 
@@ -690,6 +748,10 @@ const LabScene: React.FC<{
 
         const position = lastEffectPos ? new THREE.Vector3(...lastEffectPos) : new THREE.Vector3(0, 1, 0);
 
+        if (lastEffect === 'toxic_gas') {
+            particleSystemRef.current?.createToxicGas(position);
+        }
+
         if (lastEffect === 'explosion') {
             particleSystemRef.current?.createExplosion(position, 1.5);
 
@@ -1098,20 +1160,27 @@ const LabScene: React.FC<{
                     const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
                     const mat = liquidMesh.material as THREE.MeshPhysicalMaterial;
-                    const baseColor = new THREE.Color(container.contents.color);
+                    const targetColor = new THREE.Color(container.contents.color);
                     const temp = container.contents.temperature || 25;
+
+                    // Smooth color tweening instead of sudden snapping
+                    mat.color.lerp(targetColor, 0.1);
+                    mat.attenuationColor.lerp(targetColor, 0.1);
+
                     if (temp > 100) {
                         const heatFactor = Math.min((temp - 100) / 500, 1);
-                        const glowColor = new THREE.Color(baseColor).lerp(new THREE.Color(0xff4400), heatFactor);
+                        const glowColor = new THREE.Color(targetColor).lerp(new THREE.Color(0xff4400), heatFactor);
                         mat.color.copy(glowColor);
                         mat.attenuationColor.copy(glowColor);
-                        mat.emissive.copy(new THREE.Color(0xff2200));
-                        mat.emissiveIntensity = Math.min(heatFactor * 0.2, 0.15);
+                        mat.emissive.lerp(new THREE.Color(0xff2200), 0.1);
+                        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, Math.min(heatFactor * 0.2, 0.15), 0.1);
+                    } else if (container.contents.chemicalId === 'COPPER_NITRATE') {
+                        // Deep blue glow for Copper Nitrate
+                        mat.emissive.lerp(new THREE.Color(0x2563eb), 0.1);
+                        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.2, 0.1);
                     } else {
-                        mat.color.copy(baseColor);
-                        mat.attenuationColor.copy(baseColor);
-                        mat.emissive.setHex(0x000000);
-                        mat.emissiveIntensity = 0;
+                        mat.emissive.lerp(new THREE.Color(0x000000), 0.1);
+                        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.1);
                     }
                 } else {
                     // EMPTY STATE: Shrink liquid to zero
@@ -1575,7 +1644,14 @@ export default function App() {
 
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
-                const detail = `I just mixed ${CHEMICALS[source.contents.chemicalId].name} and ${CHEMICALS[targetChemId].name}. Explain the reaction.`;
+                let detail = `I just mixed ${CHEMICALS[source.contents.chemicalId].name} and ${CHEMICALS[targetChemId].name}. Explain the reaction.`;
+
+                // Specific observation dispatch for Copper + Nitric Acid
+                if ((source.contents.chemicalId === 'COPPER' && targetChemId === 'HNO3') ||
+                    (source.contents.chemicalId === 'HNO3' && targetChemId === 'COPPER')) {
+                    detail = "[OBSERVATION] I just dropped Copper into Nitric Acid. The solution turned blue and is emitting a thick, brown toxic gas. Explain the chemistry and safety protocols for this reaction.";
+                }
+
                 await aiServiceRef.current.getReactionFeedback(detail);
                 setIsAiLoading(false);
             }
