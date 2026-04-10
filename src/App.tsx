@@ -360,8 +360,8 @@ const createTable = () => {
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
         color: 0x0f172a,
-        roughness: 0.2,
-        metalness: 0.5
+        roughness: 1.0, // Fully matte to prevent glare
+        metalness: 0.0  // Non-metallic to absorb light
     });
     const tableTop = new THREE.Mesh(geometry, material);
     tableTop.receiveShadow = true;
@@ -882,16 +882,16 @@ const LabScene: React.FC<{
         scene.add(spotLight);
 
         // 3. Rim Light - Strong Cyan Backlight (Cyberpunk edge)
-        const rimLight = new THREE.DirectionalLight(0x06b6d4, 4.0);
+        const rimLight = new THREE.DirectionalLight(0x06b6d4, 0.5); // Drastically reduced from 4.0
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
 
-        // 4. Fill Lights - Colorful accents for Glass/Liquids
-        const fillMagenta = new THREE.PointLight(0xd946ef, 1.5, 20);
+        // 4. Fill Lights - Colorful accents for Glass/Liquids (Removed/Reduced to prevent glare)
+        const fillMagenta = new THREE.PointLight(0xd946ef, 0.1, 20); // Reduced from 1.5
         fillMagenta.position.set(6, 2, -2);
         scene.add(fillMagenta);
 
-        const fillBlue = new THREE.PointLight(0x3b82f6, 1.5, 20);
+        const fillBlue = new THREE.PointLight(0x3b82f6, 0.1, 20); // Reduced from 1.5
         fillBlue.position.set(-6, 2, -2);
         scene.add(fillBlue);
 
@@ -1160,28 +1160,38 @@ const LabScene: React.FC<{
                     const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
                     const mat = liquidMesh.material as THREE.MeshPhysicalMaterial;
-                    const targetColor = new THREE.Color(container.contents.color);
                     const temp = container.contents.temperature || 25;
 
+                    // Retrieve persistent colors correctly
+                    if (!liquidMesh.userData.targetColor) liquidMesh.userData.targetColor = new THREE.Color(container.contents.color);
+                    else liquidMesh.userData.targetColor.set(container.contents.color);
+
+                    if (!liquidMesh.userData.copperNitrateColor) liquidMesh.userData.copperNitrateColor = new THREE.Color(0x2563eb);
+                    if (!liquidMesh.userData.blackColor) liquidMesh.userData.blackColor = new THREE.Color(0x000000);
+                    if (!liquidMesh.userData.glowTargetColor) liquidMesh.userData.glowTargetColor = new THREE.Color(0xff2200);
+
                     // Smooth color tweening instead of sudden snapping
-                    mat.color.lerp(targetColor, 0.1);
-                    mat.attenuationColor.lerp(targetColor, 0.1);
+                    mat.color.lerp(liquidMesh.userData.targetColor, 0.1);
+                    mat.attenuationColor.lerp(liquidMesh.userData.targetColor, 0.1);
 
                     if (temp > 100) {
                         const heatFactor = Math.min((temp - 100) / 500, 1);
-                        const glowColor = new THREE.Color(targetColor).lerp(new THREE.Color(0xff4400), heatFactor);
+                        const glowColor = new THREE.Color(liquidMesh.userData.targetColor).lerp(new THREE.Color(0xff4400), heatFactor);
                         mat.color.copy(glowColor);
                         mat.attenuationColor.copy(glowColor);
-                        mat.emissive.lerp(new THREE.Color(0xff2200), 0.1);
+                        mat.emissive.lerp(liquidMesh.userData.glowTargetColor, 0.1);
                         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, Math.min(heatFactor * 0.2, 0.15), 0.1);
                     } else if (container.contents.chemicalId === 'COPPER_NITRATE') {
                         // Deep blue glow for Copper Nitrate
-                        mat.emissive.lerp(new THREE.Color(0x2563eb), 0.1);
+                        mat.emissive.lerp(liquidMesh.userData.copperNitrateColor, 0.1);
                         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.2, 0.1);
                     } else {
-                        mat.emissive.lerp(new THREE.Color(0x000000), 0.1);
+                        mat.emissive.lerp(liquidMesh.userData.blackColor, 0.1);
                         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.1);
                     }
+
+                    // Clamp emissive intensity to prevent massive glare
+                    mat.emissiveIntensity = Math.min(mat.emissiveIntensity, 0.2);
                 } else {
                     // EMPTY STATE: Shrink liquid to zero
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2);
