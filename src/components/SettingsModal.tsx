@@ -12,16 +12,21 @@ const setStoredKey = (key: string) => {
     else localStorage.removeItem('gemini_api_key');
 };
 
+const getStoredElevenLabsKey = () => localStorage.getItem('elevenlabs_api_key') || '';
+
 const getStoredMuted = () => localStorage.getItem('lucy_is_muted') === 'true';
 const getStoredLang = () => (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const [apiKey, setApiKey] = useState(getStoredKey());
+    const [elevenLabsKey, setElevenLabsKey] = useState(getStoredElevenLabsKey());
     const [isMuted, setIsMuted] = useState(getStoredMuted());
     const [lang, setLang] = useState<'EN' | 'VN'>(getStoredLang());
 
     const handleSave = () => {
         setStoredKey(apiKey.trim());
+        if (elevenLabsKey.trim()) localStorage.setItem('elevenlabs_api_key', elevenLabsKey.trim());
+        else localStorage.removeItem('elevenlabs_api_key');
         localStorage.setItem('lucy_is_muted', String(isMuted));
         localStorage.setItem('lucy_lang', lang);
         // Force reload to pick up key and settings in App
@@ -59,6 +64,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                             {apiKey && (
                                 <button
                                     onClick={() => setApiKey('')}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs"
+                                >
+                                    XÓA
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+                            ElevenLabs API Key (TTS)
+                        </label>
+                        <p className="text-[10px] text-slate-500 mb-3">
+                            Nhập mã ElevenLabs API để sử dụng giọng nói Cloud chất lượng cao (VTuber).
+                            Nếu để trống, hệ thống sẽ sử dụng giọng nói mặc định của trình duyệt (có thể bị giới hạn hoặc không hỗ trợ tiếng Việt).
+                        </p>
+                        <div className="relative">
+                            <input
+                                type="password"
+                                value={elevenLabsKey}
+                                onChange={(e) => setElevenLabsKey(e.target.value)}
+                                placeholder="sk_..."
+                                className="w-full bg-slate-950/50 text-indigo-300 text-sm px-4 py-3 rounded-xl border border-white/10 focus:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
+                            />
+                            {elevenLabsKey && (
+                                <button
+                                    onClick={() => setElevenLabsKey('')}
                                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs"
                                 >
                                     XÓA

@@ -7,6 +7,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import SettingsModal from './components/SettingsModal';
 import ReactMarkdown from 'react-markdown';
+import { AudioService } from './services/AudioService';
 
 // -----------------------------------------------------------------------------
 // 1. TYPES & INTERFACES
@@ -589,53 +590,66 @@ export function sanitizeForTTS(text: string): string {
         .trim();
 }
 
-export function speakTTS(text: string, lang: 'EN' | 'VN', isMuted: boolean) {
-    if (isMuted || !window.speechSynthesis) return;
+// Keep track of the currently playing audio to allow cancellation
+let currentAudio: HTMLAudioElement | null = null;
 
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
+export async function speakTTS(text: string, lang: 'EN' | 'VN', isMuted: boolean) {
+    if (isMuted) {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+        return;
+    }
 
     const cleanText = sanitizeForTTS(text);
     if (!cleanText) return;
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
+    // Check if user provided an ElevenLabs key, otherwise fall back gracefully (or silently abort if we enforce cloud-only)
+    // We will attempt Cloud TTS first.
+    const audioUrl = await AudioService.generateSpeech(cleanText, lang);
 
-    // getVoices might be empty initially, so we define the setup inside a helper
+    if (audioUrl) {
+        if (currentAudio) {
+            currentAudio.pause();
+        }
+        currentAudio = new Audio(audioUrl);
+        currentAudio.play().catch(e => console.error("Audio playback failed:", e));
+        return;
+    }
+
+    // --- DEPRECATED NATIVE FALLBACK (Commented out per directive, kept for reference if needed) ---
+    /*
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
     const setupVoiceAndSpeak = () => {
         const voices = window.speechSynthesis.getVoices();
-
         if (lang === 'EN') {
             utterance.lang = 'en-US';
             utterance.pitch = 1.3;
             utterance.rate = 1.05;
-            // Try to find a good English female voice
-            const enVoice = voices.find(v =>
-                v.lang.startsWith('en') &&
-                (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Victoria') || v.name.includes('Google UK English Female'))
-            );
+            const enVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Victoria') || v.name.includes('Google UK English Female')));
             if (enVoice) utterance.voice = enVoice;
         } else {
             utterance.lang = 'vi-VN';
             utterance.pitch = 1.45;
             utterance.rate = 1.15;
-            // Try to find a Vietnamese voice, prioritize Southern female voices for VTuber aesthetic
             const viVoice = voices.find(v => v.lang.includes('vi') && (v.name.includes('HoaiMy') || v.name.includes('Mai')));
-            if (viVoice) {
-                utterance.voice = viVoice;
-            } else {
+            if (viVoice) utterance.voice = viVoice;
+            else {
                 const anyViVoice = voices.find(v => v.lang.includes('vi'));
                 if (anyViVoice) utterance.voice = anyViVoice;
             }
         }
-
         window.speechSynthesis.speak(utterance);
     };
-
     if (window.speechSynthesis.getVoices().length === 0) {
         window.speechSynthesis.onvoiceschanged = setupVoiceAndSpeak;
     } else {
         setupVoiceAndSpeak();
     }
+    */
 }
 
 // Helper function to enforce strict alternate roles (user -> model -> user)
@@ -1652,7 +1666,7 @@ export default function App() {
                 }
 
                 // Trigger audio
-                speakTTS(text, lang, isMuted);
+                speakTTS(text, lang, isMuted).catch(console.error);
             }
         };
         aiServiceRef.current = service;
@@ -1661,7 +1675,7 @@ export default function App() {
 
         return () => {
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
-            window.speechSynthesis?.cancel(); // cleanup speech
+            // window.speechSynthesis?.cancel(); // cleanup speech (deprecated)
         };
     }, []);
 
