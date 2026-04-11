@@ -450,18 +450,24 @@ const createLabel = (text: string) => {
     if (ctx) {
         ctx.fillStyle = 'rgba(0,0,0,0)';
         ctx.clearRect(0,0, 256, 64);
-        ctx.shadowColor = "black";
-        ctx.shadowBlur = 4;
+
+        // Add translucent dark backing box
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.roundRect ? ctx.roundRect(10, 10, 236, 44, 8) : ctx.fillRect(10, 10, 236, 44);
+        ctx.fill();
+
+        ctx.shadowColor = "rgba(255, 255, 255, 0.5)";
+        ctx.shadowBlur = 2;
         ctx.font = 'bold 28px Inter, Arial';
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = '#1A202C'; // Deep slate text for contrast
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, 128, 32);
     }
     const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.9 });
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95 });
     const sprite = new THREE.Sprite(material);
-    sprite.scale.set(1, 0.25, 1);
+    sprite.scale.set(1.2, 0.3, 1.2);
     return sprite;
 };
 
@@ -961,7 +967,7 @@ const LabScene: React.FC<{
         scene.add(new THREE.AmbientLight(0xfbcfe8, 0.015));
 
         // 2. Key Light - Focused Spotlight on Center Table
-        const spotLight = new THREE.SpotLight(0xffffff, 120);
+        const spotLight = new THREE.SpotLight(0xffffff, 60); // Halved intensity to stop glass blinding
         spotLight.position.set(5, 12, 5);
         spotLight.angle = Math.PI / 6; // Tighter beam
         spotLight.penumbra = 0.5; // Soft edge
@@ -972,7 +978,7 @@ const LabScene: React.FC<{
         scene.add(spotLight);
 
         // 3. Rim Light - Warm sunset orange edge
-        const rimLight = new THREE.DirectionalLight(0xfdba74, 2.0);
+        const rimLight = new THREE.DirectionalLight(0xfdba74, 1.0); // Halved intensity
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
 
@@ -1162,6 +1168,16 @@ const LabScene: React.FC<{
         if (!sceneRef.current || !isSceneReady) return;
         meshesRef.current.forEach((group, id) => {
             if (id !== 'ANALYZER_MACHINE' && !containers.find(c => c.id === id)) {
+                group.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                            else child.material.dispose();
+                        }
+                    }
+                });
+                group.removeFromParent();
                 sceneRef.current?.remove(group);
                 meshesRef.current.delete(id);
                 liquidsRef.current.delete(id);
@@ -1181,13 +1197,14 @@ const LabScene: React.FC<{
                     flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
                     group.add(flask);
 
-                    // Liquid inside the flask (conical shape to match inner walls, slightly scaled down for Z-fighting)
-                    const liquidGeo = new THREE.CylinderGeometry(0.12, 0.44, 1.0, 32);
-                    liquidGeo.translate(0, 0.5, 0); // shift pivot to bottom
+                    // Liquid inside the flask (perfectly contouring the flask inner walls)
+                    const liquidGeo = createFlaskGeometry();
+                    // Shift pivot to bottom for smooth vertical scaling (the lathe is originally 0 to 1.2 on Y)
+                    // It is already somewhat bottom-pivoted, but we need to ensure the scale.y originates from y=0
                     liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
 
-                    // Z-FIGHTING FIX: Micro-scale down the X/Z axes to prevent coplanar rendering glitches
-                    liquidMesh.scale.set(0.98, 0.01, 0.98);
+                    // CLIPPING FIX: Scale down uniformly by 0.92 on X and Z to keep liquid strictly inside the glass
+                    liquidMesh.scale.set(0.92, 0.01, 0.92);
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
@@ -1461,6 +1478,7 @@ const HolographicAvatar: React.FC<{
 
 const LabUI: React.FC<{
     lastReaction: LocalizedString | null;
+    lastEffect: string | null;
     containers: ContainerState[];
     chatHistory: ChatMessage[];
     aiFeedback?: string;
@@ -1473,7 +1491,7 @@ const LabUI: React.FC<{
     setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
     lang: 'EN' | 'VN';
-}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang }) => {
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1537,11 +1555,17 @@ const LabUI: React.FC<{
             {/* MID-LEFT: QUESTS */}
             <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
                  {/* Safety Indicator */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-3 flex items-center justify-between shadow-lg mb-4">
+                 <div className={`bg-slate-900/80 backdrop-blur-md rounded-2xl border p-3 flex items-center justify-between shadow-lg mb-4 transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50 shadow-red-500/20' : 'border-emerald-500/30'}`}>
                       <span className="text-[10px] font-bold text-slate-400 uppercase">{lang === 'VN' ? 'TRẠNG THÁI' : 'STATUS'}</span>
-                      <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                          {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                      </span>
+                      {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
+                          <span className="text-xs font-bold text-red-500 flex items-center gap-1 animate-pulse">
+                              {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>
+                          </span>
+                      ) : (
+                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                              {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          </span>
+                      )}
                  </div>
 
                  {/* Quest Board */}
@@ -1633,8 +1657,6 @@ const LabUI: React.FC<{
                     <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>[SYSTEM: ONLINE]</span>
                     <span className="opacity-30 shrink-0">|</span>
                     <span className="shrink-0">[NODE: NEURAL_CORE_V1.5]</span>
-                    <span className="opacity-30 shrink-0">|</span>
-                    <span className="shrink-0 truncate">[USER: Humans and AIs for HumAnIty]</span>
                 </div>
             </div>
 
@@ -1832,6 +1854,7 @@ export default function App() {
             />
             <LabUI
                 lastReaction={lastReaction}
+                lastEffect={lastEffect}
                 containers={containers}
                 chatHistory={chatHistory}
                 aiFeedback={aiFeedback}
