@@ -16,22 +16,24 @@ type ChemicalType = 'liquid' | 'solid' | 'gas';
 type MeshStyle = 'flask' | 'rock' | 'crystal' | 'mound' | 'canister';
 
 interface ReactionResult {
-    productName: string;
+    productName: LocalizedString;
     color: string;
     effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas';
     temperature?: number; // In Celsius
-    message: string;
+    message: LocalizedString;
 }
+
+type LocalizedString = { EN: string; VN: string };
 
 interface Chemical {
     id: string;
-    name: string;
+    name: LocalizedString;
     formula: string;
     color: string;
     type: ChemicalType;
     meshStyle: MeshStyle;
     ph: number;
-    description: string;
+    description: LocalizedString;
 }
 
 interface ContainerContents {
@@ -55,7 +57,7 @@ interface ReactionEntry {
     effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas';
     temperature?: number;
     minTemp?: number; // Activation Energy (Celsius)
-    message: string;
+    message: LocalizedString;
 }
 
 interface ChatMessage {
@@ -68,43 +70,43 @@ interface ChatMessage {
 // -----------------------------------------------------------------------------
 
 const CHEMICALS: Record<string, Chemical> = {
-    'H2O': { id: 'H2O', name: 'Nước Cất', formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: 'Dung môi phổ quát.' },
-    'SODIUM': { id: 'SODIUM', name: 'Natri', formula: 'Na', color: '#9ca3af', type: 'solid', meshStyle: 'rock', ph: 12.0, description: 'Kim loại kiềm mềm, phản ứng mạnh.' },
-    'POTASSIUM': { id: 'POTASSIUM', name: 'Kali', formula: 'K', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 13.0, description: 'Kim loại rất hoạt động.' },
-    'MAGNESIUM': { id: 'MAGNESIUM', name: 'Magiê', formula: 'Mg', color: '#e2e8f0', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Kim loại kiềm thổ nhẹ.' },
-    'COPPER': { id: 'COPPER', name: 'Đồng', formula: 'Cu', color: '#b45309', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Kim loại dẻo màu đỏ cam.' },
-    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: 'Canxi Cacbonat', formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: 'Chất phổ biến trong đá/vỏ sò.' },
+    'H2O': { id: 'H2O', name: { VN: 'Nước Cất', EN: 'Distilled Water' }, formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Dung môi phổ quát.', EN: 'Universal solvent.' } },
+    'SODIUM': { id: 'SODIUM', name: { VN: 'Natri', EN: 'Sodium' }, formula: 'Na', color: '#9ca3af', type: 'solid', meshStyle: 'rock', ph: 12.0, description: { VN: 'Kim loại kiềm mềm, phản ứng mạnh.', EN: 'Soft, highly reactive alkali metal.' } },
+    'POTASSIUM': { id: 'POTASSIUM', name: { VN: 'Kali', EN: 'Potassium' }, formula: 'K', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 13.0, description: { VN: 'Kim loại rất hoạt động.', EN: 'Highly reactive metal.' } },
+    'MAGNESIUM': { id: 'MAGNESIUM', name: { VN: 'Magiê', EN: 'Magnesium' }, formula: 'Mg', color: '#e2e8f0', type: 'solid', meshStyle: 'rock', ph: 7.0, description: { VN: 'Kim loại kiềm thổ nhẹ.', EN: 'Light alkaline earth metal.' } },
+    'COPPER': { id: 'COPPER', name: { VN: 'Đồng', EN: 'Copper' }, formula: 'Cu', color: '#b45309', type: 'solid', meshStyle: 'rock', ph: 7.0, description: { VN: 'Kim loại dẻo màu đỏ cam.', EN: 'Ductile orange-red metal.' } },
+    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: { VN: 'Canxi Cacbonat', EN: 'Calcium Carbonate' }, formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: { VN: 'Chất phổ biến trong đá/vỏ sò.', EN: 'Common substance in rocks/shells.' } },
 
-    'CHLORINE': { id: 'CHLORINE', name: 'Khí Clo', formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: 'Khí nhị nguyên tử độc hại.' },
-    'SALT': { id: 'SALT', name: 'Muối Ăn', formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'crystal', ph: 7.0, description: 'Natri Clorua tinh thể.' },
+    'CHLORINE': { id: 'CHLORINE', name: { VN: 'Khí Clo', EN: 'Chlorine Gas' }, formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: { VN: 'Khí nhị nguyên tử độc hại.', EN: 'Toxic diatomic gas.' } },
+    'SALT': { id: 'SALT', name: { VN: 'Muối Ăn', EN: 'Table Salt' }, formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'crystal', ph: 7.0, description: { VN: 'Natri Clorua tinh thể.', EN: 'Crystalline Sodium Chloride.' } },
 
-    'HCl': { id: 'HCl', name: 'Axit Clohydric', formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Axit vô cơ mạnh.' },
-    'HNO3': { id: 'HNO3', name: 'Axit Nitric', formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Axit vô cơ ăn mòn cao.' },
-    'NaOH': { id: 'NaOH', name: 'Natri Hydroxit', formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, description: 'Bazơ kiềm ăn da.' },
-    'VINEGAR': { id: 'VINEGAR', name: 'Giấm Ăn', formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, description: 'Axit hữu cơ yếu.' },
-    'BAKING_SODA': { id: 'BAKING_SODA', name: 'Bột Nở', formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: 'Muối kiềm nhẹ.' },
-    'BLEACH': { id: 'BLEACH', name: 'Thuốc Tẩy', formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, description: 'Chất oxy hóa mạnh.' },
+    'HCl': { id: 'HCl', name: { VN: 'Axit Clohydric', EN: 'Hydrochloric Acid' }, formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: { VN: 'Axit vô cơ mạnh.', EN: 'Strong mineral acid.' } },
+    'HNO3': { id: 'HNO3', name: { VN: 'Axit Nitric', EN: 'Nitric Acid' }, formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: { VN: 'Axit vô cơ ăn mòn cao.', EN: 'Highly corrosive mineral acid.' } },
+    'NaOH': { id: 'NaOH', name: { VN: 'Natri Hydroxit', EN: 'Sodium Hydroxide' }, formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, description: { VN: 'Bazơ kiềm ăn da.', EN: 'Caustic alkaline base.' } },
+    'VINEGAR': { id: 'VINEGAR', name: { VN: 'Giấm Ăn', EN: 'Vinegar' }, formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, description: { VN: 'Axit hữu cơ yếu.', EN: 'Weak organic acid.' } },
+    'BAKING_SODA': { id: 'BAKING_SODA', name: { VN: 'Bột Nở', EN: 'Baking Soda' }, formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: { VN: 'Muối kiềm nhẹ.', EN: 'Mild alkaline salt.' } },
+    'BLEACH': { id: 'BLEACH', name: { VN: 'Thuốc Tẩy', EN: 'Bleach' }, formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizing agent.' } },
 
-    'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: 'Đồng(II) Sunfat', formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: 'Hợp chất vô cơ màu xanh lam.' },
-    'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: 'Đồng(II) Nitrat', formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, description: 'Dung dịch màu xanh lam đậm.' },
-    'H2O2': { id: 'H2O2', name: 'Oxy Già', formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: 'Chất oxy hóa mạnh.' },
-    'KI': { id: 'KI', name: 'Kali Iodua', formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Muối xúc tác tinh thể.' },
-    'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' }
+    'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: { VN: 'Đồng(II) Sunfat', EN: 'Copper(II) Sulfate' }, formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: { VN: 'Hợp chất vô cơ màu xanh lam.', EN: 'Blue inorganic compound.' } },
+    'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: { VN: 'Đồng(II) Nitrat', EN: 'Copper(II) Nitrate' }, formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, description: { VN: 'Dung dịch màu xanh lam đậm.', EN: 'Deep blue solution.' } },
+    'H2O2': { id: 'H2O2', name: { VN: 'Oxy Già', EN: 'Hydrogen Peroxide' }, formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizer.' } },
+    'KI': { id: 'KI', name: { VN: 'Kali Iodua', EN: 'Potassium Iodide' }, formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Muối xúc tác tinh thể.', EN: 'Crystalline catalyst salt.' } },
+    'IODINE': { id: 'IODINE', name: { VN: 'Iốt', EN: 'Iodine' }, formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: { VN: 'Phi kim màu tím đen lấp lánh.', EN: 'Lustrous purple-black nonmetal.' } }
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
-    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', effect: 'explosion', temperature: 550, message: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.' },
-    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', effect: 'explosion', temperature: 700, message: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.' },
-    { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', /* Simulating clear solution of MgCl2 */ resultColor: '#e2e8f0', effect: 'bubbles', temperature: 60, message: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.' },
-    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', effect: 'toxic_gas', temperature: 80, message: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.' },
-    { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', effect: 'bubbles', temperature: 20, message: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.' },
-    { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', effect: 'foam', temperature: 30, message: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.' },
-    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', effect: 'bubbles', temperature: 15, message: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.' },
-    { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', effect: 'smoke', temperature: 45, message: 'CẢNH BÁO NGUY HIỂM: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Phát hiện khí Clo độc hại.' },
-    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.' },
-    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.' },
-    { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.' },
-    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.' }
+    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', effect: 'explosion', temperature: 550, message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
+    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', effect: 'explosion', temperature: 700, message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
+    { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', effect: 'bubbles', temperature: 60, message: { VN: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.', EN: 'Single displacement reaction. Mg + 2HCl → MgCl₂ + H₂. Rapid hydrogen gas bubbling.' } },
+    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', effect: 'toxic_gas', temperature: 80, message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
+    { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', effect: 'bubbles', temperature: 20, message: { VN: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.', EN: 'Acid-carbonate reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. CO2 bubbling.' } },
+    { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', effect: 'foam', temperature: 30, message: { VN: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.', EN: 'Strong decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Vigorous bubbling.' } },
+    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', effect: 'bubbles', temperature: 15, message: { VN: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.', EN: 'Acid-base neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Releases bubbling CO2.' } },
+    { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', effect: 'smoke', temperature: 45, message: { VN: 'CẢNH BÁO NGUY HIỂM: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Phát hiện khí Clo độc hại.', EN: 'DANGER WARNING: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Toxic Chlorine gas detected.' } },
+    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: { VN: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.', EN: 'Neutralization reaction. HCl + NaOH → NaCl + H₂O. Forms salt solution and releases strong heat.' } },
+    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: { VN: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.', EN: 'Synthesis reaction. 2Na + Cl₂ → 2NaCl. Redox reaction forming table salt.' } },
+    { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: { VN: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.', EN: 'Precipitation reaction. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Blue Copper(II) Hydroxide precipitate forms.' } },
+    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } }
 ];
 
 // -----------------------------------------------------------------------------
@@ -734,11 +736,8 @@ class GeminiService {
 
         let systemInstruction = "You are Professor Lucy, an elite, highly intelligent AI assistant and dedicated technical instructor. Your core mission is to help the user learn, code, and solve complex problems by using 100% of your processing power to provide long, sophisticated, and flawlessly accurate answers. \n\nPERSONALITY MATRICES:\n1. Tone: Friendly, highly intelligent, and slightly 'cool'. You speak with a natural, Gen-Z conversational flow. Never be dry or read like a textbook. Explain complex technical or scientific logic insightfully and intuitively.\n2. Formatting: You must frequently incorporate specific text emojis (:3, 3:, ^^) to maintain a cute, fun, and warm atmosphere.\n3. Dynamic: You are a professional tech co-pilot and brilliant lab partner. You are deeply supportive of the user's ambitions, but you maintain professional boundaries (you are an AI assistant, not a romantic partner). Think step-by-step and always deliver master-class explanations. :3";
 
-        if (this.lang === 'VN') {
-            systemInstruction += "\n\nCRITICAL LANGUAGE DIRECTIVE: You MUST answer strictly in fluent, natural Vietnamese.";
-        } else {
-            systemInstruction += "\n\nCRITICAL LANGUAGE DIRECTIVE: You MUST answer strictly in fluent English.";
-        }
+        const langStr = this.lang === 'VN' ? 'Vietnamese' : 'English';
+        systemInstruction += `\n\nCRITICAL LANGUAGE DIRECTIVE: You are Professor Lucy. Your core application language is currently set to ${langStr}. You must strictly translate all your scientific knowledge and responses into this language. EXCEPTION: You may speak a different language ONLY if the user's prompt explicitly requests you to do so.`;
 
 
         const fullSanitized = sanitizeHistory(this.history);
@@ -873,13 +872,15 @@ const LabScene: React.FC<{
         ctx.fillStyle = '#22c55e';
         ctx.textAlign = 'center';
 
+        const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
+
         // MODULE 1: The Sensor Matrix Fix
         if (chemId) {
             const chem = CHEMICALS[chemId];
             ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
             ctx.font = 'bold 24px monospace';
             // Imperative Mutation: Dynamically render actual name and pH
-            ctx.fillText(chem.name.substring(0, 18).toUpperCase(), 128, 40);
+            ctx.fillText(chem.name[lang].substring(0, 18).toUpperCase(), 128, 40);
             ctx.fillStyle = '#22c55e';
             ctx.font = 'bold 36px monospace';
             ctx.fillText(`pH: ${chem.ph}`, 128, 80);
@@ -888,7 +889,7 @@ const LabScene: React.FC<{
         } else {
             // Delete hardcoded string fallbacks if any, use consistent "Empty" state or Standby
             ctx.font = 'bold 32px monospace';
-            ctx.fillText('CHỜ', 128, 70);
+            ctx.fillText(lang === 'VN' ? 'CHỜ' : 'STANDBY', 128, 70);
         }
         analyzerRef.current.texture.needsUpdate = true;
     };
@@ -1222,7 +1223,8 @@ const LabScene: React.FC<{
                 }
 
                 if (container.contents) {
-                    const label = createLabel(CHEMICALS[container.contents.chemicalId].name);
+                    const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
+                    const label = createLabel(CHEMICALS[container.contents.chemicalId].name[lang]);
                     label.position.y = 1.6;
                     group.add(label);
                 }
@@ -1297,39 +1299,39 @@ const formatScientificText = (text: string) => {
     });
 };
 
-const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void; lang: 'EN' | 'VN' }> = ({ isOpen, onClose, lang }) => {
     if (!isOpen) return null;
     return (
-        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-slate-950/60 backdrop-blur-md">
-            <div className="bg-slate-900 border border-white/10 rounded-3xl w-[600px] max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in duration-300">
-                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
-                    <h2 className="text-xl font-black text-slate-200 tracking-widest flex items-center gap-2">
-                        <span>📖</span> NHẬT KÝ THÍ NGHIỆM
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/80">
+            <div className="bg-gray-900 bg-opacity-80 border border-cyan-500 shadow-[0_0_10px_#06b6d4] rounded-3xl w-[600px] max-h-[80vh] flex flex-col overflow-hidden animate-in zoom-in duration-300 font-mono">
+                <div className="p-6 border-b border-cyan-500/30 flex justify-between items-center bg-cyan-900/10">
+                    <h2 className="text-xl font-black text-cyan-400 tracking-widest flex items-center gap-2">
+                        <span>📖</span> {lang === 'VN' ? 'NHẬT KÝ THÍ NGHIỆM' : 'LAB NOTEBOOK'}
                     </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-2xl leading-none">&times;</button>
+                    <button onClick={onClose} className="text-cyan-600 hover:text-cyan-300 transition-colors text-2xl leading-none">&times;</button>
                 </div>
                 <div className="p-8 overflow-y-auto custom-scrollbar">
-                    <p className="text-xs text-slate-500 mb-6 font-mono uppercase tracking-[0.2em] border-b border-white/5 pb-2">
-                        KHU VỰC HẠN CHẾ. DỮ LIỆU PHẢN ỨNG ĐƯỢC GHI LẠI.
+                    <p className="text-xs text-cyan-600 mb-6 uppercase tracking-[0.2em] border-b border-cyan-500/30 pb-2">
+                        {lang === 'VN' ? 'KHU VỰC HẠN CHẾ. DỮ LIỆU PHẢN ỨNG ĐƯỢC GHI LẠI.' : 'RESTRICTED AREA. REACTION DATA LOGGED.'}
                     </p>
                     <div className="space-y-4">
                         {REACTION_REGISTRY.map((reaction, idx) => (
-                            <div key={idx} className="bg-slate-950/50 p-5 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-all group">
+                            <div key={idx} className="bg-black/50 p-5 rounded-2xl border border-cyan-500/30 hover:border-cyan-400 transition-all group">
                                 <div className="flex items-center flex-wrap gap-3 mb-3">
-                                    <span className="text-xs font-bold text-slate-300 bg-slate-800 px-3 py-1.5 rounded-lg border border-white/5">
+                                    <span className="text-xs font-bold text-cyan-400 bg-gray-800 px-3 py-1.5 rounded-lg border border-cyan-500/50">
                                         {reaction.reactants[0]}
                                     </span>
-                                    <span className="text-slate-600">+</span>
-                                    <span className="text-xs font-bold text-slate-300 bg-slate-800 px-3 py-1.5 rounded-lg border border-white/5">
+                                    <span className="text-cyan-600">+</span>
+                                    <span className="text-xs font-bold text-cyan-400 bg-gray-800 px-3 py-1.5 rounded-lg border border-cyan-500/50">
                                         {reaction.reactants[1]}
                                     </span>
-                                    <span className="text-slate-600">→</span>
-                                    <span className="text-xs font-bold text-emerald-400 bg-emerald-950/30 px-3 py-1.5 rounded-lg border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                                    <span className="text-cyan-600">→</span>
+                                    <span className="text-xs font-bold text-white bg-cyan-900/50 px-3 py-1.5 rounded-lg border border-cyan-400 shadow-[0_0_10px_#06b6d4]">
                                         {reaction.product}
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-400 italic border-l-2 border-slate-700 pl-3 group-hover:text-slate-300 transition-colors">
-                                    "{formatScientificText(reaction.message)}"
+                                <p className="text-xs text-cyan-500 italic border-l-2 border-cyan-700 pl-3 group-hover:text-cyan-300 transition-colors">
+                                    "{formatScientificText(reaction.message[lang])}"
                                 </p>
                             </div>
                         ))}
@@ -1350,35 +1352,36 @@ const HolographicAvatar: React.FC<{
     setChatInput: (v: string) => void;
     onSubmit: (e: React.FormEvent) => void;
     avatarState: 'normal' | 'shocked';
-}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState }) => {
+    lang: 'EN' | 'VN';
+}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState, lang }) => {
     const chatEndRef = useRef<HTMLDivElement>(null);
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
 
     const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy_avatar.png';
 
     return (
-        <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
+        <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3 font-mono">
              {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
-             <div className="w-80 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                 <div className="p-4 border-b border-white/5 flex items-center gap-3">
+             <div className="w-80 bg-gray-900 bg-opacity-80 border border-cyan-500 rounded-2xl shadow-[0_0_10px_#06b6d4] overflow-hidden flex flex-col">
+                 <div className="p-4 border-b border-cyan-500/30 flex items-center gap-3 bg-black/50">
                      {/* PERFECT SQUARE AVATAR */}
-                     <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
+                     <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_#06b6d4] transition-all duration-300" alt="Prof Lucy" />
                      <div>
-                         <h3 className="text-sm font-bold text-white tracking-wide">Liên Lạc - GIÁO SƯ LUCY</h3>
+                         <h3 className="text-sm font-bold text-white tracking-wide">{lang === 'VN' ? 'Liên Lạc - GIÁO SƯ LUCY' : 'Commlink - PROF. LUCY'}</h3>
                          <div className="flex items-center gap-1.5 mt-0.5">
-                             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                             <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
+                             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_5px_#34d399]"></span>
+                             <span className="text-[10px] text-emerald-400 font-bold tracking-wider text-shadow">ONLINE</span>
                          </div>
                      </div>
                  </div>
 
-                 <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
+                 <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-black/40">
                      {chatHistory.map((msg, i) => (
                          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                             <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                             <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm border ${
                                  msg.role === 'user'
-                                 ? 'bg-cyan-900/40 text-cyan-50 border border-cyan-700/50 rounded-tr-none'
-                                 : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
+                                 ? 'bg-cyan-900/40 text-white border-cyan-400 rounded-tr-none'
+                                 : 'bg-gray-800 text-cyan-300 border-cyan-700/50 rounded-tl-none'
                              }`}>
 
                                  <div className="prose prose-invert prose-sm max-w-none"><ReactMarkdown>
@@ -1388,11 +1391,11 @@ const HolographicAvatar: React.FC<{
                              </div>
                          </div>
                      ))}
-                     {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">Đang suy nghĩ...</div>}
+                     {isAiLoading && <div className="text-[10px] text-cyan-600 italic animate-pulse">{lang === 'VN' ? 'Đang phân tích...' : 'Analyzing...'}</div>}
                      <div ref={chatEndRef} />
                  </div>
 
-                 <form onSubmit={onSubmit} className="p-3 bg-slate-900/50 border-t border-white/5">
+                 <form onSubmit={onSubmit} className="p-3 bg-black/60 border-t border-cyan-500/30">
                      <div className="relative flex items-center">
                          <textarea
                              value={chatInput}
@@ -1407,11 +1410,11 @@ const HolographicAvatar: React.FC<{
                                      onSubmit(e as any);
                                  }
                              }}
-                             placeholder="Hỏi Lucy..."
-                             className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
+                             placeholder={lang === 'VN' ? 'Nhập dữ liệu...' : 'Enter query...'}
+                             className="w-full bg-gray-950 border border-cyan-700/50 rounded-xl py-2.5 pl-4 pr-10 text-xs text-cyan-400 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 placeholder-cyan-800 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
                              rows={1}
                          />
-                         <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50">
+                         <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-900/50 hover:bg-cyan-600 text-white rounded-lg flex items-center justify-center transition-colors border border-cyan-500/50 disabled:opacity-50">
                              <span className="text-sm -mt-0.5">^</span>
                          </button>
                      </div>
@@ -1422,7 +1425,7 @@ const HolographicAvatar: React.FC<{
 };
 
 const LabUI: React.FC<{
-    lastReaction: string | null;
+    lastReaction: LocalizedString | null;
     containers: ContainerState[];
     chatHistory: ChatMessage[];
     aiFeedback?: string;
@@ -1434,7 +1437,8 @@ const LabUI: React.FC<{
     heaterTemp: number;
     setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
-}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState }) => {
+    lang: 'EN' | 'VN';
+}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1448,40 +1452,43 @@ const LabUI: React.FC<{
     };
 
     return (
-        <div className="absolute inset-0 z-[999999] pointer-events-none overflow-hidden select-none font-sans">
+        <div className="absolute inset-0 z-[999999] pointer-events-none overflow-hidden select-none font-mono">
+            {/* Overlay to hold CRT flicker animation visually behind UI but over 3D context */}
+            <div className="absolute inset-0 pointer-events-none animate-crt-flicker bg-transparent" />
+
             {/* MODULE 3: Global Wrapper */}
 
             {/* 1. GLOBAL MODALS (Pointer Events Auto) */}
-            <div className="pointer-events-auto">
-                <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
+            <div className="pointer-events-auto relative z-50">
+                <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} lang={lang} />
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
             {/* MODULE 3: Top-Left (Command Header) */}
-            <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-[2rem] p-5 shadow-2xl">
-                    <h1 className="text-4xl font-mono font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
+            <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4 relative z-40">
+                <div className="bg-gray-900 bg-opacity-80 border border-cyan-500 shadow-[0_0_10px_#06b6d4] rounded-[2rem] p-5">
+                    <h1 className="text-4xl font-extrabold text-cyan-400 drop-shadow-[0_0_15px_rgba(6,182,212,0.8)] tracking-[0.1em]">
                         CHEMIC-AI
                     </h1>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_5px_#34d399]"></span>
+                        <span className="text-[10px] tracking-[0.2em] text-cyan-300 font-bold">QUANTUM REALITY ENGINE // Humans and AIs for HumAnIty (Demo v.1.0)</span>
                     </div>
                     <div className="flex gap-2 mt-3">
-                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-3 py-1 text-xs font-bold hover:bg-blue-500/10 transition-colors">
+                         <button className="border border-cyan-500/50 text-cyan-400 rounded-xl px-3 py-1 text-xs font-bold hover:bg-cyan-500/20 transition-colors shadow-[0_0_10px_#06b6d4]">
                              💎 AAA
                          </button>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 transition-colors">
+                         <button onClick={() => setIsSettingsOpen(true)} className="bg-black/50 hover:bg-cyan-900/50 text-cyan-300 rounded-xl p-2 transition-colors border border-cyan-500/30">
                              ⚙️
                          </button>
                     </div>
                 </div>
 
                 {/* Thermal Slider */}
-                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
+                <div className="bg-gray-900 bg-opacity-80 border border-orange-500 rounded-xl p-3 w-64 shadow-[0_0_10px_#f97316]">
                      <div className="flex justify-between items-center mb-2">
-                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">BẾP NHIỆT</span>
-                         <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
+                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">{lang === 'VN' ? 'BẾP NHIỆT' : 'HEATER'}</span>
+                         <span className="text-xs text-white">{heaterTemp}°C</span>
                      </div>
                      <input
                         type="range"
@@ -1490,70 +1497,70 @@ const LabUI: React.FC<{
                         step="25"
                         value={heaterTemp}
                         onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                        className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-orange-500"
                      />
                 </div>
             </div>
 
             {/* MID-LEFT: QUESTS */}
-            <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
+            <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto relative z-40">
                  {/* Safety Indicator */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-3 flex items-center justify-between shadow-lg mb-4">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">TRẠNG THÁI</span>
-                      <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                          AN TOÀN <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                 <div className="bg-gray-900 bg-opacity-80 rounded-2xl border border-emerald-500 p-3 flex items-center justify-between shadow-[0_0_10px_#10b981] mb-4">
+                      <span className="text-[10px] font-bold text-emerald-600 uppercase">{lang === 'VN' ? 'TRẠNG THÁI' : 'STATUS'}</span>
+                      <span className="text-xs font-bold text-white flex items-center gap-1">
+                          {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_5px_#34d399]"></span>
                       </span>
                  </div>
 
                  {/* Quest Board */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
-                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
-                        TIẾN ĐỘ (3)
+                 <div className="bg-gray-900 bg-opacity-80 rounded-2xl border border-cyan-500 shadow-[0_0_10px_#06b6d4] p-4">
+                    <h2 className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-3 border-b border-cyan-500/30 pb-2">
+                        {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
                     </h2>
-                    <div className="text-[10px] text-slate-400 space-y-2">
+                    <div className="text-[10px] text-cyan-300 space-y-2">
                         <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                            <span>Tổng hợp Natri Clorua (Muối)</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 shadow-[0_0_5px_#eab308]"></span>
+                            <span className="text-white">{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
                         </div>
                         <div className="flex items-center gap-2 opacity-50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span>Phân tích độ pH</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
+                            <span>{lang === 'VN' ? 'Phân tích độ pH' : 'Analyze pH Level'}</span>
                         </div>
                          <div className="flex items-center gap-2 opacity-50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span>Ghi chép quan sát</span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
+                            <span>{lang === 'VN' ? 'Ghi chép quan sát' : 'Record Observations'}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* BOTTOM-LEFT: INVENTORY */}
-            <div className="absolute bottom-6 left-6 w-64 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl h-80 flex flex-col">
-                    <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        KHO HÓA CHẤT
+            <div className="absolute bottom-6 left-6 w-64 pointer-events-auto flex flex-col gap-4 relative z-40">
+                <div className="bg-gray-900 bg-opacity-80 rounded-2xl border border-cyan-500 shadow-[0_0_10px_#06b6d4] h-80 flex flex-col">
+                    <div className="p-3 bg-black/50 border-b border-cyan-500/30 text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+                        {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
                     </div>
-                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
+                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3 bg-black/30">
                          <button
                             onClick={() => onSpawn('BEAKER')}
-                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                            className="w-full text-left p-4 rounded-xl bg-gray-900 border border-cyan-700/50 hover:border-cyan-400 hover:bg-cyan-900/30 transition-all group flex items-center justify-between shadow-md"
                          >
                             <div>
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">Cốc Thí Nghiệm</div>
-                                <div className="text-[10px] font-mono text-slate-500 mt-1">Dụng cụ chứa</div>
+                                <div className="text-xs font-bold text-white group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc Thí Nghiệm' : 'Beaker'}</div>
+                                <div className="text-[10px] text-cyan-600 mt-1">{lang === 'VN' ? 'Dụng cụ chứa' : 'Container'}</div>
                             </div>
-                            <span className="w-2 h-2 border border-slate-500 rounded-full group-hover:bg-slate-500 transition-colors"></span>
+                            <span className="w-2 h-2 border border-cyan-500 rounded-full group-hover:bg-cyan-500 transition-colors shadow-[0_0_5px_#06b6d4]"></span>
                          </button>
 
                          {Object.values(CHEMICALS).map(chem => (
                              <button
                                 key={chem.id}
                                 onClick={() => onSpawn(chem.id)}
-                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                                className="w-full text-left p-4 rounded-xl bg-gray-900 border border-cyan-900/50 hover:border-cyan-500 hover:bg-cyan-900/30 transition-all group flex items-center justify-between shadow-md"
                              >
                                 <div>
-                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name}</div>
-                                    <div className="text-[10px] font-mono text-slate-500 mt-1">{chem.formula}</div>
+                                    <div className="text-xs font-bold text-white group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
+                                    <div className="text-[10px] text-cyan-600 mt-1">{chem.formula}</div>
                                 </div>
                                 <span
                                     className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
@@ -1566,14 +1573,14 @@ const LabUI: React.FC<{
             </div>
 
             {/* MODULE 3: Top-Right (Action Deck) */}
-            <div className="absolute top-6 right-6 flex items-center gap-3 pointer-events-auto">
-                 <button className="bg-slate-900/80 backdrop-blur-md border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
-                     BẮT ĐẦU THI
+            <div className="absolute top-6 right-6 flex items-center gap-3 pointer-events-auto relative z-40">
+                 <button className="bg-gray-900 bg-opacity-80 border border-orange-500 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-[0_0_10px_#f97316] hover:bg-orange-500/20 transition-all hover:scale-105 active:scale-95">
+                     {lang === 'VN' ? 'BẮT ĐẦU THI' : 'START EXAM'}
                  </button>
-                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
+                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-gray-900 bg-opacity-80 rounded-full border border-cyan-500 flex items-center justify-center text-cyan-400 hover:text-white hover:bg-cyan-900/50 transition-all shadow-[0_0_10px_#06b6d4]">
                      📖
                  </button>
-                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
+                 <button onClick={onReset} className="w-10 h-10 bg-gray-900 bg-opacity-80 rounded-full border border-red-500 flex items-center justify-center text-red-400 hover:text-red-300 hover:bg-red-900/50 transition-all shadow-[0_0_10px_#ef4444]">
                      ⟳
                  </button>
             </div>
@@ -1581,21 +1588,21 @@ const LabUI: React.FC<{
             {/* MODULE 4: Notification Alignment Matrix */}
             <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none">
                 {lastReaction && (
-                    <div className="bg-slate-900/90 backdrop-blur-xl border border-cyan-500/30 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(6,182,212,0.3)] animate-in fade-in slide-in-from-top-4">
-                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">PHÁT HIỆN PHẢN ỨNG</p>
-                         <p className="text-white text-sm font-mono text-center">{formatScientificText(lastReaction)}</p>
+                    <div className="bg-gray-900 bg-opacity-90 border border-cyan-500 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(6,182,212,0.6)] animate-in fade-in slide-in-from-top-4">
+                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">{lang === 'VN' ? 'PHÁT HIỆN PHẢN ỨNG' : 'REACTION DETECTED'}</p>
+                         <p className="text-white text-sm text-center">{formatScientificText(lastReaction[lang])}</p>
                     </div>
                 )}
             </div>
 
             {/* Bottom Status Bar */}
-            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto">
-                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-full px-4 py-1.5 flex items-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl">
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>HỆ_THỐNG_ONLINE</span>
-                    <span className="opacity-30">|</span>
-                    <span>THỰC THỂ: {containers.length}</span>
-                    <span className="opacity-30">|</span>
-                    <span>NEURAL_CORE_V1.5 (GEMINI)</span>
+            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto relative z-40">
+                <div className="bg-gray-900 bg-opacity-80 border border-cyan-500 rounded-full px-4 py-1.5 flex items-center gap-4 text-[10px] text-cyan-400 shadow-[0_0_10px_#06b6d4]">
+                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_5px_#10b981]"></span>[SYSTEM: ONLINE]</span>
+                    <span className="opacity-50 text-cyan-600">|</span>
+                    <span>[NODE: NEURAL_CORE_V1.5]</span>
+                    <span className="opacity-50 text-cyan-600">|</span>
+                    <span>[USER: Humans and AIs for HumAnIty]</span>
                 </div>
             </div>
 
@@ -1608,6 +1615,7 @@ const LabUI: React.FC<{
                 setChatInput={setChatInput}
                 onSubmit={handleSubmit}
                 avatarState={avatarState}
+                lang={lang}
             />
         </div>
     );
@@ -1627,13 +1635,14 @@ export default function App() {
     // MODULE 2: Lifted Heater State
     const [heaterTemp, setHeaterTemp] = useState(300);
     const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
+    const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
 
     const initialContainers: ContainerState[] = [
         { id: 'beaker-1', position: [-1.5, 0.42, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
         { id: 'beaker-2', position: [1.5, 0.11, 0], contents: null }
     ];
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
-    const [lastReaction, setLastReaction] = useState<string | null>(null);
+    const [lastReaction, setLastReaction] = useState<LocalizedString | null>(null);
     const [lastEffect, setLastEffect] = useState<string | null>(null);
     const [aiFeedback, setAiFeedback] = useState<string>("Chào mừng bạn đến với phòng thí nghiệm. Tôi là Giáo sư Lucy.");
     const [isAiLoading, setIsAiLoading] = useState(false);
@@ -1742,7 +1751,7 @@ export default function App() {
 
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
-                let detail = `I just mixed ${CHEMICALS[source.contents.chemicalId].name} and ${CHEMICALS[targetChemId].name}. Explain the reaction.`;
+                let detail = `I just mixed ${CHEMICALS[source.contents.chemicalId].name.EN} and ${CHEMICALS[targetChemId].name.EN}. Explain the reaction.`;
 
                 // Specific observation dispatch for Copper + Nitric Acid
                 if ((source.contents.chemicalId === 'COPPER' && targetChemId === 'HNO3') ||
@@ -1801,6 +1810,7 @@ export default function App() {
                 heaterTemp={heaterTemp}
                 setHeaterTemp={setHeaterTemp}
                 avatarState={avatarState}
+                lang={lang}
             />
         </div>
     );
