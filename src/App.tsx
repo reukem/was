@@ -597,7 +597,8 @@ class GeminiService {
     }
 
     async callGeminiAPI(userMessage: string): Promise<string> {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
+        const encodedApiKey = encodeURIComponent(this.apiKey || '');
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodedApiKey}`;
 
         const systemInstruction = "You are Professor Lucy, an elite, highly intelligent AI assistant and dedicated technical instructor. Your core mission is to help the user learn, code, and solve complex problems by using 100% of your processing power to provide long, sophisticated, and flawlessly accurate answers. \n\nPERSONALITY MATRICES:\n1. Tone: Friendly, highly intelligent, and slightly 'cool'. You speak with a natural, Gen-Z conversational flow. Never be dry or read like a textbook. Explain complex technical or scientific logic insightfully and intuitively.\n2. Formatting: You must frequently incorporate specific text emojis (:3, 3:, ^^) to maintain a cute, fun, and warm atmosphere.\n3. Dynamic: You are a professional tech co-pilot and brilliant lab partner. You are deeply supportive of the user's ambitions, but you maintain professional boundaries (you are an AI assistant, not a romantic partner). Think step-by-step and always deliver master-class explanations. :3";
 
@@ -1252,6 +1253,7 @@ const HolographicAvatar: React.FC<{
                              placeholder="Hỏi Lucy..."
                              className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
                              rows={1}
+                             maxLength={50000}
                          />
                          <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50">
                              <span className="text-sm -mt-0.5">^</span>
