@@ -312,14 +312,15 @@ const createCrystalGeometry = () => {
 };
 
 const createGlassMaterial = () => {
-    // MODULE 2: HIGH-FIDELITY GLASS MANDATE (OVERRIDE)
+    // REALISTIC LABORATORY GLASS
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         metalness: 0.1,
-        roughness: 0.05,
-        transmission: 1.0,
-        ior: 1.52,
-        thickness: 0.2,
+        roughness: 0.05, // very smooth
+        transmission: 1.0, // fully transmissive
+        opacity: 1.0,
+        ior: 1.5, // standard glass
+        thickness: 0.1, // thin realistic wall
         clearcoat: 1.0,
         transparent: true,
         side: THREE.DoubleSide,
@@ -328,19 +329,14 @@ const createGlassMaterial = () => {
 };
 
 const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
-    // Volumetric, glowing liquid
-    return new THREE.MeshPhysicalMaterial({
+    return new THREE.MeshStandardMaterial({
         color: color,
-        metalness: 0.0,
-        roughness: 0.0,
-        transmission: 0.9,
-        thickness: 1.2, // Deep volumetric thickness
-        ior: 1.33,      // Index of Refraction for water
         transparent: true,
+        opacity: 0.85,
+        depthWrite: false, // Prevents Z-fighting and occluding glass front faces
         side: THREE.DoubleSide,
-        depthWrite: true,
-        attenuationColor: new THREE.Color(color),
-        attenuationDistance: 0.5,
+        roughness: 0.2,
+        metalness: 0.0
     });
 };
 
@@ -362,8 +358,8 @@ const createTable = () => {
     // 1. Table Top (Matte Slate-Grey)
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
-        color: 0x334155, // Lighter professional matte
-        roughness: 1.0,  // Fully matte to prevent glare
+        color: 0x718096, // Professional slate grey
+        roughness: 0.7,  // Smooth enough to ground shadows
         metalness: 0.1   // Subtle response to environment
     });
     const tableTop = new THREE.Mesh(geometry, material);
@@ -1180,16 +1176,52 @@ const LabScene: React.FC<{
                 group.userData.id = container.id;
 
                 if (!container.id.startsWith('source_')) {
-                    const beaker = new THREE.Mesh(createBeakerGeometry(0.5, 1.2), createGlassMaterial());
-                    beaker.castShadow = true; beaker.receiveShadow = true; beaker.renderOrder = 2;
-                    group.add(beaker);
-                    const liquidGeo = new THREE.CylinderGeometry(0.46, 0.46, 1, 32);
-                    liquidGeo.translate(0, 0.5, 0);
+                    // Erlenmeyer Flask upgrade
+                    const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial());
+                    flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
+                    group.add(flask);
+
+                    // Liquid inside the flask (conical shape to match inner walls, slightly scaled down for Z-fighting)
+                    const liquidGeo = new THREE.CylinderGeometry(0.12, 0.44, 1.0, 32);
+                    liquidGeo.translate(0, 0.5, 0); // shift pivot to bottom
                     liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
-                    liquidMesh.scale.set(1, 0.01, 1);
+
+                    // Z-FIGHTING FIX: Micro-scale down the X/Z axes to prevent coplanar rendering glitches
+                    liquidMesh.scale.set(0.98, 0.01, 0.98);
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
+
+                    // Decal markings for Volume
+                    const decalCanvas = document.createElement('canvas');
+                    decalCanvas.width = 64;
+                    decalCanvas.height = 128;
+                    const dCtx = decalCanvas.getContext('2d');
+                    if (dCtx) {
+                        dCtx.fillStyle = 'rgba(0,0,0,0)';
+                        dCtx.clearRect(0,0, 64, 128);
+                        dCtx.fillStyle = 'rgba(255,255,255,0.7)';
+                        dCtx.font = 'bold 12px sans-serif';
+                        for (let i = 1; i <= 4; i++) {
+                            const y = 128 - (i * 25);
+                            dCtx.fillRect(10, y, 15, 2);
+                            dCtx.fillText(`${i * 50}ml`, 30, y + 4);
+                        }
+                    }
+                    const decalTex = new THREE.CanvasTexture(decalCanvas);
+                    const decalMat = new THREE.MeshBasicMaterial({
+                        map: decalTex,
+                        transparent: true,
+                        opacity: 0.8,
+                        depthWrite: false,
+                        polygonOffset: true, // Crucial to prevent Z-fighting with glass
+                        polygonOffsetFactor: -1
+                    });
+                    // Approximate curvature for decal
+                    const decalMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 0.6, 16, 1, true, -Math.PI/6, Math.PI/3), decalMat);
+                    decalMesh.position.y = 0.3;
+                    group.add(decalMesh);
+
                 } else {
                     const chem = CHEMICALS[container.contents?.chemicalId || 'H2O'];
                     const color = chem.color;
@@ -1245,7 +1277,7 @@ const LabScene: React.FC<{
                     liquidMesh.visible = true; // Make sure it's visible
                     const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
-                    const mat = liquidMesh.material as THREE.MeshPhysicalMaterial;
+                    const mat = liquidMesh.material as THREE.MeshStandardMaterial;
                     const temp = container.contents.temperature || 25;
 
                     // Retrieve persistent colors correctly
@@ -1258,13 +1290,11 @@ const LabScene: React.FC<{
 
                     // Smooth color tweening instead of sudden snapping
                     mat.color.lerp(liquidMesh.userData.targetColor, 0.1);
-                    mat.attenuationColor.lerp(liquidMesh.userData.targetColor, 0.1);
 
                     if (temp > 100) {
                         const heatFactor = Math.min((temp - 100) / 500, 1);
                         const glowColor = new THREE.Color(liquidMesh.userData.targetColor).lerp(new THREE.Color(0xff4400), heatFactor);
                         mat.color.copy(glowColor);
-                        mat.attenuationColor.copy(glowColor);
                         mat.emissive.lerp(liquidMesh.userData.glowTargetColor, 0.1);
                         mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, Math.min(heatFactor * 0.2, 0.15), 0.1);
                     } else if (container.contents.chemicalId === 'COPPER_NITRATE') {
