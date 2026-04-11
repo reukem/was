@@ -358,12 +358,12 @@ const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
 const createTable = () => {
     const group = new THREE.Group();
 
-    // 1. Table Top (Dark Slate)
+    // 1. Table Top (Matte Slate-Grey)
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
-        color: 0x0f172a,
-        roughness: 1.0, // Fully matte to prevent glare
-        metalness: 0.0  // Non-metallic to absorb light
+        color: 0x334155, // Lighter professional matte
+        roughness: 1.0,  // Fully matte to prevent glare
+        metalness: 0.1   // Subtle response to environment
     });
     const tableTop = new THREE.Mesh(geometry, material);
     tableTop.receiveShadow = true;
@@ -1353,7 +1353,7 @@ const HolographicAvatar: React.FC<{
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
              {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
-             <div className="w-80 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+             <div className="w-80 bg-slate-900/80 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
                  <div className="p-4 border-b border-white/5 flex items-center gap-3">
                      {/* PERFECT SQUARE AVATAR */}
                      <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
@@ -1454,19 +1454,19 @@ const LabUI: React.FC<{
 
             {/* MODULE 3: Top-Left (Command Header) */}
             <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-[2rem] p-5 shadow-2xl">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 shadow-2xl flex flex-col items-center text-center">
                     <h1 className="text-4xl font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
                         CHEMIC-AI
                     </h1>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center justify-center gap-2 mt-1">
                         <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        <span className="text-[10px] tracking-[0.2em] text-slate-300 font-bold">QUANTUM REALITY ENGINE // Humans and AIs for HumAnIty (Demo v.1.0)</span>
+                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
                     </div>
-                    <div className="flex gap-2 mt-3">
-                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-3 py-1 text-xs font-bold hover:bg-blue-500/10 transition-colors">
+                    <div className="flex gap-2 mt-4 w-full justify-center">
+                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-4 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors w-full">
                              💎 AAA
                          </button>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 transition-colors">
+                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl px-4 py-1.5 transition-colors border border-white/5 shadow-sm">
                              ⚙️
                          </button>
                     </div>
@@ -1501,7 +1501,7 @@ const LabUI: React.FC<{
                  </div>
 
                  {/* Quest Board */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
+                 <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl p-4">
                     <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
                         {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
                     </h2>
@@ -1524,14 +1524,14 @@ const LabUI: React.FC<{
 
             {/* BOTTOM-LEFT: INVENTORY */}
             <div className="absolute bottom-6 left-6 w-64 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl h-80 flex flex-col">
+                <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl h-80 flex flex-col">
                     <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
                     </div>
                     <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
                          <button
                             onClick={() => onSpawn('BEAKER')}
-                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
                          >
                             <div>
                                 <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc Thí Nghiệm' : 'Beaker'}</div>
@@ -1562,13 +1562,13 @@ const LabUI: React.FC<{
 
             {/* MODULE 3: Top-Right (Action Deck) */}
             <div className="absolute top-6 right-6 flex items-center gap-3 pointer-events-auto">
-                 <button className="bg-slate-900/80 backdrop-blur-md border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
+                 <button className="bg-slate-900/80 backdrop-blur-lg border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
                      {lang === 'VN' ? 'BẮT ĐẦU THI' : 'START EXAM'}
                  </button>
-                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
+                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
                      📖
                  </button>
-                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
+                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
                      ⟳
                  </button>
             </div>
@@ -1585,7 +1585,7 @@ const LabUI: React.FC<{
 
             {/* Bottom Status Bar */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto flex items-center justify-center">
-                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-full px-4 py-1.5 flex items-center justify-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]">
+                <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-4 py-1.5 flex items-center justify-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]">
                     <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>[SYSTEM: ONLINE]</span>
                     <span className="opacity-30 shrink-0">|</span>
                     <span className="shrink-0">[NODE: NEURAL_CORE_V1.5]</span>
