@@ -12,12 +12,19 @@ const setStoredKey = (key: string) => {
     else localStorage.removeItem('gemini_api_key');
 };
 
+const getStoredMuted = () => localStorage.getItem('lucy_is_muted') === 'true';
+const getStoredLang = () => (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const [apiKey, setApiKey] = useState(getStoredKey());
+    const [isMuted, setIsMuted] = useState(getStoredMuted());
+    const [lang, setLang] = useState<'EN' | 'VN'>(getStoredLang());
 
     const handleSave = () => {
         setStoredKey(apiKey.trim());
-        // Force reload to pick up key in App (simple way since context is gone)
+        localStorage.setItem('lucy_is_muted', String(isMuted));
+        localStorage.setItem('lucy_lang', lang);
+        // Force reload to pick up key and settings in App
         window.location.reload();
         onClose();
     };
@@ -57,6 +64,52 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                                     XÓA
                                 </button>
                             )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5">
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                                Giọng Nói (TTS)
+                            </label>
+                            <button
+                                onClick={() => setIsMuted(!isMuted)}
+                                className={`w-full py-2.5 rounded-lg text-xs font-bold transition-all ${
+                                    isMuted
+                                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                }`}
+                            >
+                                {isMuted ? '🔇 ĐÃ TẮT TIẾNG' : '🔊 ĐANG BẬT'}
+                            </button>
+                        </div>
+
+                        <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5">
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
+                                Ngôn Ngữ
+                            </label>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setLang('VN')}
+                                    className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                                        lang === 'VN'
+                                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                                        : 'bg-slate-800 text-slate-500 border border-slate-700'
+                                    }`}
+                                >
+                                    🇻🇳 VN
+                                </button>
+                                <button
+                                    onClick={() => setLang('EN')}
+                                    className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                                        lang === 'EN'
+                                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                                        : 'bg-slate-800 text-slate-500 border border-slate-700'
+                                    }`}
+                                >
+                                    🇬🇧 EN
+                                </button>
+                            </div>
                         </div>
                     </div>
 

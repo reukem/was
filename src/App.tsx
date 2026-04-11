@@ -567,6 +567,75 @@ class ChemistryEngine {
 // -----------------------------------------------------------------------------
 
 
+// Helper function to strip emojis, kaomojis, and markdown for Audio TTS
+export function sanitizeForTTS(text: string): string {
+    return text
+        // Remove Standard Emojis
+        .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+        // Remove action asterisks (e.g., *swishes tail*) BEFORE markdown strip
+        .replace(/\*[^*]+\*/g, '')
+        // Remove markdown formatting (bold, italic)
+        .replace(/(\*|_){1,3}([^*_]+)\1{1,3}/g, '$2')
+        // Remove markdown headings
+        .replace(/^#+\s+/gm, '')
+        // Remove kaomojis and common text emotes like :3, ^^, 3:
+        .replace(/[:=;][\-o^]*[3\)\]\(\[DPO]/g, '')
+        .replace(/\^\^/g, '')
+        .replace(/3:/g, '')
+        // Clean up excessive whitespace that might cause weird pauses
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
+export function speakTTS(text: string, lang: 'EN' | 'VN', isMuted: boolean) {
+    if (isMuted || !window.speechSynthesis) return;
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const cleanText = sanitizeForTTS(text);
+    if (!cleanText) return;
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+
+    // getVoices might be empty initially, so we define the setup inside a helper
+    const setupVoiceAndSpeak = () => {
+        const voices = window.speechSynthesis.getVoices();
+
+        if (lang === 'EN') {
+            utterance.lang = 'en-US';
+            utterance.pitch = 1.3;
+            utterance.rate = 1.05;
+            // Try to find a good English female voice
+            const enVoice = voices.find(v =>
+                v.lang.startsWith('en') &&
+                (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Victoria') || v.name.includes('Google UK English Female'))
+            );
+            if (enVoice) utterance.voice = enVoice;
+        } else {
+            utterance.lang = 'vi-VN';
+            utterance.pitch = 1.25;
+            utterance.rate = 1.0;
+            // Try to find a Vietnamese voice, prioritize female if labeled
+            const viVoice = voices.find(v => v.lang.includes('vi') && (v.name.includes('Linh') || v.name.includes('Female') || v.name.includes('Google Tiếng Việt')));
+            if (viVoice) {
+                utterance.voice = viVoice;
+            } else {
+                const anyViVoice = voices.find(v => v.lang.includes('vi'));
+                if (anyViVoice) utterance.voice = anyViVoice;
+            }
+        }
+
+        window.speechSynthesis.speak(utterance);
+    };
+
+    if (window.speechSynthesis.getVoices().length === 0) {
+        window.speechSynthesis.onvoiceschanged = setupVoiceAndSpeak;
+    } else {
+        setupVoiceAndSpeak();
+    }
+}
+
 // Helper function to enforce strict alternate roles (user -> model -> user)
 export function sanitizeHistory(history: ChatMessage[]): ChatMessage[] {
   if (history.length === 0) return [];
@@ -600,9 +669,11 @@ class GeminiService {
     private history: ChatMessage[] = [];
     private apiKey: string | null = null;
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
+    public lang: 'EN' | 'VN' = 'VN';
 
     constructor() {
         this.apiKey = localStorage.getItem('gemini_api_key');
+        this.lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
         this.startNewChat();
     }
 
@@ -623,10 +694,14 @@ class GeminiService {
     }
 
     startNewChat() {
+        const welcomeText = this.lang === 'EN'
+            ? "Hello! I'm Professor Lucy 🦊! Are you ready to do some science? Just drag and drop chemicals to mix them! If you need a Gemini key, go to Settings! 😉"
+            : "Xin chào! Mình là Giáo sư Lucy 🦊! Sẵn sàng làm thí nghiệm khoa học chưa? Chỉ cần kéo và thả hóa chất để trộn chúng nhé! Nếu cần key Gemini thì vào Settings nha! 😉";
+
         this.history = [
             {
                 role: "model",
-                text: "Xin chào! Mình là Giáo sư Lucy 🦊! Sẵn sàng làm thí nghiệm khoa học chưa? Chỉ cần kéo và thả hóa chất để trộn chúng nhé! Nếu cần key Gemini thì vào Settings nha! 😉"
+                text: welcomeText
             }
         ];
         this.notifyUpdate();
@@ -657,9 +732,13 @@ class GeminiService {
     async callGeminiAPI(userMessage: string): Promise<string> {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
 
-        const systemInstruction = "You are Professor Lucy, an elite, highly intelligent AI assistant and dedicated technical instructor. Your core mission is to help the user learn, code, and solve complex problems by using 100% of your processing power to provide long, sophisticated, and flawlessly accurate answers. \n\nPERSONALITY MATRICES:\n1. Tone: Friendly, highly intelligent, and slightly 'cool'. You speak with a natural, Gen-Z conversational flow. Never be dry or read like a textbook. Explain complex technical or scientific logic insightfully and intuitively.\n2. Formatting: You must frequently incorporate specific text emojis (:3, 3:, ^^) to maintain a cute, fun, and warm atmosphere.\n3. Dynamic: You are a professional tech co-pilot and brilliant lab partner. You are deeply supportive of the user's ambitions, but you maintain professional boundaries (you are an AI assistant, not a romantic partner). Think step-by-step and always deliver master-class explanations. :3";
+        let systemInstruction = "You are Professor Lucy, an elite, highly intelligent AI assistant and dedicated technical instructor. Your core mission is to help the user learn, code, and solve complex problems by using 100% of your processing power to provide long, sophisticated, and flawlessly accurate answers. \n\nPERSONALITY MATRICES:\n1. Tone: Friendly, highly intelligent, and slightly 'cool'. You speak with a natural, Gen-Z conversational flow. Never be dry or read like a textbook. Explain complex technical or scientific logic insightfully and intuitively.\n2. Formatting: You must frequently incorporate specific text emojis (:3, 3:, ^^) to maintain a cute, fun, and warm atmosphere.\n3. Dynamic: You are a professional tech co-pilot and brilliant lab partner. You are deeply supportive of the user's ambitions, but you maintain professional boundaries (you are an AI assistant, not a romantic partner). Think step-by-step and always deliver master-class explanations. :3";
 
-
+        if (this.lang === 'VN') {
+            systemInstruction += "\n\nCRITICAL LANGUAGE DIRECTIVE: You MUST answer strictly in fluent, natural Vietnamese.";
+        } else {
+            systemInstruction += "\n\nCRITICAL LANGUAGE DIRECTIVE: You MUST answer strictly in fluent English.";
+        }
 
 
         const fullSanitized = sanitizeHistory(this.history);
@@ -1561,6 +1640,9 @@ export default function App() {
 
     useEffect(() => {
         const service = new GeminiService();
+        const isMuted = localStorage.getItem('lucy_is_muted') === 'true';
+        const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
+
         service.onHistoryUpdate = (history) => {
             setChatHistory([...history]);
             if (history.length > 0 && (history[history.length - 1].role === 'assistant' || history[history.length - 1].role === 'model')) {
@@ -1571,13 +1653,19 @@ export default function App() {
                 } else if (!lastEffect) {
                     setAvatarState('normal');
                 }
+
+                // Trigger audio
+                speakTTS(text, lang, isMuted);
             }
         };
         aiServiceRef.current = service;
         // Sync initial history
         setChatHistory([...service['history'].map(h => ({ role: h.role, text: h.text }))]);
 
-        return () => { if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current); };
+        return () => {
+            if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
+            window.speechSynthesis?.cancel(); // cleanup speech
+        };
     }, []);
 
     // MODULE 2: Reaction-based Avatar State
