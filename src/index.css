@@ -28,31 +28,18 @@
     0% { box-shadow: 0 0 5px #00f3ff, 0 0 10px #00f3ff; }
     100% { box-shadow: 0 0 20px #00f3ff, 0 0 40px #00f3ff; }
   }
-
-  @keyframes crt-flicker {
-    0% { opacity: 0.95; }
-    5% { opacity: 0.85; }
-    10% { opacity: 0.95; }
-    15% { opacity: 1; }
-    50% { opacity: 0.95; }
-    55% { opacity: 0.9; }
-    60% { opacity: 0.95; }
-    100% { opacity: 1; }
-  }
-
-  --animate-crt-flicker: crt-flicker 0.15s infinite;
 }
 
 /* Base styles */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@400;700;900&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@400;700;900&display=swap');
 
 :root {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color-scheme: dark;
   color: rgba(255, 255, 255, 0.87);
-  background-color: #000000;
+  background-color: #050b14;
 }
 
 body {
@@ -62,7 +49,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   overflow: hidden;
-  background-color: #000000;
+  background-color: transparent;
 }
 
 #root {
