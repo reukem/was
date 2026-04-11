@@ -614,10 +614,10 @@ export function speakTTS(text: string, lang: 'EN' | 'VN', isMuted: boolean) {
             if (enVoice) utterance.voice = enVoice;
         } else {
             utterance.lang = 'vi-VN';
-            utterance.pitch = 1.25;
-            utterance.rate = 1.0;
-            // Try to find a Vietnamese voice, prioritize female if labeled
-            const viVoice = voices.find(v => v.lang.includes('vi') && (v.name.includes('Linh') || v.name.includes('Female') || v.name.includes('Google Tiếng Việt')));
+            utterance.pitch = 1.45;
+            utterance.rate = 1.15;
+            // Try to find a Vietnamese voice, prioritize Southern female voices for VTuber aesthetic
+            const viVoice = voices.find(v => v.lang.includes('vi') && (v.name.includes('HoaiMy') || v.name.includes('Mai')));
             if (viVoice) {
                 utterance.voice = viVoice;
             } else {
