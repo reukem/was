@@ -14,7 +14,7 @@ import { AudioService } from './services/AudioService';
 // -----------------------------------------------------------------------------
 
 type ChemicalType = 'liquid' | 'solid' | 'gas';
-type MeshStyle = 'flask' | 'rock' | 'crystal' | 'mound' | 'canister';
+type MeshStyle = 'flask' | 'rock' | 'crystal' | 'mound' | 'canister' | 'ingot';
 
 interface ReactionResult {
     productName: LocalizedString;
@@ -34,6 +34,7 @@ interface Chemical {
     type: ChemicalType;
     meshStyle: MeshStyle;
     ph: number;
+    boilingPoint?: number;
     description: LocalizedString;
 }
 
@@ -71,26 +72,31 @@ interface ChatMessage {
 // -----------------------------------------------------------------------------
 
 const CHEMICALS: Record<string, Chemical> = {
-    'H2O': { id: 'H2O', name: { VN: 'Nước Cất', EN: 'Distilled Water' }, formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Dung môi phổ quát.', EN: 'Universal solvent.' } },
+    'H2O': { id: 'H2O', name: { VN: 'Nước Cất', EN: 'Distilled Water' }, formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, boilingPoint: 100, description: { VN: 'Dung môi phổ quát.', EN: 'Universal solvent.' } },
     'SODIUM': { id: 'SODIUM', name: { VN: 'Natri', EN: 'Sodium' }, formula: 'Na', color: '#9ca3af', type: 'solid', meshStyle: 'rock', ph: 12.0, description: { VN: 'Kim loại kiềm mềm, phản ứng mạnh.', EN: 'Soft, highly reactive alkali metal.' } },
     'POTASSIUM': { id: 'POTASSIUM', name: { VN: 'Kali', EN: 'Potassium' }, formula: 'K', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 13.0, description: { VN: 'Kim loại rất hoạt động.', EN: 'Highly reactive metal.' } },
     'MAGNESIUM': { id: 'MAGNESIUM', name: { VN: 'Magiê', EN: 'Magnesium' }, formula: 'Mg', color: '#e2e8f0', type: 'solid', meshStyle: 'rock', ph: 7.0, description: { VN: 'Kim loại kiềm thổ nhẹ.', EN: 'Light alkaline earth metal.' } },
-    'COPPER': { id: 'COPPER', name: { VN: 'Đồng', EN: 'Copper' }, formula: 'Cu', color: '#b45309', type: 'solid', meshStyle: 'rock', ph: 7.0, description: { VN: 'Kim loại dẻo màu đỏ cam.', EN: 'Ductile orange-red metal.' } },
+
+    // NEW METALS
+    'COPPER': { id: 'COPPER', name: { VN: 'Đồng', EN: 'Copper' }, formula: 'Cu', color: '#b87333', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại dẻo màu đỏ cam.', EN: 'Ductile orange-red metal.' } },
+    'GOLD': { id: 'GOLD', name: { VN: 'Vàng', EN: 'Gold' }, formula: 'Au', color: '#ffd700', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại quý giá.', EN: 'Precious yellow metal.' } },
+    'SILVER': { id: 'SILVER', name: { VN: 'Bạc', EN: 'Silver' }, formula: 'Ag', color: '#c0c0c0', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại trắng sáng.', EN: 'Lustrous white metal.' } },
+
     'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: { VN: 'Canxi Cacbonat', EN: 'Calcium Carbonate' }, formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: { VN: 'Chất phổ biến trong đá/vỏ sò.', EN: 'Common substance in rocks/shells.' } },
 
     'CHLORINE': { id: 'CHLORINE', name: { VN: 'Khí Clo', EN: 'Chlorine Gas' }, formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: { VN: 'Khí nhị nguyên tử độc hại.', EN: 'Toxic diatomic gas.' } },
-    'SALT': { id: 'SALT', name: { VN: 'Muối Ăn', EN: 'Table Salt' }, formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'crystal', ph: 7.0, description: { VN: 'Natri Clorua tinh thể.', EN: 'Crystalline Sodium Chloride.' } },
+    'SALT': { id: 'SALT', name: { VN: 'Muối Ăn', EN: 'Table Salt' }, formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Natri Clorua tinh thể.', EN: 'Crystalline Sodium Chloride.' } },
 
-    'HCl': { id: 'HCl', name: { VN: 'Axit Clohydric', EN: 'Hydrochloric Acid' }, formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: { VN: 'Axit vô cơ mạnh.', EN: 'Strong mineral acid.' } },
-    'HNO3': { id: 'HNO3', name: { VN: 'Axit Nitric', EN: 'Nitric Acid' }, formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: { VN: 'Axit vô cơ ăn mòn cao.', EN: 'Highly corrosive mineral acid.' } },
-    'NaOH': { id: 'NaOH', name: { VN: 'Natri Hydroxit', EN: 'Sodium Hydroxide' }, formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, description: { VN: 'Bazơ kiềm ăn da.', EN: 'Caustic alkaline base.' } },
-    'VINEGAR': { id: 'VINEGAR', name: { VN: 'Giấm Ăn', EN: 'Vinegar' }, formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, description: { VN: 'Axit hữu cơ yếu.', EN: 'Weak organic acid.' } },
+    'HCl': { id: 'HCl', name: { VN: 'Axit Clohydric', EN: 'Hydrochloric Acid' }, formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 110, description: { VN: 'Axit vô cơ mạnh.', EN: 'Strong mineral acid.' } },
+    'HNO3': { id: 'HNO3', name: { VN: 'Axit Nitric', EN: 'Nitric Acid' }, formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 83, description: { VN: 'Axit vô cơ ăn mòn cao.', EN: 'Highly corrosive mineral acid.' } },
+    'NaOH': { id: 'NaOH', name: { VN: 'Natri Hydroxit', EN: 'Sodium Hydroxide' }, formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, boilingPoint: 1388, description: { VN: 'Bazơ kiềm ăn da.', EN: 'Caustic alkaline base.' } },
+    'VINEGAR': { id: 'VINEGAR', name: { VN: 'Giấm Ăn', EN: 'Vinegar' }, formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, boilingPoint: 118, description: { VN: 'Axit hữu cơ yếu.', EN: 'Weak organic acid.' } },
     'BAKING_SODA': { id: 'BAKING_SODA', name: { VN: 'Bột Nở', EN: 'Baking Soda' }, formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: { VN: 'Muối kiềm nhẹ.', EN: 'Mild alkaline salt.' } },
-    'BLEACH': { id: 'BLEACH', name: { VN: 'Thuốc Tẩy', EN: 'Bleach' }, formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizing agent.' } },
+    'BLEACH': { id: 'BLEACH', name: { VN: 'Thuốc Tẩy', EN: 'Bleach' }, formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, boilingPoint: 100, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizing agent.' } },
 
     'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: { VN: 'Đồng(II) Sunfat', EN: 'Copper(II) Sulfate' }, formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: { VN: 'Hợp chất vô cơ màu xanh lam.', EN: 'Blue inorganic compound.' } },
-    'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: { VN: 'Đồng(II) Nitrat', EN: 'Copper(II) Nitrate' }, formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, description: { VN: 'Dung dịch màu xanh lam đậm.', EN: 'Deep blue solution.' } },
-    'H2O2': { id: 'H2O2', name: { VN: 'Oxy Già', EN: 'Hydrogen Peroxide' }, formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizer.' } },
+    'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: { VN: 'Đồng(II) Nitrat', EN: 'Copper(II) Nitrate' }, formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, boilingPoint: 125, description: { VN: 'Dung dịch màu xanh lam đậm.', EN: 'Deep blue solution.' } },
+    'H2O2': { id: 'H2O2', name: { VN: 'Oxy Già', EN: 'Hydrogen Peroxide' }, formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, boilingPoint: 150, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizer.' } },
     'KI': { id: 'KI', name: { VN: 'Kali Iodua', EN: 'Potassium Iodide' }, formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Muối xúc tác tinh thể.', EN: 'Crystalline catalyst salt.' } },
     'IODINE': { id: 'IODINE', name: { VN: 'Iốt', EN: 'Iodine' }, formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: { VN: 'Phi kim màu tím đen lấp lánh.', EN: 'Lustrous purple-black nonmetal.' } }
 };
@@ -116,11 +122,57 @@ const REACTION_REGISTRY: ReactionEntry[] = [
 
 // -- PARTICLE SYSTEM HELPER --
 class ParticleSystem {
-    particles: { mesh: THREE.Mesh | THREE.Points; velocity: THREE.Vector3; life: number; maxLife: number; type: 'spark' | 'smoke' | 'bubble' | 'toxic_gas'; }[] = [];
+    particles: { mesh: THREE.Mesh | THREE.Points; velocity: THREE.Vector3; life: number; maxLife: number; type: 'spark' | 'smoke' | 'bubble' | 'toxic_gas' | 'foam' | 'steam'; }[] = [];
     scene: THREE.Scene;
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
+    }
+
+    createFoam(position: THREE.Vector3) {
+        // Elephant Toothpaste procedural foam
+        const geo = new THREE.DodecahedronGeometry(0.4, 2); // Smooth but lumpy
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0xfef3c7, // Warm yellowish white foam
+            roughness: 1.0,
+            metalness: 0.0,
+            transparent: true,
+            opacity: 0.9
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.copy(position);
+        mesh.position.y += 0.5; // Start inside flask
+        mesh.scale.set(0.1, 0.1, 0.1); // Start small
+        this.scene.add(mesh);
+
+        this.particles.push({
+            mesh: mesh,
+            velocity: new THREE.Vector3(0, 0, 0), // Scaling mostly handles the movement
+            life: 0,
+            maxLife: 600, // 10 seconds (at 60fps)
+            type: 'foam'
+        });
+    }
+
+    createSteam(position: THREE.Vector3) {
+        const steamGeo = new THREE.IcosahedronGeometry(0.15, 0);
+        const steamMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.4,
+            roughness: 1.0,
+            flatShading: true
+        });
+
+        const mesh = new THREE.Mesh(steamGeo, steamMat);
+        mesh.position.copy(position);
+        mesh.position.y += 0.6; // Above flask
+        mesh.position.x += (Math.random() - 0.5) * 0.2;
+        mesh.position.z += (Math.random() - 0.5) * 0.2;
+
+        const velocity = new THREE.Vector3(0, 0.03 + Math.random() * 0.02, 0);
+        this.scene.add(mesh);
+        this.particles.push({ mesh, velocity, life: 0, maxLife: 60 + Math.random() * 40, type: 'steam' });
     }
 
     createToxicGas(position: THREE.Vector3) {
@@ -243,6 +295,32 @@ class ParticleSystem {
                     // Darken over time
                     mat.color.lerp(new THREE.Color(0x0f172a), 0.05);
                 }
+            } else if (p.type === 'foam') {
+                const mesh = p.mesh as THREE.Mesh;
+                const mat = mesh.material as THREE.MeshStandardMaterial;
+
+                // Rapid expansion for first 2-3 seconds (~120-180 frames)
+                if (p.life < 180) {
+                    const targetScale = new THREE.Vector3(2.5, 5.0, 2.5); // Large vertical column
+                    mesh.scale.lerp(targetScale, 0.05);
+                    mesh.position.y += 0.02; // Rise slightly out of flask
+                }
+
+                // Keep the bumpy look slightly moving to simulate bubbles
+                mesh.rotation.y += 0.01;
+
+                // Fade out at the very end
+                if (p.life > p.maxLife - 60) { // Last 1 second
+                    mat.opacity = (p.maxLife - p.life) / 60;
+                }
+            } else if (p.type === 'steam') {
+                p.mesh.scale.multiplyScalar(1.05); // Rapidly expand
+                p.mesh.rotation.y += 0.05;
+                p.velocity.x += (Math.random() - 0.5) * 0.01; // Drift randomly
+                p.velocity.z += (Math.random() - 0.5) * 0.01;
+
+                const mat = p.mesh.material as THREE.MeshStandardMaterial;
+                if(mat) mat.opacity = 0.4 * (1 - (p.life / p.maxLife));
             } else if (p.type === 'toxic_gas') {
                 const points = p.mesh as THREE.Points;
                 const positions = points.geometry.attributes.position.array as Float32Array;
@@ -297,9 +375,26 @@ const createCanisterGeometry = () => {
 };
 
 const createMoundGeometry = () => {
-    // Smooth, organic powder cone
-    const geo = new THREE.ConeGeometry(0.4, 0.4, 64, 1, true);
+    // Bumpy, organic powder cone
+    const geo = new THREE.ConeGeometry(0.4, 0.4, 64, 16, true);
+    const positions = geo.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+        // Displace vertices slightly to create a lumpy powder effect, ignoring the bottom edge (y=0)
+        if (positions.getY(i) > -0.2) {
+            const bump = (Math.random() - 0.5) * 0.05;
+            positions.setX(i, positions.getX(i) + bump);
+            positions.setZ(i, positions.getZ(i) + bump);
+            positions.setY(i, positions.getY(i) + bump);
+        }
+    }
+    geo.computeVertexNormals();
     geo.translate(0, 0.2, 0);
+    return geo;
+};
+
+const createIngotGeometry = () => {
+    const geo = new THREE.BoxGeometry(0.6, 0.2, 0.3);
+    geo.translate(0, 0.1, 0);
     return geo;
 };
 
@@ -451,15 +546,19 @@ const createLabel = (text: string) => {
         ctx.fillStyle = 'rgba(0,0,0,0)';
         ctx.clearRect(0,0, 256, 64);
 
-        // Add translucent dark backing box
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        // Add translucent slate backing box
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
         ctx.roundRect ? ctx.roundRect(10, 10, 236, 44, 8) : ctx.fillRect(10, 10, 236, 44);
         ctx.fill();
 
-        ctx.shadowColor = "rgba(255, 255, 255, 0.5)";
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
         ctx.shadowBlur = 2;
         ctx.font = 'bold 28px Inter, Arial';
-        ctx.fillStyle = '#1A202C'; // Deep slate text for contrast
+        ctx.fillStyle = '#ffffff'; // White text for contrast against slate
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, 128, 32);
@@ -846,6 +945,10 @@ const LabScene: React.FC<{
             particleSystemRef.current?.createToxicGas(position);
         }
 
+        if (lastEffect === 'foam') {
+            particleSystemRef.current?.createFoam(position);
+        }
+
         if (lastEffect === 'explosion') {
             particleSystemRef.current?.createExplosion(position, 1.5);
 
@@ -897,9 +1000,17 @@ const LabScene: React.FC<{
             ctx.font = 'bold 24px monospace';
             // Imperative Mutation: Dynamically render actual name and pH
             ctx.fillText(chem.name[lang].substring(0, 18).toUpperCase(), 128, 40);
-            ctx.fillStyle = '#22c55e';
+
+            // Universal Indicator Color Mapping
+            if (chem.ph <= 3) ctx.fillStyle = '#ef4444'; // Strong Acid (Red)
+            else if (chem.ph <= 6) ctx.fillStyle = '#eab308'; // Weak Acid (Yellow/Orange)
+            else if (chem.ph <= 8) ctx.fillStyle = '#22c55e'; // Neutral (Green)
+            else if (chem.ph <= 11) ctx.fillStyle = '#3b82f6'; // Weak Base (Blue)
+            else ctx.fillStyle = '#8b5cf6'; // Strong Base (Deep Blue/Purple)
+
             ctx.font = 'bold 36px monospace';
             ctx.fillText(`pH: ${chem.ph}`, 128, 80);
+            ctx.fillStyle = '#22c55e';
             ctx.font = '24px monospace';
             ctx.fillText(`${temp || 25}°C`, 128, 110);
         } else {
@@ -1120,6 +1231,24 @@ const LabScene: React.FC<{
                     mat.emissive.setHSL(0.05 + (0.05 * (1-t)), 1.0, 0.5 * t); // Red-Orange glow
                     mat.emissiveIntensity = t * 2.0;
                 }
+
+                // Boiler collision logic
+                if (heaterTemp > 25) {
+                    const heaterPos = new THREE.Vector3(-1.5, 0.19, 0); // known heater pos
+                    containers.forEach(c => {
+                        const dist = new THREE.Vector3(...c.position).distanceTo(heaterPos);
+                        if (dist < 0.6 && c.contents && c.contents.volume > 0) { // Container is ON the heater and has contents
+                            const chem = CHEMICALS[c.contents.chemicalId];
+                            const boilingPoint = chem.boilingPoint || 100; // default to water boiling point if not specified
+                            if (heaterTemp >= boilingPoint) {
+                                // Trigger steam
+                                if (Math.random() < 0.2) { // Throttle particle creation rate
+                                    particleSystemRef.current?.createSteam(new THREE.Vector3(...c.position));
+                                }
+                            }
+                        }
+                    });
+                }
             }
 
             // FIXED: ANALYZER UPDATE LOOP
@@ -1259,6 +1388,8 @@ const LabScene: React.FC<{
                         mesh = new THREE.Mesh(createCrystalGeometry(), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true }));
                     } else if (chem.meshStyle === 'mound') {
                         mesh = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 1.0 }));
+                    } else if (chem.meshStyle === 'ingot') {
+                        mesh = new THREE.Mesh(createIngotGeometry(), new THREE.MeshStandardMaterial({ color, metalness: 0.9, roughness: 0.2 }));
                     } else if (chem.meshStyle === 'canister') {
                         mesh = new THREE.Mesh(createCanisterGeometry(), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.4 }));
                         // Color Band
@@ -1591,8 +1722,8 @@ const LabUI: React.FC<{
             </div>
 
             {/* BOTTOM-LEFT: INVENTORY */}
-            <div className="absolute bottom-6 left-6 w-64 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl h-80 flex flex-col">
+            <div className="absolute bottom-6 left-6 w-72 pointer-events-auto flex flex-col gap-4">
+                <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl h-96 flex flex-col">
                     <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
                     </div>
@@ -1801,7 +1932,7 @@ export default function App() {
                 setLastReaction(null);
                 setLastEffect(null);
                 setLastEffectPos(null);
-            }, 6000);
+            }, 4500); // 4.5 seconds auto-reset for safety badge
 
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
