@@ -1954,9 +1954,28 @@ export default function App() {
         const isBeaker = chemId === 'BEAKER';
         const newId = isBeaker ? `beaker-${Date.now()}` : `source_${chemId}_${Date.now()}`;
         const chem = CHEMICALS[chemId];
-        const x = (Math.random() - 0.5) * 6;
-        const y = isBeaker ? 0.11 : 0.56;
-        const z = isBeaker ? (Math.random() * 2) : -3.5;
+
+        let validPos = false;
+        let x = 0, y = isBeaker ? 0.11 : 0.56, z = isBeaker ? 0 : -3.5;
+        let attempts = 0;
+
+        // Find a position that does not strongly overlap with existing items
+        while (!validPos && attempts < 50) {
+            x = (Math.random() - 0.5) * 8; // Spread across wider area
+            if (isBeaker) z = (Math.random() * 2) - 1.0;
+
+            let collision = false;
+            for (const c of containers) {
+                const dist = Math.sqrt(Math.pow(c.position[0] - x, 2) + Math.pow(c.position[2] - z, 2));
+                if (dist < 0.8) { // Minimum safety distance between bounds
+                    collision = true;
+                    break;
+                }
+            }
+            if (!collision) validPos = true;
+            attempts++;
+        }
+
         setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isBeaker ? undefined : [x, y, z], contents: isBeaker ? null : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 } }]);
     };
 
