@@ -130,28 +130,45 @@ class ParticleSystem {
     }
 
     createFoam(position: THREE.Vector3) {
-        // Elephant Toothpaste procedural foam
-        const geo = new THREE.DodecahedronGeometry(0.4, 2); // Smooth but lumpy
+        // Elephant Toothpaste procedural foam (Dense Particle Eruption)
+        const foamCount = 60;
+        const geo = new THREE.DodecahedronGeometry(0.2, 1); // Bumpy foam balls
         const mat = new THREE.MeshStandardMaterial({
             color: 0xfef3c7, // Warm yellowish white foam
             roughness: 1.0,
             metalness: 0.0,
             transparent: true,
-            opacity: 0.9
+            opacity: 0.95
         });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.copy(position);
-        mesh.position.y += 0.5; // Start inside flask
-        mesh.scale.set(0.1, 0.1, 0.1); // Start small
-        this.scene.add(mesh);
 
-        this.particles.push({
-            mesh: mesh,
-            velocity: new THREE.Vector3(0, 0, 0), // Scaling mostly handles the movement
-            life: 0,
-            maxLife: 600, // 10 seconds (at 60fps)
-            type: 'foam'
-        });
+        for (let i = 0; i < foamCount; i++) {
+            const mesh = new THREE.Mesh(geo, mat.clone());
+            mesh.position.copy(position);
+            mesh.position.y += 0.8; // Start near the top of the flask
+
+            // Randomize starting position slightly within the flask neck
+            mesh.position.x += (Math.random() - 0.5) * 0.1;
+            mesh.position.z += (Math.random() - 0.5) * 0.1;
+
+            // Erupt upwards (Positive Y) and expand outwards (X/Z dispersion), NOT towards the camera (Z bias)
+            const velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 0.04, // X dispersion
+                0.05 + Math.random() * 0.06,  // Y eruption upwards
+                (Math.random() - 0.5) * 0.04  // Z dispersion
+            );
+
+            mesh.scale.setScalar(0.1 + Math.random() * 0.2); // Start small and random
+
+            this.scene.add(mesh);
+
+            this.particles.push({
+                mesh: mesh,
+                velocity: velocity,
+                life: 0,
+                maxLife: 600, // Exactly 10 seconds (at 60fps)
+                type: 'foam'
+            });
+        }
     }
 
     createSteam(position: THREE.Vector3) {
@@ -299,18 +316,25 @@ class ParticleSystem {
                 const mesh = p.mesh as THREE.Mesh;
                 const mat = mesh.material as THREE.MeshStandardMaterial;
 
-                // Rapid expansion for first 2-3 seconds (~120-180 frames)
+                // Rapid eruption scaling for first 3 seconds (180 frames)
                 if (p.life < 180) {
-                    const targetScale = new THREE.Vector3(2.5, 5.0, 2.5); // Large vertical column
-                    mesh.scale.lerp(targetScale, 0.05);
-                    mesh.position.y += 0.02; // Rise slightly out of flask
+                    const targetScale = new THREE.Vector3(2.0, 2.0, 2.0);
+                    mesh.scale.lerp(targetScale, 0.1); // Quick bloom
+                } else {
+                    // Gravity takes over to let foam spill down
+                    p.velocity.y -= 0.002;
                 }
 
-                // Keep the bumpy look slightly moving to simulate bubbles
-                mesh.rotation.y += 0.01;
+                // Dampen horizontal velocity over time so it piles up rather than scattering infinitely
+                p.velocity.x *= 0.95;
+                p.velocity.z *= 0.95;
 
-                // Fade out at the very end
-                if (p.life > p.maxLife - 60) { // Last 1 second
+                // Keep the bumpy look slightly moving
+                mesh.rotation.y += 0.01;
+                mesh.rotation.x += 0.01;
+
+                // Fade out exactly at the end of the 10-second life
+                if (p.life > p.maxLife - 60) { // Last 1 second (60 frames)
                     mat.opacity = (p.maxLife - p.life) / 60;
                 }
             } else if (p.type === 'steam') {
@@ -1348,10 +1372,13 @@ const LabScene: React.FC<{
                     liquidGeo.translate(0, 0.5, 0); // Shift pivot to bottom for smooth vertical scaling
                     liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
 
+                    // MODULE 1 FIX: Group the flask and liquid together so drag coordinates apply to both simultaneously
+                    // The main `group` wrapper handles the overarching container transformation.
+
                     // CLIPPING FIX: Scale down uniformly by 0.98 on X and Z to keep liquid strictly inside the glass without Z-fighting
                     liquidMesh.scale.set(0.98, 0.01, 0.98);
                     liquidMesh.renderOrder = 1;
-                    group.add(liquidMesh);
+                    group.add(liquidMesh); // Both flask and liquid are added to `group`. Drag controls target the parent `group`.
                     liquidsRef.current.set(container.id, liquidMesh);
 
                     // Decal markings for Volume
