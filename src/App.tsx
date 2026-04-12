@@ -1183,9 +1183,12 @@ const LabScene: React.FC<{
                 if (target && target.userData.id) {
                     controls.enabled = false;
                     const id = target.userData.id;
-                    const offset = target.position.clone().sub(intersects[0].point);
-                    offset.y = 0;
-                    draggedItem.current = { id, offset, originalPos: target.position.clone() };
+                    const group = meshesRef.current.get(id);
+                    if (group) {
+                        const offset = group.position.clone().sub(intersects[0].point);
+                        offset.y = 0;
+                        draggedItem.current = { id, offset, originalPos: group.position.clone() };
+                    }
                 }
             }
         };
@@ -1284,7 +1287,12 @@ const LabScene: React.FC<{
                             if (heaterTemp >= boilingPoint && (chem.type === 'liquid' || c.contents.chemicalId === 'H2O')) {
                                 // Trigger steam only if boiling a liquid
                                 if (Math.random() < 0.2) { // Throttle particle creation rate
-                                    particleSystemRef.current?.createSteam(new THREE.Vector3(...c.position));
+                                    const group = meshesRef.current.get(c.id);
+                                    if (group) {
+                                        const spawnPos = new THREE.Vector3();
+                                        group.getWorldPosition(spawnPos);
+                                        particleSystemRef.current?.createSteam(spawnPos);
+                                    }
                                 }
                             }
                         }
