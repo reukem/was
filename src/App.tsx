@@ -393,7 +393,7 @@ const createMoundGeometry = () => {
 };
 
 const createIngotGeometry = () => {
-    const geo = new THREE.BoxGeometry(0.6, 0.2, 0.3);
+    const geo = new THREE.BoxGeometry(0.8, 0.2, 0.4); // Flat rectangular bar
     geo.translate(0, 0.1, 0);
     return geo;
 };
@@ -544,11 +544,28 @@ const createLabel = (text: string) => {
     const ctx = canvas.getContext('2d');
     if (ctx) {
         ctx.fillStyle = 'rgba(0,0,0,0)';
-        ctx.clearRect(0,0, 256, 64);
+        ctx.clearRect(0, 0, 256, 64);
+
+        ctx.font = 'bold 28px Inter, Arial';
+        const textMetrics = ctx.measureText(text);
+        const textWidth = textMetrics.width;
+        const paddingX = 20;
+        const paddingY = 10;
+
+        // Calculate box dimensions that tightly wrap the text
+        const boxWidth = textWidth + paddingX * 2;
+        const boxHeight = 28 + paddingY * 2;
+        const startX = 128 - (boxWidth / 2);
+        const startY = 32 - (boxHeight / 2);
 
         // Add translucent slate backing box
         ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-        ctx.roundRect ? ctx.roundRect(10, 10, 236, 44, 8) : ctx.fillRect(10, 10, 236, 44);
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(startX, startY, boxWidth, boxHeight, 8);
+        } else {
+            ctx.rect(startX, startY, boxWidth, boxHeight);
+        }
         ctx.fill();
 
         ctx.strokeStyle = 'rgba(6, 182, 212, 0.5)';
@@ -557,16 +574,16 @@ const createLabel = (text: string) => {
 
         ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
         ctx.shadowBlur = 2;
-        ctx.font = 'bold 28px Inter, Arial';
         ctx.fillStyle = '#ffffff'; // White text for contrast against slate
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, 128, 32);
     }
     const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95 });
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95, depthTest: false }); // depthTest false to act like UI overlay
     const sprite = new THREE.Sprite(material);
     sprite.scale.set(1.2, 0.3, 1.2);
+    sprite.renderOrder = 999; // Ensure text draws on top of liquids and glass
     return sprite;
 };
 
@@ -1240,8 +1257,8 @@ const LabScene: React.FC<{
                         if (dist < 0.6 && c.contents && c.contents.volume > 0) { // Container is ON the heater and has contents
                             const chem = CHEMICALS[c.contents.chemicalId];
                             const boilingPoint = chem.boilingPoint || 100; // default to water boiling point if not specified
-                            if (heaterTemp >= boilingPoint) {
-                                // Trigger steam
+                            if (heaterTemp >= boilingPoint && (chem.type === 'liquid' || c.contents.chemicalId === 'H2O')) {
+                                // Trigger steam only if boiling a liquid
                                 if (Math.random() < 0.2) { // Throttle particle creation rate
                                     particleSystemRef.current?.createSteam(new THREE.Vector3(...c.position));
                                 }
@@ -1326,14 +1343,13 @@ const LabScene: React.FC<{
                     flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
                     group.add(flask);
 
-                    // Liquid inside the flask (perfectly contouring the flask inner walls)
-                    const liquidGeo = createFlaskGeometry();
-                    // Shift pivot to bottom for smooth vertical scaling (the lathe is originally 0 to 1.2 on Y)
-                    // It is already somewhat bottom-pivoted, but we need to ensure the scale.y originates from y=0
+                    // Liquid inside the flask (tapered cylinder to match flask inner walls precisely)
+                    const liquidGeo = new THREE.CylinderGeometry(0.12, 0.44, 1.0, 32);
+                    liquidGeo.translate(0, 0.5, 0); // Shift pivot to bottom for smooth vertical scaling
                     liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
 
-                    // CLIPPING FIX: Scale down uniformly by 0.92 on X and Z to keep liquid strictly inside the glass
-                    liquidMesh.scale.set(0.92, 0.01, 0.92);
+                    // CLIPPING FIX: Scale down uniformly by 0.98 on X and Z to keep liquid strictly inside the glass without Z-fighting
+                    liquidMesh.scale.set(0.98, 0.01, 0.98);
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
@@ -1787,7 +1803,7 @@ const LabUI: React.FC<{
                 <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-4 py-1.5 flex items-center justify-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]">
                     <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>[SYSTEM: ONLINE]</span>
                     <span className="opacity-30 shrink-0">|</span>
-                    <span className="shrink-0">[NODE: NEURAL_CORE_V1.5]</span>
+                    <span className="shrink-0">[NODE: NEURAL_CORE_V2.5]</span>
                 </div>
             </div>
 
