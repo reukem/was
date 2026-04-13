@@ -573,8 +573,8 @@ const createLabel = (text: string) => {
         ctx.font = 'bold 28px Inter, Arial';
         const textMetrics = ctx.measureText(text);
         const textWidth = textMetrics.width;
-        const paddingX = 20;
-        const paddingY = 10;
+        const paddingX = 12;
+        const paddingY = 6;
 
         // Calculate box dimensions that tightly wrap the text
         const boxWidth = textWidth + paddingX * 2;
@@ -606,7 +606,7 @@ const createLabel = (text: string) => {
     const texture = new THREE.CanvasTexture(canvas);
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95, depthTest: false }); // depthTest false to act like UI overlay
     const sprite = new THREE.Sprite(material);
-    sprite.scale.set(1.2, 0.3, 1.2);
+    sprite.scale.set(0.8, 0.2, 0.8);
     sprite.renderOrder = 999; // Ensure text draws on top of liquids and glass
     return sprite;
 };
@@ -973,12 +973,20 @@ const LabScene: React.FC<{
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
     const [isSceneReady, setIsSceneReady] = useState(false);
+    const lastEffectIdRef = useRef<string | null>(null);
 
     useEffect(() => { onMoveRef.current = onMove; onPourRef.current = onPour; }, [onMove, onPour]);
 
     // Enhanced Effects Logic
     useEffect(() => {
-        if (!sceneRef.current || !lastEffect) return;
+        if (!sceneRef.current || !lastEffect) {
+            lastEffectIdRef.current = null;
+            return;
+        }
+
+        const currentEffectId = `${lastEffect}-${lastEffectPos?.join(",") || "none"}`;
+        if (lastEffectIdRef.current === currentEffectId) return;
+        lastEffectIdRef.current = currentEffectId;
 
         const position = lastEffectPos ? new THREE.Vector3(...lastEffectPos) : new THREE.Vector3(0, 1, 0);
 
