@@ -15,8 +15,11 @@ export default defineConfig(({ mode }) => {
         tailwindcss()
       ],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        // 🛡️ SENTINEL: Stubbing these out with empty strings instead of real keys.
+        // Injecting env.GEMINI_API_KEY here would bake the build server's secret into
+        // the client-side public JS bundle.
+        'process.env.API_KEY': JSON.stringify(''),
+        'process.env.GEMINI_API_KEY': JSON.stringify('')
       },
       resolve: {
         alias: {
