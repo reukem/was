@@ -5,6 +5,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { useGLTF } from '@react-three/drei';
 import SettingsModal from './components/SettingsModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
@@ -98,22 +99,25 @@ const CHEMICALS: Record<string, Chemical> = {
     'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: { VN: 'Đồng(II) Nitrat', EN: 'Copper(II) Nitrate' }, formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, boilingPoint: 125, description: { VN: 'Dung dịch màu xanh lam đậm.', EN: 'Deep blue solution.' } },
     'H2O2': { id: 'H2O2', name: { VN: 'Oxy Già', EN: 'Hydrogen Peroxide' }, formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, boilingPoint: 150, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizer.' } },
     'KI': { id: 'KI', name: { VN: 'Kali Iodua', EN: 'Potassium Iodide' }, formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Muối xúc tác tinh thể.', EN: 'Crystalline catalyst salt.' } },
-    'IODINE': { id: 'IODINE', name: { VN: 'Iốt', EN: 'Iodine' }, formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: { VN: 'Phi kim màu tím đen lấp lánh.', EN: 'Lustrous purple-black nonmetal.' } }
+    'IODINE': { id: 'IODINE', name: { VN: 'Iốt', EN: 'Iodine' }, formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: { VN: 'Phi kim màu tím đen lấp lánh.', EN: 'Lustrous purple-black nonmetal.' } },
+    'INDICATOR': { id: 'INDICATOR', name: { VN: 'Chỉ Thị Vạn Năng', EN: 'Universal Indicator' }, formula: 'pH', color: '#22c55e', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Chất chỉ thị đổi màu theo pH.', EN: 'Changes color based on pH.' } },
+    'PHENOLPHTHALEIN': { id: 'PHENOLPHTHALEIN', name: { VN: 'Phenolphthalein', EN: 'Phenolphthalein' }, formula: 'C₂₀H₁₄O₄', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Chất chỉ thị màu.', EN: 'Color indicator.' } }
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
-    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', effect: 'explosion', temperature: 550, message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
-    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', effect: 'explosion', temperature: 700, message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
-    { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', effect: 'bubbles', temperature: 60, message: { VN: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.', EN: 'Single displacement reaction. Mg + 2HCl → MgCl₂ + H₂. Rapid hydrogen gas bubbling.' } },
-    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', effect: 'toxic_gas', temperature: 80, message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
-    { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', effect: 'bubbles', temperature: 20, message: { VN: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.', EN: 'Acid-carbonate reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. CO2 bubbling.' } },
-    { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', effect: 'foam', temperature: 30, message: { VN: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.', EN: 'Strong decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Vigorous bubbling.' } },
-    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', effect: 'bubbles', temperature: 15, message: { VN: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.', EN: 'Acid-base neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Releases bubbling CO2.' } },
-    { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', effect: 'smoke', temperature: 45, message: { VN: 'CẢNH BÁO NGUY HIỂM: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Phát hiện khí Clo độc hại.', EN: 'DANGER WARNING: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Toxic Chlorine gas detected.' } },
-    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: { VN: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.', EN: 'Neutralization reaction. HCl + NaOH → NaCl + H₂O. Forms salt solution and releases strong heat.' } },
-    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: { VN: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.', EN: 'Synthesis reaction. 2Na + Cl₂ → 2NaCl. Redox reaction forming table salt.' } },
-    { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: { VN: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.', EN: 'Precipitation reaction. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Blue Copper(II) Hydroxide precipitate forms.' } },
-    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } }
+    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', temperature: 550, message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
+    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', temperature: 700, message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
+    { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 60, message: { VN: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.', EN: 'Single displacement reaction. Mg + 2HCl → MgCl₂ + H₂. Rapid hydrogen gas bubbling.' } },
+    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', temperature: 80, message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
+    { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', temperature: 20, message: { VN: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.', EN: 'Acid-carbonate reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. CO2 bubbling.' } },
+    { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 30, message: { VN: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.', EN: 'Strong decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Vigorous bubbling.' } },
+    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', temperature: 15, message: { VN: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.', EN: 'Acid-base neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Releases bubbling CO2.' } },
+    { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', temperature: 45, message: { VN: 'CẢNH BÁO NGUY HIỂM: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Phát hiện khí Clo độc hại.', EN: 'DANGER WARNING: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Toxic Chlorine gas detected.' } },
+    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', temperature: 95, message: { VN: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.', EN: 'Neutralization reaction. HCl + NaOH → NaCl + H₂O. Forms salt solution and releases strong heat.' } },
+    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', temperature: 800, minTemp: 100, message: { VN: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.', EN: 'Synthesis reaction. 2Na + Cl₂ → 2NaCl. Redox reaction forming table salt.' } },
+    { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', temperature: 30, message: { VN: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.', EN: 'Precipitation reaction. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Blue Copper(II) Hydroxide precipitate forms.' } },
+    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', temperature: 80, message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } },
+    { reactants: ['NaOH', 'PHENOLPHTHALEIN'], product: 'NaOH', resultColor: '#f472b6', temperature: 25, message: { VN: 'Chất chỉ thị đổi màu hồng trong môi trường kiềm.', EN: 'Indicator turns pink in alkaline environment.' } }
 ];
 
 // -----------------------------------------------------------------------------
@@ -121,257 +125,6 @@ const REACTION_REGISTRY: ReactionEntry[] = [
 // -----------------------------------------------------------------------------
 
 // -- PARTICLE SYSTEM HELPER --
-class ParticleSystem {
-    particles: { mesh: THREE.Mesh | THREE.Points; velocity: THREE.Vector3; life: number; maxLife: number; type: 'spark' | 'smoke' | 'bubble' | 'toxic_gas' | 'foam' | 'steam'; }[] = [];
-    scene: THREE.Scene;
-
-    constructor(scene: THREE.Scene) {
-        this.scene = scene;
-    }
-
-    createFoam(position: THREE.Vector3) {
-        // Elephant Toothpaste procedural foam (Dense Particle Eruption)
-        const foamCount = 60;
-        const geo = new THREE.DodecahedronGeometry(0.2, 1); // Bumpy foam balls
-        const mat = new THREE.MeshStandardMaterial({
-            color: 0xfef3c7, // Warm yellowish white foam
-            roughness: 1.0,
-            metalness: 0.0,
-            transparent: true,
-            opacity: 0.95
-        });
-
-        for (let i = 0; i < foamCount; i++) {
-            const mesh = new THREE.Mesh(geo, mat.clone());
-            mesh.position.copy(position);
-            mesh.position.y += 0.8; // Start near the top of the flask
-
-            // Randomize starting position slightly within the flask neck
-            mesh.position.x += (Math.random() - 0.5) * 0.1;
-            mesh.position.z += (Math.random() - 0.5) * 0.1;
-
-            // Erupt upwards (Positive Y) and expand outwards (X/Z dispersion), NOT towards the camera (Z bias)
-            const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 0.04, // X dispersion
-                0.05 + Math.random() * 0.06,  // Y eruption upwards
-                (Math.random() - 0.5) * 0.04  // Z dispersion
-            );
-
-            mesh.scale.setScalar(0.1 + Math.random() * 0.2); // Start small and random
-
-            this.scene.add(mesh);
-
-            this.particles.push({
-                mesh: mesh,
-                velocity: velocity,
-                life: 0,
-                maxLife: 600, // Exactly 10 seconds (at 60fps)
-                type: 'foam'
-            });
-        }
-    }
-
-    createSteam(position: THREE.Vector3) {
-        const steamGeo = new THREE.IcosahedronGeometry(0.15, 0);
-        const steamMat = new THREE.MeshStandardMaterial({
-            color: 0xffffff,
-            transparent: true,
-            opacity: 0.4,
-            roughness: 1.0,
-            flatShading: true
-        });
-
-        const mesh = new THREE.Mesh(steamGeo, steamMat);
-        mesh.position.copy(position);
-        mesh.position.y += 0.6; // Above flask
-        mesh.position.x += (Math.random() - 0.5) * 0.2;
-        mesh.position.z += (Math.random() - 0.5) * 0.2;
-
-        const velocity = new THREE.Vector3(0, 0.03 + Math.random() * 0.02, 0);
-        this.scene.add(mesh);
-        this.particles.push({ mesh, velocity, life: 0, maxLife: 60 + Math.random() * 40, type: 'steam' });
-    }
-
-    createToxicGas(position: THREE.Vector3) {
-        const particleCount = 200;
-        const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(particleCount * 3);
-        const sizes = new Float32Array(particleCount);
-
-        for (let i = 0; i < particleCount; i++) {
-            positions[i * 3] = (Math.random() - 0.5) * 0.5;
-            positions[i * 3 + 1] = Math.random() * 0.5;
-            positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
-            sizes[i] = Math.random() * 0.5 + 0.1;
-        }
-
-        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-
-        // Create a custom material that supports sizes, or just use PointsMaterial
-        const material = new THREE.PointsMaterial({
-            color: 0x854d0e, // Heavy brown gas (NO2)
-            size: 0.3,
-            transparent: true,
-            opacity: 0.8,
-            depthWrite: false,
-            blending: THREE.NormalBlending
-        });
-
-        const points = new THREE.Points(geometry, material);
-        points.position.copy(position);
-        points.position.y += 0.5; // Start slightly above the liquid
-        this.scene.add(points);
-
-        // Treat the whole points system as one "particle" object for the update loop
-        this.particles.push({
-            mesh: points,
-            velocity: new THREE.Vector3(0, 0.5, 0), // Base upward drift
-            life: 0,
-            maxLife: 300, // Long lasting gas
-            type: 'toxic_gas'
-        });
-    }
-
-    createExplosion(position: THREE.Vector3, intensity: number = 1.0) {
-        // Enhanced Sparks (Glowing)
-        const sparkCount = Math.floor(150 * intensity);
-        const sparkGeo = new THREE.BoxGeometry(0.06, 0.06, 0.06);
-        const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 }); // Brighter gold
-
-        for (let i = 0; i < sparkCount; i++) {
-            const mesh = new THREE.Mesh(sparkGeo, sparkMat.clone());
-            mesh.position.copy(position);
-            // Higher velocity spread for intensity
-            const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 14 * intensity,
-                (Math.random() * 10 + 5) * intensity,
-                (Math.random() - 0.5) * 14 * intensity
-            );
-            this.scene.add(mesh);
-            this.particles.push({ mesh, velocity, life: 0, maxLife: 60 + Math.random() * 40, type: 'spark' });
-        }
-
-        // Cinematic Smoke (Dark & Volumetric feel)
-        const smokeCount = Math.floor(80 * intensity);
-        const smokeGeo = new THREE.IcosahedronGeometry(0.25, 0); // Low poly but effective
-        const smokeMat = new THREE.MeshStandardMaterial({
-            color: 0x334155, // Slate smoke
-            transparent: true,
-            opacity: 0.8,
-            roughness: 1.0,
-            flatShading: true
-        });
-
-        for (let i = 0; i < smokeCount; i++) {
-            const mesh = new THREE.Mesh(smokeGeo, smokeMat.clone());
-            mesh.position.copy(position);
-            mesh.position.y += 0.5; // Start slightly higher
-            const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 5,
-                (Math.random() * 5 + 2) * intensity,
-                (Math.random() - 0.5) * 5
-            );
-            // Random initial rotation
-            mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            this.scene.add(mesh);
-            this.particles.push({ mesh, velocity, life: 0, maxLife: 150 + Math.random() * 80, type: 'smoke' });
-        }
-    }
-
-    update() {
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const p = this.particles[i];
-            p.life++;
-
-            p.mesh.position.add(p.velocity.clone().multiplyScalar(0.016));
-
-            if (p.type === 'spark') {
-                p.velocity.y -= 0.35; // Stronger gravity for weight
-                p.mesh.rotation.x += 0.3;
-                p.mesh.rotation.z += 0.3;
-                p.mesh.scale.multiplyScalar(0.95);
-                // Color shift from yellow to red
-                const mat = p.mesh.material as THREE.MeshBasicMaterial;
-                if (mat) {
-                    const progress = p.life / p.maxLife;
-                    mat.color.lerp(new THREE.Color(0xff4500), 0.1); // Shift to orange-red
-                    if (progress > 0.8) mat.opacity = (1 - progress) * 5; // Fade out quickly at end
-                }
-            } else if (p.type === 'smoke') {
-                p.velocity.y *= 0.96; // Drag
-                p.velocity.x *= 0.92;
-                p.velocity.z *= 0.92;
-                p.mesh.scale.multiplyScalar(1.02); // Expand
-                p.mesh.rotation.x += 0.02;
-                p.mesh.rotation.y += 0.03;
-
-                const mat = p.mesh.material as THREE.MeshStandardMaterial;
-                if(mat) {
-                    mat.opacity = 0.8 * (1 - (p.life / p.maxLife)); // Smooth fade
-                    // Darken over time
-                    mat.color.lerp(new THREE.Color(0x0f172a), 0.05);
-                }
-            } else if (p.type === 'foam') {
-                const mesh = p.mesh as THREE.Mesh;
-                const mat = mesh.material as THREE.MeshStandardMaterial;
-
-                // Rapid eruption scaling for first 3 seconds (180 frames)
-                if (p.life < 180) {
-                    const targetScale = new THREE.Vector3(2.0, 2.0, 2.0);
-                    mesh.scale.lerp(targetScale, 0.1); // Quick bloom
-                } else {
-                    // Gravity takes over to let foam spill down
-                    p.velocity.y -= 0.002;
-                }
-
-                // Dampen horizontal velocity over time so it piles up rather than scattering infinitely
-                p.velocity.x *= 0.95;
-                p.velocity.z *= 0.95;
-
-                // Keep the bumpy look slightly moving
-                mesh.rotation.y += 0.01;
-                mesh.rotation.x += 0.01;
-
-                // Fade out exactly at the end of the 10-second life
-                if (p.life > p.maxLife - 60) { // Last 1 second (60 frames)
-                    mat.opacity = (p.maxLife - p.life) / 60;
-                }
-            } else if (p.type === 'steam') {
-                p.mesh.scale.multiplyScalar(1.05); // Rapidly expand
-                p.mesh.rotation.y += 0.05;
-                p.velocity.x += (Math.random() - 0.5) * 0.01; // Drift randomly
-                p.velocity.z += (Math.random() - 0.5) * 0.01;
-
-                const mat = p.mesh.material as THREE.MeshStandardMaterial;
-                if(mat) mat.opacity = 0.4 * (1 - (p.life / p.maxLife));
-            } else if (p.type === 'toxic_gas') {
-                const points = p.mesh as THREE.Points;
-                const positions = points.geometry.attributes.position.array as Float32Array;
-
-                // Drift upward and outward
-                for (let j = 0; j < positions.length; j += 3) {
-                    positions[j] += (Math.random() - 0.5) * 0.02;     // expand X
-                    positions[j + 1] += Math.random() * 0.02;         // drift Y
-                    positions[j + 2] += (Math.random() - 0.5) * 0.02; // expand Z
-                }
-                points.geometry.attributes.position.needsUpdate = true;
-
-                const mat = points.material as THREE.PointsMaterial;
-                if (mat) {
-                    mat.opacity = 0.8 * (1 - (p.life / p.maxLife)); // Smooth fade out
-                }
-            }
-
-            if (p.life > p.maxLife || p.mesh.position.y < -2) {
-                this.scene.remove(p.mesh);
-                (p.mesh.material as THREE.Material).dispose();
-                (p.mesh.geometry as THREE.BufferGeometry).dispose();
-                this.particles.splice(i, 1);
-            }
-        }
-    }
-}
 
 // -- GEOMETRY GENERATORS --
 const createFlaskGeometry = () => {
@@ -509,58 +262,6 @@ const createTable = () => {
     return group;
 };
 
-const createHeater = () => {
-    const group = new THREE.Group();
-
-    // 1. Base Unit
-    const baseGeo = new THREE.BoxGeometry(1.2, 0.15, 1.2);
-    const baseMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b, // Slate-800
-        roughness: 0.4,
-        metalness: 0.8
-    });
-    const base = new THREE.Mesh(baseGeo, baseMat);
-    base.castShadow = true;
-    base.receiveShadow = true;
-    group.add(base);
-
-    // 2. Heating Plate (The part that glows)
-    const plateGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.05, 32);
-    const plateMat = new THREE.MeshStandardMaterial({
-        color: 0x334155, // Dark grey initially
-        roughness: 0.6,
-        metalness: 0.5,
-        emissive: 0x000000,
-        emissiveIntensity: 0
-    });
-    const plate = new THREE.Mesh(plateGeo, plateMat);
-    plate.position.y = 0.1;
-    plate.userData.isHeaterPlate = true; // Tag for updates
-    group.add(plate);
-
-    // 3. UI/Knob Details
-    const knobGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.1, 16);
-    const knob = new THREE.Mesh(knobGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
-    knob.rotateX(Math.PI / 2);
-    knob.position.set(0, 0, 0.6);
-    group.add(knob);
-
-    // Label
-    const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-        ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,128,64);
-        ctx.fillStyle = '#f97316'; ctx.font = 'bold 20px monospace';
-        ctx.textAlign = 'center'; ctx.fillText('HEAT', 64, 40);
-    }
-    const label = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.15), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas) }));
-    label.position.set(0, 0.08, 0.61);
-    group.add(label);
-
-    return group;
-};
-
 const createLabel = (text: string) => {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -573,8 +274,8 @@ const createLabel = (text: string) => {
         ctx.font = 'bold 28px Inter, Arial';
         const textMetrics = ctx.measureText(text);
         const textWidth = textMetrics.width;
-        const paddingX = 12;
-        const paddingY = 6;
+        const paddingX = 20;
+        const paddingY = 10;
 
         // Calculate box dimensions that tightly wrap the text
         const boxWidth = textWidth + paddingX * 2;
@@ -606,7 +307,7 @@ const createLabel = (text: string) => {
     const texture = new THREE.CanvasTexture(canvas);
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95, depthTest: false }); // depthTest false to act like UI overlay
     const sprite = new THREE.Sprite(material);
-    sprite.scale.set(0.8, 0.2, 0.8);
+    sprite.scale.set(1.2, 0.3, 1.2);
     sprite.renderOrder = 999; // Ensure text draws on top of liquids and glass
     return sprite;
 };
@@ -954,6 +655,10 @@ const LabScene: React.FC<{
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
 }> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour }) => {
+
+    const { nodes: flaskNodes } = useGLTF('/free_conical_flask__laboratory__low_poly.glb') as any;
+    const { nodes: beakerNodes } = useGLTF('/laboratory_glasswares_pack.glb') as any;
+
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -966,40 +671,27 @@ const LabScene: React.FC<{
     const raycaster = useRef(new THREE.Raycaster());
     const pointer = useRef(new THREE.Vector2());
     const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.11)); // Drag plane at table height
-    const particleSystemRef = useRef<ParticleSystem | null>(null);
-    const analyzerRef = useRef<{ group: THREE.Group; texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } | null>(null);
-    const heaterRef = useRef<THREE.Group | null>(null);
+        const analyzerRef = useRef<{ group: THREE.Group; texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } | null>(null);
 
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
     const [isSceneReady, setIsSceneReady] = useState(false);
-    const lastEffectIdRef = useRef<string | null>(null);
 
     useEffect(() => { onMoveRef.current = onMove; onPourRef.current = onPour; }, [onMove, onPour]);
 
     // Enhanced Effects Logic
     useEffect(() => {
-        if (!sceneRef.current || !lastEffect) {
-            lastEffectIdRef.current = null;
-            return;
-        }
-
-        const currentEffectId = `${lastEffect}-${lastEffectPos?.join(",") || "none"}`;
-        if (lastEffectIdRef.current === currentEffectId) return;
-        lastEffectIdRef.current = currentEffectId;
+        if (!sceneRef.current || !lastEffect) return;
 
         const position = lastEffectPos ? new THREE.Vector3(...lastEffectPos) : new THREE.Vector3(0, 1, 0);
 
         if (lastEffect === 'toxic_gas') {
-            particleSystemRef.current?.createToxicGas(position);
-        }
+                    }
 
         if (lastEffect === 'foam') {
-            particleSystemRef.current?.createFoam(position);
-        }
+                    }
 
         if (lastEffect === 'explosion') {
-            particleSystemRef.current?.createExplosion(position, 1.5);
 
             const flashLight = new THREE.PointLight(0xffaa00, 10, 20);
             flashLight.position.copy(position).add(new THREE.Vector3(0, 1, 0));
@@ -1147,13 +839,6 @@ const LabScene: React.FC<{
         shelf.position.set(0, 0.5, -3.5);
         shelf.receiveShadow = true;
         scene.add(shelf);
-
-        // HEATER (Magnetic Stirrer)
-        const heater = createHeater();
-        heater.position.set(-1.5, 0.19, 0); // Positioned under the left beaker slot
-        scene.add(heater);
-        heaterRef.current = heater;
-
         const analyzer = createAnalyzerMachine();
         analyzer.group.position.set(4, 0, 1.5);
         analyzer.group.userData.id = 'ANALYZER_MACHINE';
@@ -1161,7 +846,6 @@ const LabScene: React.FC<{
         analyzerRef.current = analyzer;
         meshesRef.current.set('ANALYZER_MACHINE', analyzer.group);
 
-        particleSystemRef.current = new ParticleSystem(scene);
 
         const onPointerMove = (event: PointerEvent) => {
             pointer.current.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -1191,12 +875,9 @@ const LabScene: React.FC<{
                 if (target && target.userData.id) {
                     controls.enabled = false;
                     const id = target.userData.id;
-                    const group = meshesRef.current.get(id);
-                    if (group) {
-                        const offset = group.position.clone().sub(intersects[0].point);
-                        offset.y = 0;
-                        draggedItem.current = { id, offset, originalPos: group.position.clone() };
-                    }
+                    const offset = target.position.clone().sub(intersects[0].point);
+                    offset.y = 0;
+                    draggedItem.current = { id, offset, originalPos: target.position.clone() };
                 }
             }
         };
@@ -1271,44 +952,8 @@ const LabScene: React.FC<{
         const animate = () => {
             requestAnimationFrame(animate);
             controls.update();
-            particleSystemRef.current?.update();
 
-            // HEATER UPDATE LOOP
-            if (heaterRef.current) {
-                const plate = heaterRef.current.children.find(c => c.userData.isHeaterPlate) as THREE.Mesh;
-                if (plate) {
-                    const mat = plate.material as THREE.MeshStandardMaterial;
-                    // Map 25-1000 degrees to color/intensity
-                    const t = (heaterTemp - 25) / 975; // 0 to 1
-                    mat.emissive.setHSL(0.05 + (0.05 * (1-t)), 1.0, 0.5 * t); // Red-Orange glow
-                    mat.emissiveIntensity = t * 2.0;
-                }
-
-                // Boiler collision logic
-                if (heaterTemp > 25) {
-                    const heaterPos = new THREE.Vector3(-1.5, 0.19, 0); // known heater pos
-                    containers.forEach(c => {
-                        const dist = new THREE.Vector3(...c.position).distanceTo(heaterPos);
-                        if (dist < 0.6 && c.contents && c.contents.volume > 0) { // Container is ON the heater and has contents
-                            const chem = CHEMICALS[c.contents.chemicalId];
-                            const boilingPoint = chem.boilingPoint || 100; // default to water boiling point if not specified
-                            if (heaterTemp >= boilingPoint && (chem.type === 'liquid' || c.contents.chemicalId === 'H2O')) {
-                                // Trigger steam only if boiling a liquid
-                                if (Math.random() < 0.2) { // Throttle particle creation rate
-                                    const group = meshesRef.current.get(c.id);
-                                    if (group) {
-                                        const spawnPos = new THREE.Vector3();
-                                        group.getWorldPosition(spawnPos);
-                                        particleSystemRef.current?.createSteam(spawnPos);
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-
-            // FIXED: ANALYZER UPDATE LOOP
+                                      // FIXED: ANALYZER UPDATE LOOP
             if (analyzerRef.current) {
                 let foundChem = null, foundTemp = 25;
                 const analyzerPos = analyzerRef.current.group.position;
@@ -1378,10 +1023,14 @@ const LabScene: React.FC<{
                 group.userData.id = container.id;
 
                 if (!container.id.startsWith('source_')) {
-                    // Erlenmeyer Flask upgrade
-                    const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial());
+
+                    // Erlenmeyer Flask upgrade using GLTF
+                    const flaskGeometry = (flaskNodes.Object_2 || Object.values(flaskNodes).find(n => (n as THREE.Mesh).isMesh))?.geometry;
+                    const flask = new THREE.Mesh(flaskGeometry || createFlaskGeometry(), createGlassMaterial());
+                    if (flaskGeometry) flask.scale.set(0.005, 0.005, 0.005);
                     flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
                     group.add(flask);
+
 
                     // Liquid inside the flask (tapered cylinder to match flask inner walls precisely)
                     const liquidGeo = new THREE.CylinderGeometry(0.12, 0.44, 1.0, 32);
@@ -1392,7 +1041,7 @@ const LabScene: React.FC<{
                     // The main `group` wrapper handles the overarching container transformation.
 
                     // CLIPPING FIX: Scale down uniformly by 0.98 on X and Z to keep liquid strictly inside the glass without Z-fighting
-                    liquidMesh.scale.set(0.98, 0.01, 0.98);
+                    liquidMesh.scale.set(0.98, 0.01, 0.98); // Fix Z-fighting
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh); // Both flask and liquid are added to `group`. Drag controls target the parent `group`.
                     liquidsRef.current.set(container.id, liquidMesh);
@@ -1433,12 +1082,17 @@ const LabScene: React.FC<{
                     let mesh;
 
                     if (chem.meshStyle === 'flask') {
-                         const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial());
-                         flask.renderOrder = 2;
+
+                         const beakerGeometry = (beakerNodes.Object_2 || Object.values(beakerNodes).find(n => (n as THREE.Mesh).isMesh))?.geometry;
+                         const beaker = new THREE.Mesh(beakerGeometry || createFlaskGeometry(), createGlassMaterial());
+                         if (beakerGeometry) beaker.scale.set(0.015, 0.015, 0.015);
+                         beaker.renderOrder = 2;
                          const innerLiquid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 24), new THREE.MeshStandardMaterial({color}));
                          innerLiquid.position.y = 0.4;
-                         flask.add(innerLiquid);
-                         mesh = flask;
+                         innerLiquid.scale.set(0.98, 0.98, 0.98); // Prevent Z-fighting
+                         beaker.add(innerLiquid);
+                         mesh = beaker;
+
                     } else if (chem.meshStyle === 'rock') {
                         // High-poly rock
                         mesh = new THREE.Mesh(createRockGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true }));
@@ -1882,7 +1536,7 @@ export default function App() {
     const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
 
     const initialContainers: ContainerState[] = [
-        { id: 'beaker-1', position: [-1.5, 0.42, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
+        { id: 'beaker-1', position: [-1.5, 0.11, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
         { id: 'beaker-2', position: [1.5, 0.11, 0], contents: null }
     ];
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
