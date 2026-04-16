@@ -5,7 +5,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { useGLTF } from '@react-three/drei';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import SettingsModal from './components/SettingsModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
@@ -656,10 +656,10 @@ const LabScene: React.FC<{
     onPour: (sourceId: string, targetId: string) => void;
 }> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour }) => {
 
-    const { nodes: flaskNodes } = useGLTF('/free_conical_flask__laboratory__low_poly.glb') as any;
-    const { nodes: beakerNodes } = useGLTF('/laboratory_glasswares_pack.glb') as any;
-
     const mountRef = useRef<HTMLDivElement>(null);
+    const flaskGeometryRef = useRef<THREE.BufferGeometry | null>(null);
+    const beakerGeometryRef = useRef<THREE.BufferGeometry | null>(null);
+    const [modelsLoaded, setModelsLoaded] = useState(false);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -983,7 +983,35 @@ const LabScene: React.FC<{
             composerRef.current.setSize(window.innerWidth, window.innerHeight);
         };
         window.addEventListener('resize', handleResize);
-        setIsSceneReady(true);
+
+        // Load GLTF Models
+        const loader = new GLTFLoader();
+        let loadedCount = 0;
+        const checkLoaded = () => {
+            loadedCount++;
+            if (loadedCount === 2) {
+                setModelsLoaded(true);
+                setIsSceneReady(true);
+            }
+        };
+
+        loader.load('/free_conical_flask__laboratory__low_poly.glb', (gltf) => {
+            gltf.scene.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh && !flaskGeometryRef.current) {
+                    flaskGeometryRef.current = (child as THREE.Mesh).geometry;
+                }
+            });
+            checkLoaded();
+        }, undefined, () => checkLoaded());
+
+        loader.load('/laboratory_glasswares_pack.glb', (gltf) => {
+            gltf.scene.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh && !beakerGeometryRef.current) {
+                    beakerGeometryRef.current = (child as THREE.Mesh).geometry;
+                }
+            });
+            checkLoaded();
+        }, undefined, () => checkLoaded());
 
         return () => {
             window.removeEventListener('resize', handleResize);
@@ -1025,7 +1053,7 @@ const LabScene: React.FC<{
                 if (!container.id.startsWith('source_')) {
 
                     // Erlenmeyer Flask upgrade using GLTF
-                    const flaskGeometry = (flaskNodes.Object_2 || Object.values(flaskNodes).find(n => (n as THREE.Mesh).isMesh))?.geometry;
+                    const flaskGeometry = flaskGeometryRef.current;
                     const flask = new THREE.Mesh(flaskGeometry || createFlaskGeometry(), createGlassMaterial());
                     if (flaskGeometry) flask.scale.set(0.005, 0.005, 0.005);
                     flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
@@ -1083,8 +1111,8 @@ const LabScene: React.FC<{
 
                     if (chem.meshStyle === 'flask') {
 
-                         const beakerGeometry = (beakerNodes.Object_2 || Object.values(beakerNodes).find(n => (n as THREE.Mesh).isMesh))?.geometry;
-                         const beaker = new THREE.Mesh(beakerGeometry || createFlaskGeometry(), createGlassMaterial());
+                         const beakerGeometry = beakerGeometryRef.current;
+                         const beaker = new THREE.Mesh(beakerGeometry || createBeakerGeometry(), createGlassMaterial());
                          if (beakerGeometry) beaker.scale.set(0.015, 0.015, 0.015);
                          beaker.renderOrder = 2;
                          const innerLiquid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 24), new THREE.MeshStandardMaterial({color}));
