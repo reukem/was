@@ -195,7 +195,7 @@ const createGlassMaterial = () => {
     });
 };
 
-const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
+const createLiquidMaterial = (color: THREE.ColorRepresentation, clipPlane?: THREE.Plane) => {
     return new THREE.MeshStandardMaterial({
         color: color,
         transparent: true,
@@ -203,7 +203,8 @@ const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
         depthWrite: false, // Prevents Z-fighting and occluding glass front faces
         side: THREE.DoubleSide,
         roughness: 0.2,
-        metalness: 0.0
+        metalness: 0.0,
+        clippingPlanes: clipPlane ? [clipPlane] : [],
     });
 };
 
@@ -805,6 +806,8 @@ const LabScene: React.FC<{
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         // MODULE 1: Exposure Clamp
         renderer.toneMappingExposure = 0.8;
+        // MODULE 2: Enable Local Clipping for Liquid Physics
+        renderer.localClippingEnabled = true;
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
 
@@ -1039,52 +1042,55 @@ const LabScene: React.FC<{
                 group = new THREE.Group();
                 group.userData.id = container.id;
 
-                if (!container.id.startsWith('source_')) {
+                if (container.id.startsWith('flask-') || container.id.startsWith('beaker-')) {
+                    const isFlask = container.id.startsWith('flask-');
 
-                    // Erlenmeyer Flask
-                    const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial());
-                    flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
-                    group.add(flask);
+                    const glassMesh = new THREE.Mesh(isFlask ? createFlaskGeometry() : createBeakerGeometry(), createGlassMaterial());
+                    glassMesh.castShadow = true; glassMesh.receiveShadow = true; glassMesh.renderOrder = 2;
+                    group.add(glassMesh);
 
-                    // Liquid inside the flask using procedural LatheGeometry
-                    const liquidGeo = createFlaskLiquidGeometry();
-                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
+                    const liquidGeo = isFlask ? createFlaskLiquidGeometry() : createBeakerLiquidGeometry();
+                    const fillPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff, fillPlane));
+                    liquidMesh.userData.fillPlane = fillPlane;
+                    liquidMesh.userData.maxFillHeight = isFlask ? 0.8 : 0.95;
 
-                    // CLIPPING FIX: Scale down uniformly by 0.98 on X and Z to keep liquid strictly inside the glass without Z-fighting
-                    liquidMesh.scale.set(0.98, 0.01, 0.98); // Fix Z-fighting
+                    liquidMesh.scale.set(0.98, 1.0, 0.98); // Fix Z-fighting
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
 
-                    // Decal markings for Volume
-                    const decalCanvas = document.createElement('canvas');
-                    decalCanvas.width = 64;
-                    decalCanvas.height = 128;
-                    const dCtx = decalCanvas.getContext('2d');
-                    if (dCtx) {
-                        dCtx.fillStyle = 'rgba(0,0,0,0)';
-                        dCtx.clearRect(0,0, 64, 128);
-                        dCtx.fillStyle = 'rgba(255,255,255,0.7)';
-                        dCtx.font = 'bold 12px sans-serif';
-                        for (let i = 1; i <= 4; i++) {
-                            const y = 128 - (i * 25);
-                            dCtx.fillRect(10, y, 15, 2);
-                            dCtx.fillText(`${i * 50}ml`, 30, y + 4);
+                    if (isFlask) {
+                        // Decal markings for Volume only on flasks for now
+                        const decalCanvas = document.createElement('canvas');
+                        decalCanvas.width = 64;
+                        decalCanvas.height = 128;
+                        const dCtx = decalCanvas.getContext('2d');
+                        if (dCtx) {
+                            dCtx.fillStyle = 'rgba(0,0,0,0)';
+                            dCtx.clearRect(0,0, 64, 128);
+                            dCtx.fillStyle = 'rgba(255,255,255,0.7)';
+                            dCtx.font = 'bold 12px sans-serif';
+                            for (let i = 1; i <= 4; i++) {
+                                const y = 128 - (i * 25);
+                                dCtx.fillRect(10, y, 15, 2);
+                                dCtx.fillText(`${i * 50}ml`, 30, y + 4);
+                            }
                         }
+                        const decalTex = new THREE.CanvasTexture(decalCanvas);
+                        const decalMat = new THREE.MeshBasicMaterial({
+                            map: decalTex,
+                            transparent: true,
+                            opacity: 0.8,
+                            depthWrite: false,
+                            polygonOffset: true, // Crucial to prevent Z-fighting with glass
+                            polygonOffsetFactor: -1
+                        });
+                        // Approximate curvature for decal
+                        const decalMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 0.6, 16, 1, true, -Math.PI/6, Math.PI/3), decalMat);
+                        decalMesh.position.y = 0.3;
+                        group.add(decalMesh);
                     }
-                    const decalTex = new THREE.CanvasTexture(decalCanvas);
-                    const decalMat = new THREE.MeshBasicMaterial({
-                        map: decalTex,
-                        transparent: true,
-                        opacity: 0.8,
-                        depthWrite: false,
-                        polygonOffset: true, // Crucial to prevent Z-fighting with glass
-                        polygonOffsetFactor: -1
-                    });
-                    // Approximate curvature for decal
-                    const decalMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 0.6, 16, 1, true, -Math.PI/6, Math.PI/3), decalMat);
-                    decalMesh.position.y = 0.3;
-                    group.add(decalMesh);
 
                 } else {
                     const chem = CHEMICALS[container.contents?.chemicalId || 'H2O'];
@@ -1095,9 +1101,13 @@ const LabScene: React.FC<{
 
                          const beaker = new THREE.Mesh(createBeakerGeometry(), createGlassMaterial());
                          beaker.renderOrder = 2;
-                         const innerLiquid = new THREE.Mesh(createBeakerLiquidGeometry(), createLiquidMaterial(color));
-                         innerLiquid.scale.set(0.98, 0.98, 0.98); // Prevent Z-fighting
+                         const fillPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+                         const innerLiquid = new THREE.Mesh(createBeakerLiquidGeometry(), createLiquidMaterial(color, fillPlane));
+                         innerLiquid.userData.fillPlane = fillPlane;
+                         innerLiquid.userData.maxFillHeight = 0.95; // Match LatheGeometry height
+                         innerLiquid.scale.set(0.98, 1.0, 0.98); // Prevent Z-fighting, maintain Y=1.0
                          beaker.add(innerLiquid);
+                         liquidsRef.current.set(container.id, innerLiquid); // Track beaker liquids too for animations
                          mesh = beaker;
 
                     } else if (chem.meshStyle === 'rock') {
@@ -1143,8 +1153,17 @@ const LabScene: React.FC<{
             if (liquidMesh) {
                 if (container.contents) {
                     liquidMesh.visible = true; // Make sure it's visible
-                    const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
-                    liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
+
+                    // MODULE 2: Animate the clipping plane constant instead of Y scale!
+                    if (liquidMesh.userData.fillPlane && liquidMesh.userData.maxFillHeight) {
+                        const localTargetY = container.contents.volume * liquidMesh.userData.maxFillHeight;
+                        // The plane is (0, -1, 0), so it slices everything BELOW a certain world Y value.
+                        // We must set its constant to the maximum Y value we want to keep.
+                        // That is: parent_world_Y + localTargetY
+                        const worldTargetY = group.position.y + localTargetY;
+                        liquidMesh.userData.fillPlane.constant = THREE.MathUtils.lerp(liquidMesh.userData.fillPlane.constant, worldTargetY, 0.1);
+                    }
+
                     const mat = liquidMesh.material as THREE.MeshStandardMaterial;
                     const temp = container.contents.temperature || 25;
 
@@ -1177,9 +1196,16 @@ const LabScene: React.FC<{
                     // Clamp emissive intensity to prevent massive glare
                     mat.emissiveIntensity = Math.min(mat.emissiveIntensity, 0.2);
                 } else {
-                    // EMPTY STATE: Shrink liquid to zero
-                    liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2);
-                    if (liquidMesh.scale.y < 0.01) liquidMesh.visible = false;
+                    // EMPTY STATE: Slice it to nothing
+                    if (liquidMesh.userData.fillPlane) {
+                        const worldTargetY = group.position.y - 0.1; // Slice slightly below bottom
+                        liquidMesh.userData.fillPlane.constant = THREE.MathUtils.lerp(liquidMesh.userData.fillPlane.constant, worldTargetY, 0.2);
+                        if (liquidMesh.userData.fillPlane.constant < group.position.y + 0.01) {
+                            liquidMesh.visible = false;
+                        }
+                    } else {
+                        liquidMesh.visible = false;
+                    }
                 }
             }
         });
@@ -1448,16 +1474,22 @@ const LabUI: React.FC<{
                         {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
                     </div>
                     <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
-                         <button
-                            onClick={() => onSpawn('BEAKER')}
-                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
-                         >
-                            <div>
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc Thí Nghiệm' : 'Beaker'}</div>
-                                <div className="text-[10px] text-slate-500 mt-1">{lang === 'VN' ? 'Dụng cụ chứa' : 'Container'}</div>
-                            </div>
-                            <span className="w-2 h-2 border border-slate-500 rounded-full group-hover:bg-slate-500 transition-colors"></span>
-                         </button>
+                         <div className="flex gap-2">
+                             <button
+                                onClick={() => onSpawn('BEAKER')}
+                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                             >
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc' : 'Beaker'}</div>
+                                <div className="text-[10px] text-slate-500 mt-1">1000ml</div>
+                             </button>
+                             <button
+                                onClick={() => onSpawn('FLASK')}
+                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                             >
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
+                                <div className="text-[10px] text-slate-500 mt-1">Erlenmeyer</div>
+                             </button>
+                         </div>
 
                          {Object.values(CHEMICALS).map(chem => (
                              <button
@@ -1544,7 +1576,7 @@ export default function App() {
 
     const initialContainers: ContainerState[] = [
         { id: 'beaker-1', position: [-1.5, 0.11, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
-        { id: 'beaker-2', position: [1.5, 0.11, 0], contents: null }
+        { id: 'flask-1', position: [1.5, 0.11, 0], contents: { chemicalId: 'COPPER_SULFATE', volume: 0.4, color: CHEMICALS['COPPER_SULFATE'].color, temperature: 25 } }
     ];
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
     const [lastReaction, setLastReaction] = useState<LocalizedString | null>(null);
@@ -1672,17 +1704,19 @@ export default function App() {
 
     const handleSpawn = (chemId: string) => {
         const isBeaker = chemId === 'BEAKER';
-        const newId = isBeaker ? `beaker-${Date.now()}` : `source_${chemId}_${Date.now()}`;
-        const chem = CHEMICALS[chemId];
+        const isFlask = chemId === 'FLASK';
+        const isContainer = isBeaker || isFlask;
+        const newId = isBeaker ? `beaker-${Date.now()}` : isFlask ? `flask-${Date.now()}` : `source_${chemId}_${Date.now()}`;
+        const chem = !isContainer ? CHEMICALS[chemId] : null;
 
         let validPos = false;
-        let x = 0, y = isBeaker ? 0.11 : 0.56, z = isBeaker ? 0 : -3.5;
+        let x = 0, y = isContainer ? 0.11 : 0.56, z = isContainer ? 0 : -3.5;
         let attempts = 0;
 
         // Find a position that does not strongly overlap with existing items
         while (!validPos && attempts < 50) {
             x = (Math.random() - 0.5) * 8; // Spread across wider area
-            if (isBeaker) z = (Math.random() * 2) - 1.0;
+            if (isContainer) z = (Math.random() * 2) - 1.0;
 
             let collision = false;
             for (const c of containers) {
@@ -1696,7 +1730,7 @@ export default function App() {
             attempts++;
         }
 
-        setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isBeaker ? undefined : [x, y, z], contents: isBeaker ? null : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 } }]);
+        setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isContainer ? undefined : [x, y, z], contents: isContainer ? null : { chemicalId: chemId, volume: 1.0, color: chem!.color, temperature: 25 } }]);
     };
 
     const handleReset = () => {
