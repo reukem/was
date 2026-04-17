@@ -128,20 +128,7 @@ const REACTION_REGISTRY: ReactionEntry[] = [
 
 // -- GEOMETRY GENERATORS --
 const createFlaskGeometry = () => {
-    const points = [];
-    // High-poly smooth curve for the flask belly
-    for (let i = 0; i <= 40; i++) {
-        const t = i / 40;
-        const x = Math.sin(t * Math.PI) * 0.45 + 0.1;
-        points.push(new THREE.Vector2(x, t * 0.8));
-    }
-    points.push(new THREE.Vector2(0.12, 0.8)); // Neck base
-    points.push(new THREE.Vector2(0.12, 1.15)); // Tall neck
-    // Thick, realistic beveled laboratory rim
-    points.push(new THREE.Vector2(0.18, 1.17));
-    points.push(new THREE.Vector2(0.18, 1.20));
-    points.push(new THREE.Vector2(0.11, 1.20));
-    return new THREE.LatheGeometry(points, 128);
+    return new THREE.CylinderGeometry(0.15, 0.45, 1.2, 32);
 };
 
 const createCanisterGeometry = () => {
@@ -213,15 +200,7 @@ const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
 };
 
 const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
-    const points = [];
-    points.push(new THREE.Vector2(0, 0));
-    points.push(new THREE.Vector2(radius, 0));
-    points.push(new THREE.Vector2(radius, height));
-    // Pronounced, thick glass rim for the beaker
-    points.push(new THREE.Vector2(radius + 0.08, height + 0.03));
-    points.push(new THREE.Vector2(radius + 0.08, height + 0.07));
-    points.push(new THREE.Vector2(radius - 0.03, height + 0.07));
-    return new THREE.LatheGeometry(points, 128);
+    return new THREE.CylinderGeometry(0.4, 0.4, height, 32);
 };
 
 const createTable = () => {
@@ -1052,17 +1031,15 @@ const LabScene: React.FC<{
 
                 if (!container.id.startsWith('source_')) {
 
-                    // Erlenmeyer Flask upgrade using GLTF
-                    const flaskGeometry = flaskGeometryRef.current;
-                    const flask = new THREE.Mesh(flaskGeometry || createFlaskGeometry(), createGlassMaterial());
-                    if (flaskGeometry) flask.scale.set(0.005, 0.005, 0.005);
+                    // Erlenmeyer Flask
+                    const flaskGeometry = createFlaskGeometry();
+                    const flask = new THREE.Mesh(flaskGeometry, createGlassMaterial());
                     flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
                     group.add(flask);
 
-
-                    // Liquid inside the flask (tapered cylinder to match flask inner walls precisely)
-                    const liquidGeo = new THREE.CylinderGeometry(0.12, 0.44, 1.0, 32);
-                    liquidGeo.translate(0, 0.5, 0); // Shift pivot to bottom for smooth vertical scaling
+                    // Liquid inside the flask
+                    const liquidGeo = new THREE.CylinderGeometry(0.15, 0.45, 1.2, 32);
+                    liquidGeo.translate(0, 0.6, 0); // Shift pivot to bottom for smooth vertical scaling
                     liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
 
                     // MODULE 1 FIX: Group the flask and liquid together so drag coordinates apply to both simultaneously
@@ -1111,12 +1088,14 @@ const LabScene: React.FC<{
 
                     if (chem.meshStyle === 'flask') {
 
-                         const beakerGeometry = beakerGeometryRef.current;
-                         const beaker = new THREE.Mesh(beakerGeometry || createBeakerGeometry(), createGlassMaterial());
-                         if (beakerGeometry) beaker.scale.set(0.015, 0.015, 0.015);
+                         const beakerGeometry = createBeakerGeometry();
+                         const beaker = new THREE.Mesh(beakerGeometry, createGlassMaterial());
                          beaker.renderOrder = 2;
-                         const innerLiquid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 24), new THREE.MeshStandardMaterial({color}));
-                         innerLiquid.position.y = 0.4;
+
+                         const innerLiquidGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 32);
+                         innerLiquidGeo.translate(0, 0.6, 0); // Shift pivot to bottom for smooth vertical scaling
+                         const innerLiquid = new THREE.Mesh(innerLiquidGeo, createLiquidMaterial(color));
+                         // innerLiquid.position.y = 0; // Handled by translate
                          innerLiquid.scale.set(0.98, 0.98, 0.98); // Prevent Z-fighting
                          beaker.add(innerLiquid);
                          mesh = beaker;
@@ -1165,7 +1144,12 @@ const LabScene: React.FC<{
                 if (container.contents) {
                     liquidMesh.visible = true; // Make sure it's visible
                     const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
-                    liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
+                    // Explicitly preserve X and Z scale to 0.98 while animating Y
+                    liquidMesh.scale.set(
+                        0.98,
+                        THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1),
+                        0.98
+                    );
                     const mat = liquidMesh.material as THREE.MeshStandardMaterial;
                     const temp = container.contents.temperature || 25;
 
@@ -1199,7 +1183,11 @@ const LabScene: React.FC<{
                     mat.emissiveIntensity = Math.min(mat.emissiveIntensity, 0.2);
                 } else {
                     // EMPTY STATE: Shrink liquid to zero
-                    liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2);
+                    liquidMesh.scale.set(
+                        0.98,
+                        THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2),
+                        0.98
+                    );
                     if (liquidMesh.scale.y < 0.01) liquidMesh.visible = false;
                 }
             }
