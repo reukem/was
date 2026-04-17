@@ -104,10 +104,10 @@ const CHEMICALS: Record<string, Chemical> = {
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
-    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', temperature: 550, message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
-    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', temperature: 700, message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
+    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', temperature: 550, effect: 'explosion', message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
+    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', temperature: 700, effect: 'explosion', message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
     { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 60, message: { VN: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.', EN: 'Single displacement reaction. Mg + 2HCl → MgCl₂ + H₂. Rapid hydrogen gas bubbling.' } },
-    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', temperature: 80, message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
+    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', temperature: 80, effect: 'toxic_gas', message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
     { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', temperature: 20, message: { VN: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.', EN: 'Acid-carbonate reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. CO2 bubbling.' } },
     { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 30, message: { VN: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.', EN: 'Strong decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Vigorous bubbling.' } },
     { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', temperature: 15, message: { VN: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.', EN: 'Acid-base neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Releases bubbling CO2.' } },
@@ -115,7 +115,7 @@ const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', temperature: 95, message: { VN: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.', EN: 'Neutralization reaction. HCl + NaOH → NaCl + H₂O. Forms salt solution and releases strong heat.' } },
     { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', temperature: 800, minTemp: 100, message: { VN: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.', EN: 'Synthesis reaction. 2Na + Cl₂ → 2NaCl. Redox reaction forming table salt.' } },
     { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', temperature: 30, message: { VN: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.', EN: 'Precipitation reaction. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Blue Copper(II) Hydroxide precipitate forms.' } },
-    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', temperature: 80, message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } },
+    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', temperature: 80, effect: 'foam', message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } },
     { reactants: ['NaOH', 'PHENOLPHTHALEIN'], product: 'NaOH', resultColor: '#f472b6', temperature: 25, message: { VN: 'Chất chỉ thị đổi màu hồng trong môi trường kiềm.', EN: 'Indicator turns pink in alkaline environment.' } }
 ];
 
@@ -124,6 +124,114 @@ const REACTION_REGISTRY: ReactionEntry[] = [
 // -----------------------------------------------------------------------------
 
 // -- PARTICLE SYSTEM HELPER --
+interface Particle {
+    mesh: THREE.Mesh;
+    velocity: THREE.Vector3;
+    life: number;
+    maxLife: number;
+    scaleStep: number;
+    type: 'spark' | 'smoke' | 'foam' | 'toxic_gas';
+}
+
+class ParticleSystem {
+    private scene: THREE.Scene;
+    private particles: Particle[] = [];
+
+    constructor(scene: THREE.Scene) {
+        this.scene = scene;
+    }
+
+    createExplosion(position: THREE.Vector3, intensity: number = 1.0) {
+        // Glowing sparks
+        const sparkGeo = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+        const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+        for (let i = 0; i < 30 * intensity; i++) {
+            const mesh = new THREE.Mesh(sparkGeo, sparkMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.5; // Offset above beaker
+            this.scene.add(mesh);
+            const v = new THREE.Vector3((Math.random() - 0.5) * 8, Math.random() * 8, (Math.random() - 0.5) * 8).multiplyScalar(intensity);
+            this.particles.push({ mesh, velocity: v, life: 1.0, maxLife: 1.0, scaleStep: -0.05, type: 'spark' });
+        }
+
+        // Dark expanding smoke
+        const smokeGeo = new THREE.DodecahedronGeometry(0.2);
+        const smokeMat = new THREE.MeshStandardMaterial({ color: 0x111111, transparent: true, opacity: 0.8, roughness: 1.0 });
+        for (let i = 0; i < 15 * intensity; i++) {
+            const mesh = new THREE.Mesh(smokeGeo, smokeMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.6;
+            this.scene.add(mesh);
+            const v = new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 3, (Math.random() - 0.5) * 2);
+            this.particles.push({ mesh, velocity: v, life: 2.0, maxLife: 2.0, scaleStep: 0.02, type: 'smoke' });
+        }
+    }
+
+    createFoam(position: THREE.Vector3) {
+        const foamGeo = new THREE.DodecahedronGeometry(0.15);
+        const foamMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, transparent: true, opacity: 0.9, roughness: 0.8 });
+        for (let i = 0; i < 40; i++) {
+            const mesh = new THREE.Mesh(foamGeo, foamMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.2 + Math.random() * 0.2;
+            mesh.position.x += (Math.random() - 0.5) * 0.2;
+            mesh.position.z += (Math.random() - 0.5) * 0.2;
+            this.scene.add(mesh);
+            const v = new THREE.Vector3((Math.random() - 0.5) * 1.5, Math.random() * 4 + 1, (Math.random() - 0.5) * 1.5);
+            this.particles.push({ mesh, velocity: v, life: 3.0, maxLife: 3.0, scaleStep: 0.03, type: 'foam' });
+        }
+    }
+
+    createToxicGas(position: THREE.Vector3) {
+        const gasGeo = new THREE.DodecahedronGeometry(0.25);
+        const gasMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, transparent: true, opacity: 0.6, roughness: 1.0 });
+        for (let i = 0; i < 20; i++) {
+            const mesh = new THREE.Mesh(gasGeo, gasMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.5 + Math.random() * 0.3;
+            this.scene.add(mesh);
+            const v = new THREE.Vector3((Math.random() - 0.5) * 1.0, Math.random() * 1.5 + 0.5, (Math.random() - 0.5) * 1.0);
+            this.particles.push({ mesh, velocity: v, life: 4.0, maxLife: 4.0, scaleStep: 0.015, type: 'toxic_gas' });
+        }
+    }
+
+    update(dt: number) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= dt;
+
+            if (p.life <= 0) {
+                this.scene.remove(p.mesh);
+                if (p.mesh.geometry) p.mesh.geometry.dispose();
+                if (p.mesh.material) (p.mesh.material as THREE.Material).dispose();
+                this.particles.splice(i, 1);
+                continue;
+            }
+
+            p.mesh.position.addScaledVector(p.velocity, dt);
+
+            if (p.type === 'spark') {
+                p.velocity.y -= 9.8 * dt; // Gravity
+                p.mesh.scale.addScalar(p.scaleStep);
+            } else if (p.type === 'smoke') {
+                p.velocity.multiplyScalar(0.95); // Drag
+                p.mesh.scale.addScalar(p.scaleStep);
+                (p.mesh.material as THREE.MeshStandardMaterial).opacity = (p.life / p.maxLife) * 0.8;
+            } else if (p.type === 'foam') {
+                p.velocity.y -= 4.0 * dt; // Light gravity
+                p.velocity.multiplyScalar(0.9); // High drag to pile up
+                p.mesh.scale.addScalar(p.scaleStep);
+            } else if (p.type === 'toxic_gas') {
+                p.velocity.multiplyScalar(0.98);
+                p.mesh.scale.addScalar(p.scaleStep);
+                (p.mesh.material as THREE.MeshStandardMaterial).opacity = (p.life / p.maxLife) * 0.6;
+            }
+
+            // Prevent negative scale crash
+            if (p.mesh.scale.x < 0.01) p.mesh.scale.setScalar(0.01);
+        }
+    }
+}
 
 // -- GEOMETRY GENERATORS --
 const createFlaskGeometry = () => {
@@ -682,7 +790,8 @@ const LabScene: React.FC<{
     const raycaster = useRef(new THREE.Raycaster());
     const pointer = useRef(new THREE.Vector2());
     const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.11)); // Drag plane at table height
-        const analyzerRef = useRef<{ group: THREE.Group; texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } | null>(null);
+    const analyzerRef = useRef<{ group: THREE.Group; texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } | null>(null);
+    const particleSystemRef = useRef<ParticleSystem | null>(null);
 
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
@@ -697,12 +806,15 @@ const LabScene: React.FC<{
         const position = lastEffectPos ? new THREE.Vector3(...lastEffectPos) : new THREE.Vector3(0, 1, 0);
 
         if (lastEffect === 'toxic_gas') {
-                    }
+            particleSystemRef.current?.createToxicGas(position);
+        }
 
         if (lastEffect === 'foam') {
-                    }
+            particleSystemRef.current?.createFoam(position);
+        }
 
         if (lastEffect === 'explosion') {
+            particleSystemRef.current?.createExplosion(position, 1.5);
 
             const flashLight = new THREE.PointLight(0xffaa00, 10, 20);
             flashLight.position.copy(position).add(new THREE.Vector3(0, 1, 0));
@@ -852,6 +964,8 @@ const LabScene: React.FC<{
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
 
+        particleSystemRef.current = new ParticleSystem(scene);
+
         scene.add(createTable());
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 2.5), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 }));
         shelf.position.set(0, 0.5, -3.5);
@@ -967,9 +1081,16 @@ const LabScene: React.FC<{
         window.addEventListener('pointerdown', onPointerDown);
         window.addEventListener('pointerup', onPointerUp);
 
+        const clock = new THREE.Clock();
+
         const animate = () => {
             requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.1); // cap delta time
             controls.update();
+
+            if (particleSystemRef.current) {
+                particleSystemRef.current.update(dt);
+            }
 
                                       // FIXED: ANALYZER UPDATE LOOP
             if (analyzerRef.current) {
