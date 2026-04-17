@@ -88,7 +88,8 @@ const CHEMICALS: Record<string, Chemical> = {
     'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: 'Đồng(II) Sunfat', formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: 'Hợp chất vô cơ màu xanh lam.' },
     'H2O2': { id: 'H2O2', name: 'Oxy Già', formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: 'Chất oxy hóa mạnh.' },
     'KI': { id: 'KI', name: 'Kali Iodua', formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Muối xúc tác tinh thể.' },
-    'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' }
+    'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' },
+    'PHENOLPHTHALEIN': { id: 'PHENOLPHTHALEIN', name: 'Phenolphthalein', formula: 'C20H14O4', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: 'Chất chỉ thị màu.' },
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
@@ -103,7 +104,8 @@ const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.' },
     { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.' },
     { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.' },
-    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.' }
+    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.' },
+    { reactants: ['PHENOLPHTHALEIN', 'NaOH'], product: 'H2O', resultColor: '#e81163', effect: 'bubbles', temperature: 25, message: 'Base Detected! Phenolphthalein turns vibrant pink.' },
 ];
 
 // -----------------------------------------------------------------------------
@@ -1039,7 +1041,7 @@ const LabScene: React.FC<{
                     const liquidGeo = new THREE.CylinderGeometry(0.46, 0.46, 1, 32);
                     liquidGeo.translate(0, 0.5, 0);
                     liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
-                    liquidMesh.scale.set(1, 0.01, 1);
+                    liquidMesh.scale.set(0.98, 0.01, 0.98);
                     liquidMesh.renderOrder = 1;
                     group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
@@ -1052,6 +1054,7 @@ const LabScene: React.FC<{
                          const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial());
                          flask.renderOrder = 2;
                          const innerLiquid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 24), new THREE.MeshStandardMaterial({color}));
+                         innerLiquid.scale.set(0.98, 1.0, 0.98);
                          innerLiquid.position.y = 0.4;
                          flask.add(innerLiquid);
                          mesh = flask;
@@ -1096,7 +1099,7 @@ const LabScene: React.FC<{
                 if (container.contents) {
                     liquidMesh.visible = true; // Make sure it's visible
                     const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
-                    liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
+                    liquidMesh.scale.set(0.98, THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1), 0.98);
                     const mat = liquidMesh.material as THREE.MeshPhysicalMaterial;
                     const baseColor = new THREE.Color(container.contents.color);
                     const temp = container.contents.temperature || 25;
@@ -1115,7 +1118,7 @@ const LabScene: React.FC<{
                     }
                 } else {
                     // EMPTY STATE: Shrink liquid to zero
-                    liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2);
+                    liquidMesh.scale.set(0.98, THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2), 0.98);
                     if (liquidMesh.scale.y < 0.01) liquidMesh.visible = false;
                 }
             }
