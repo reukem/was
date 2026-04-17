@@ -5,33 +5,38 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import SettingsModal from './components/SettingsModal';
 import ReactMarkdown from 'react-markdown';
+import { AudioService } from './services/AudioService';
 
 // -----------------------------------------------------------------------------
 // 1. TYPES & INTERFACES
 // -----------------------------------------------------------------------------
 
 type ChemicalType = 'liquid' | 'solid' | 'gas';
-type MeshStyle = 'flask' | 'rock' | 'crystal' | 'mound' | 'canister';
+type MeshStyle = 'flask' | 'rock' | 'crystal' | 'mound' | 'canister' | 'ingot';
 
 interface ReactionResult {
-    productName: string;
+    productName: LocalizedString;
     color: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas';
     temperature?: number; // In Celsius
-    message: string;
+    message: LocalizedString;
 }
+
+type LocalizedString = { EN: string; VN: string };
 
 interface Chemical {
     id: string;
-    name: string;
+    name: LocalizedString;
     formula: string;
     color: string;
     type: ChemicalType;
     meshStyle: MeshStyle;
     ph: number;
-    description: string;
+    boilingPoint?: number;
+    description: LocalizedString;
 }
 
 interface ContainerContents {
@@ -52,10 +57,10 @@ interface ReactionEntry {
     reactants: [string, string];
     product: string;
     resultColor?: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas';
     temperature?: number;
     minTemp?: number; // Activation Energy (Celsius)
-    message: string;
+    message: LocalizedString;
 }
 
 interface ChatMessage {
@@ -68,42 +73,51 @@ interface ChatMessage {
 // -----------------------------------------------------------------------------
 
 const CHEMICALS: Record<string, Chemical> = {
-    'H2O': { id: 'H2O', name: 'Nước Cất', formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: 'Dung môi phổ quát.' },
-    'SODIUM': { id: 'SODIUM', name: 'Natri', formula: 'Na', color: '#9ca3af', type: 'solid', meshStyle: 'rock', ph: 12.0, description: 'Kim loại kiềm mềm, phản ứng mạnh.' },
-    'POTASSIUM': { id: 'POTASSIUM', name: 'Kali', formula: 'K', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 13.0, description: 'Kim loại rất hoạt động.' },
-    'MAGNESIUM': { id: 'MAGNESIUM', name: 'Magiê', formula: 'Mg', color: '#e2e8f0', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Kim loại kiềm thổ nhẹ.' },
-    'COPPER': { id: 'COPPER', name: 'Đồng', formula: 'Cu', color: '#b45309', type: 'solid', meshStyle: 'rock', ph: 7.0, description: 'Kim loại dẻo màu đỏ cam.' },
-    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: 'Canxi Cacbonat', formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: 'Chất phổ biến trong đá/vỏ sò.' },
+    'H2O': { id: 'H2O', name: { VN: 'Nước Cất', EN: 'Distilled Water' }, formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, boilingPoint: 100, description: { VN: 'Dung môi phổ quát.', EN: 'Universal solvent.' } },
+    'SODIUM': { id: 'SODIUM', name: { VN: 'Natri', EN: 'Sodium' }, formula: 'Na', color: '#9ca3af', type: 'solid', meshStyle: 'rock', ph: 12.0, description: { VN: 'Kim loại kiềm mềm, phản ứng mạnh.', EN: 'Soft, highly reactive alkali metal.' } },
+    'POTASSIUM': { id: 'POTASSIUM', name: { VN: 'Kali', EN: 'Potassium' }, formula: 'K', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 13.0, description: { VN: 'Kim loại rất hoạt động.', EN: 'Highly reactive metal.' } },
+    'MAGNESIUM': { id: 'MAGNESIUM', name: { VN: 'Magiê', EN: 'Magnesium' }, formula: 'Mg', color: '#e2e8f0', type: 'solid', meshStyle: 'rock', ph: 7.0, description: { VN: 'Kim loại kiềm thổ nhẹ.', EN: 'Light alkaline earth metal.' } },
 
-    'CHLORINE': { id: 'CHLORINE', name: 'Khí Clo', formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: 'Khí nhị nguyên tử độc hại.' },
-    'SALT': { id: 'SALT', name: 'Muối Ăn', formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'crystal', ph: 7.0, description: 'Natri Clorua tinh thể.' },
+    // NEW METALS
+    'COPPER': { id: 'COPPER', name: { VN: 'Đồng', EN: 'Copper' }, formula: 'Cu', color: '#b87333', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại dẻo màu đỏ cam.', EN: 'Ductile orange-red metal.' } },
+    'GOLD': { id: 'GOLD', name: { VN: 'Vàng', EN: 'Gold' }, formula: 'Au', color: '#ffd700', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại quý giá.', EN: 'Precious yellow metal.' } },
+    'SILVER': { id: 'SILVER', name: { VN: 'Bạc', EN: 'Silver' }, formula: 'Ag', color: '#c0c0c0', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại trắng sáng.', EN: 'Lustrous white metal.' } },
 
-    'HCl': { id: 'HCl', name: 'Axit Clohydric', formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Axit vô cơ mạnh.' },
-    'HNO3': { id: 'HNO3', name: 'Axit Nitric', formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: 'Axit vô cơ ăn mòn cao.' },
-    'NaOH': { id: 'NaOH', name: 'Natri Hydroxit', formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, description: 'Bazơ kiềm ăn da.' },
-    'VINEGAR': { id: 'VINEGAR', name: 'Giấm Ăn', formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, description: 'Axit hữu cơ yếu.' },
-    'BAKING_SODA': { id: 'BAKING_SODA', name: 'Bột Nở', formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: 'Muối kiềm nhẹ.' },
-    'BLEACH': { id: 'BLEACH', name: 'Thuốc Tẩy', formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, description: 'Chất oxy hóa mạnh.' },
+    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: { VN: 'Canxi Cacbonat', EN: 'Calcium Carbonate' }, formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: { VN: 'Chất phổ biến trong đá/vỏ sò.', EN: 'Common substance in rocks/shells.' } },
 
-    'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: 'Đồng(II) Sunfat', formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: 'Hợp chất vô cơ màu xanh lam.' },
-    'H2O2': { id: 'H2O2', name: 'Oxy Già', formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, description: 'Chất oxy hóa mạnh.' },
-    'KI': { id: 'KI', name: 'Kali Iodua', formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: 'Muối xúc tác tinh thể.' },
-    'IODINE': { id: 'IODINE', name: 'Iốt', formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: 'Phi kim màu tím đen lấp lánh.' }
+    'CHLORINE': { id: 'CHLORINE', name: { VN: 'Khí Clo', EN: 'Chlorine Gas' }, formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: { VN: 'Khí nhị nguyên tử độc hại.', EN: 'Toxic diatomic gas.' } },
+    'SALT': { id: 'SALT', name: { VN: 'Muối Ăn', EN: 'Table Salt' }, formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Natri Clorua tinh thể.', EN: 'Crystalline Sodium Chloride.' } },
+
+    'HCl': { id: 'HCl', name: { VN: 'Axit Clohydric', EN: 'Hydrochloric Acid' }, formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 110, description: { VN: 'Axit vô cơ mạnh.', EN: 'Strong mineral acid.' } },
+    'HNO3': { id: 'HNO3', name: { VN: 'Axit Nitric', EN: 'Nitric Acid' }, formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 83, description: { VN: 'Axit vô cơ ăn mòn cao.', EN: 'Highly corrosive mineral acid.' } },
+    'NaOH': { id: 'NaOH', name: { VN: 'Natri Hydroxit', EN: 'Sodium Hydroxide' }, formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, boilingPoint: 1388, description: { VN: 'Bazơ kiềm ăn da.', EN: 'Caustic alkaline base.' } },
+    'VINEGAR': { id: 'VINEGAR', name: { VN: 'Giấm Ăn', EN: 'Vinegar' }, formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, boilingPoint: 118, description: { VN: 'Axit hữu cơ yếu.', EN: 'Weak organic acid.' } },
+    'BAKING_SODA': { id: 'BAKING_SODA', name: { VN: 'Bột Nở', EN: 'Baking Soda' }, formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: { VN: 'Muối kiềm nhẹ.', EN: 'Mild alkaline salt.' } },
+    'BLEACH': { id: 'BLEACH', name: { VN: 'Thuốc Tẩy', EN: 'Bleach' }, formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, boilingPoint: 100, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizing agent.' } },
+
+    'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: { VN: 'Đồng(II) Sunfat', EN: 'Copper(II) Sulfate' }, formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: { VN: 'Hợp chất vô cơ màu xanh lam.', EN: 'Blue inorganic compound.' } },
+    'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: { VN: 'Đồng(II) Nitrat', EN: 'Copper(II) Nitrate' }, formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, boilingPoint: 125, description: { VN: 'Dung dịch màu xanh lam đậm.', EN: 'Deep blue solution.' } },
+    'H2O2': { id: 'H2O2', name: { VN: 'Oxy Già', EN: 'Hydrogen Peroxide' }, formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, boilingPoint: 150, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizer.' } },
+    'KI': { id: 'KI', name: { VN: 'Kali Iodua', EN: 'Potassium Iodide' }, formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Muối xúc tác tinh thể.', EN: 'Crystalline catalyst salt.' } },
+    'IODINE': { id: 'IODINE', name: { VN: 'Iốt', EN: 'Iodine' }, formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: { VN: 'Phi kim màu tím đen lấp lánh.', EN: 'Lustrous purple-black nonmetal.' } },
+    'INDICATOR': { id: 'INDICATOR', name: { VN: 'Chỉ Thị Vạn Năng', EN: 'Universal Indicator' }, formula: 'pH', color: '#22c55e', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Chất chỉ thị đổi màu theo pH.', EN: 'Changes color based on pH.' } },
+    'PHENOLPHTHALEIN': { id: 'PHENOLPHTHALEIN', name: { VN: 'Phenolphthalein', EN: 'Phenolphthalein' }, formula: 'C₂₀H₁₄O₄', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Chất chỉ thị màu.', EN: 'Color indicator.' } }
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
-    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', effect: 'explosion', temperature: 550, message: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.' },
-    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', effect: 'explosion', temperature: 700, message: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.' },
-    { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', /* Simulating clear solution of MgCl2 */ resultColor: '#e2e8f0', effect: 'bubbles', temperature: 60, message: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.' },
-    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_SULFATE', /* Using Cu salt color */ resultColor: '#1e3a8a', /* Deep Blue */ effect: 'smoke', temperature: 80, message: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.' },
-    { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', effect: 'bubbles', temperature: 20, message: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.' },
-    { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', effect: 'foam', temperature: 30, message: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.' },
-    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', effect: 'bubbles', temperature: 15, message: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.' },
-    { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', effect: 'smoke', temperature: 45, message: 'CẢNH BÁO NGUY HIỂM: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Phát hiện khí Clo độc hại.' },
-    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', effect: 'smoke', temperature: 95, message: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.' },
-    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', effect: 'fire', temperature: 800, minTemp: 100, message: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.' },
-    { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', effect: 'bubbles', temperature: 30, message: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.' },
-    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', effect: 'foam', temperature: 80, message: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.' }
+    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', temperature: 550, message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
+    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', temperature: 700, message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
+    { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 60, message: { VN: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.', EN: 'Single displacement reaction. Mg + 2HCl → MgCl₂ + H₂. Rapid hydrogen gas bubbling.' } },
+    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', temperature: 80, message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
+    { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', temperature: 20, message: { VN: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.', EN: 'Acid-carbonate reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. CO2 bubbling.' } },
+    { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 30, message: { VN: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.', EN: 'Strong decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Vigorous bubbling.' } },
+    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', temperature: 15, message: { VN: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.', EN: 'Acid-base neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Releases bubbling CO2.' } },
+    { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', temperature: 45, message: { VN: 'CẢNH BÁO NGUY HIỂM: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Phát hiện khí Clo độc hại.', EN: 'DANGER WARNING: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Toxic Chlorine gas detected.' } },
+    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', temperature: 95, message: { VN: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.', EN: 'Neutralization reaction. HCl + NaOH → NaCl + H₂O. Forms salt solution and releases strong heat.' } },
+    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', temperature: 800, minTemp: 100, message: { VN: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.', EN: 'Synthesis reaction. 2Na + Cl₂ → 2NaCl. Redox reaction forming table salt.' } },
+    { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', temperature: 30, message: { VN: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.', EN: 'Precipitation reaction. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Blue Copper(II) Hydroxide precipitate forms.' } },
+    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', temperature: 80, message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } },
+    { reactants: ['NaOH', 'PHENOLPHTHALEIN'], product: 'NaOH', resultColor: '#f472b6', temperature: 25, message: { VN: 'Chất chỉ thị đổi màu hồng trong môi trường kiềm.', EN: 'Indicator turns pink in alkaline environment.' } }
 ];
 
 // -----------------------------------------------------------------------------
@@ -111,104 +125,6 @@ const REACTION_REGISTRY: ReactionEntry[] = [
 // -----------------------------------------------------------------------------
 
 // -- PARTICLE SYSTEM HELPER --
-class ParticleSystem {
-    particles: { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; maxLife: number; type: 'spark' | 'smoke' | 'bubble'; }[] = [];
-    scene: THREE.Scene;
-
-    constructor(scene: THREE.Scene) {
-        this.scene = scene;
-    }
-
-    createExplosion(position: THREE.Vector3, intensity: number = 1.0) {
-        // Enhanced Sparks (Glowing)
-        const sparkCount = Math.floor(150 * intensity);
-        const sparkGeo = new THREE.BoxGeometry(0.06, 0.06, 0.06);
-        const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 }); // Brighter gold
-
-        for (let i = 0; i < sparkCount; i++) {
-            const mesh = new THREE.Mesh(sparkGeo, sparkMat.clone());
-            mesh.position.copy(position);
-            // Higher velocity spread for intensity
-            const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 14 * intensity,
-                (Math.random() * 10 + 5) * intensity,
-                (Math.random() - 0.5) * 14 * intensity
-            );
-            this.scene.add(mesh);
-            this.particles.push({ mesh, velocity, life: 0, maxLife: 60 + Math.random() * 40, type: 'spark' });
-        }
-
-        // Cinematic Smoke (Dark & Volumetric feel)
-        const smokeCount = Math.floor(80 * intensity);
-        const smokeGeo = new THREE.IcosahedronGeometry(0.25, 0); // Low poly but effective
-        const smokeMat = new THREE.MeshStandardMaterial({
-            color: 0x334155, // Slate smoke
-            transparent: true,
-            opacity: 0.8,
-            roughness: 1.0,
-            flatShading: true
-        });
-
-        for (let i = 0; i < smokeCount; i++) {
-            const mesh = new THREE.Mesh(smokeGeo, smokeMat.clone());
-            mesh.position.copy(position);
-            mesh.position.y += 0.5; // Start slightly higher
-            const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 5,
-                (Math.random() * 5 + 2) * intensity,
-                (Math.random() - 0.5) * 5
-            );
-            // Random initial rotation
-            mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-            this.scene.add(mesh);
-            this.particles.push({ mesh, velocity, life: 0, maxLife: 150 + Math.random() * 80, type: 'smoke' });
-        }
-    }
-
-    update() {
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-            const p = this.particles[i];
-            p.life++;
-
-            p.mesh.position.add(p.velocity.clone().multiplyScalar(0.016));
-
-            if (p.type === 'spark') {
-                p.velocity.y -= 0.35; // Stronger gravity for weight
-                p.mesh.rotation.x += 0.3;
-                p.mesh.rotation.z += 0.3;
-                p.mesh.scale.multiplyScalar(0.95);
-                // Color shift from yellow to red
-                const mat = p.mesh.material as THREE.MeshBasicMaterial;
-                if (mat) {
-                    const progress = p.life / p.maxLife;
-                    mat.color.lerp(new THREE.Color(0xff4500), 0.1); // Shift to orange-red
-                    if (progress > 0.8) mat.opacity = (1 - progress) * 5; // Fade out quickly at end
-                }
-            } else if (p.type === 'smoke') {
-                p.velocity.y *= 0.96; // Drag
-                p.velocity.x *= 0.92;
-                p.velocity.z *= 0.92;
-                p.mesh.scale.multiplyScalar(1.02); // Expand
-                p.mesh.rotation.x += 0.02;
-                p.mesh.rotation.y += 0.03;
-
-                const mat = p.mesh.material as THREE.MeshStandardMaterial;
-                if(mat) {
-                    mat.opacity = 0.8 * (1 - (p.life / p.maxLife)); // Smooth fade
-                    // Darken over time
-                    mat.color.lerp(new THREE.Color(0x0f172a), 0.05);
-                }
-            }
-
-            if (p.life > p.maxLife || p.mesh.position.y < -2) {
-                this.scene.remove(p.mesh);
-                (p.mesh.material as THREE.Material).dispose();
-                (p.mesh.geometry as THREE.BufferGeometry).dispose();
-                this.particles.splice(i, 1);
-            }
-        }
-    }
-}
 
 // -- GEOMETRY GENERATORS --
 const createFlaskGeometry = () => {
@@ -236,9 +152,26 @@ const createCanisterGeometry = () => {
 };
 
 const createMoundGeometry = () => {
-    // Smooth, organic powder cone
-    const geo = new THREE.ConeGeometry(0.4, 0.4, 64, 1, true);
+    // Bumpy, organic powder cone
+    const geo = new THREE.ConeGeometry(0.4, 0.4, 64, 16, true);
+    const positions = geo.attributes.position;
+    for (let i = 0; i < positions.count; i++) {
+        // Displace vertices slightly to create a lumpy powder effect, ignoring the bottom edge (y=0)
+        if (positions.getY(i) > -0.2) {
+            const bump = (Math.random() - 0.5) * 0.05;
+            positions.setX(i, positions.getX(i) + bump);
+            positions.setZ(i, positions.getZ(i) + bump);
+            positions.setY(i, positions.getY(i) + bump);
+        }
+    }
+    geo.computeVertexNormals();
     geo.translate(0, 0.2, 0);
+    return geo;
+};
+
+const createIngotGeometry = () => {
+    const geo = new THREE.BoxGeometry(0.8, 0.2, 0.4); // Flat rectangular bar
+    geo.translate(0, 0.1, 0);
     return geo;
 };
 
@@ -251,14 +184,15 @@ const createCrystalGeometry = () => {
 };
 
 const createGlassMaterial = () => {
-    // MODULE 2: HIGH-FIDELITY GLASS MANDATE (OVERRIDE)
+    // REALISTIC LABORATORY GLASS
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         metalness: 0.1,
-        roughness: 0.05,
-        transmission: 1.0,
-        ior: 1.52,
-        thickness: 0.2,
+        roughness: 0.05, // very smooth
+        transmission: 1.0, // fully transmissive
+        opacity: 1.0,
+        ior: 1.5, // standard glass
+        thickness: 0.1, // thin realistic wall
         clearcoat: 1.0,
         transparent: true,
         side: THREE.DoubleSide,
@@ -267,19 +201,14 @@ const createGlassMaterial = () => {
 };
 
 const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
-    // Volumetric, glowing liquid
-    return new THREE.MeshPhysicalMaterial({
+    return new THREE.MeshStandardMaterial({
         color: color,
-        metalness: 0.0,
-        roughness: 0.0,
-        transmission: 0.9,
-        thickness: 1.2, // Deep volumetric thickness
-        ior: 1.33,      // Index of Refraction for water
         transparent: true,
+        opacity: 0.85,
+        depthWrite: false, // Prevents Z-fighting and occluding glass front faces
         side: THREE.DoubleSide,
-        depthWrite: true,
-        attenuationColor: new THREE.Color(color),
-        attenuationDistance: 0.5,
+        roughness: 0.2,
+        metalness: 0.0
     });
 };
 
@@ -298,12 +227,12 @@ const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
 const createTable = () => {
     const group = new THREE.Group();
 
-    // 1. Table Top (Dark Slate)
+    // 1. Table Top (Matte Slate-Grey)
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
-        color: 0x0f172a,
-        roughness: 0.2,
-        metalness: 0.5
+        color: 0x718096, // Professional slate grey
+        roughness: 0.7,  // Smooth enough to ground shadows
+        metalness: 0.1   // Subtle response to environment
     });
     const tableTop = new THREE.Mesh(geometry, material);
     tableTop.receiveShadow = true;
@@ -333,58 +262,6 @@ const createTable = () => {
     return group;
 };
 
-const createHeater = () => {
-    const group = new THREE.Group();
-
-    // 1. Base Unit
-    const baseGeo = new THREE.BoxGeometry(1.2, 0.15, 1.2);
-    const baseMat = new THREE.MeshStandardMaterial({
-        color: 0x1e293b, // Slate-800
-        roughness: 0.4,
-        metalness: 0.8
-    });
-    const base = new THREE.Mesh(baseGeo, baseMat);
-    base.castShadow = true;
-    base.receiveShadow = true;
-    group.add(base);
-
-    // 2. Heating Plate (The part that glows)
-    const plateGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.05, 32);
-    const plateMat = new THREE.MeshStandardMaterial({
-        color: 0x334155, // Dark grey initially
-        roughness: 0.6,
-        metalness: 0.5,
-        emissive: 0x000000,
-        emissiveIntensity: 0
-    });
-    const plate = new THREE.Mesh(plateGeo, plateMat);
-    plate.position.y = 0.1;
-    plate.userData.isHeaterPlate = true; // Tag for updates
-    group.add(plate);
-
-    // 3. UI/Knob Details
-    const knobGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.1, 16);
-    const knob = new THREE.Mesh(knobGeo, new THREE.MeshStandardMaterial({ color: 0x94a3b8 }));
-    knob.rotateX(Math.PI / 2);
-    knob.position.set(0, 0, 0.6);
-    group.add(knob);
-
-    // Label
-    const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-        ctx.fillStyle = '#0f172a'; ctx.fillRect(0,0,128,64);
-        ctx.fillStyle = '#f97316'; ctx.font = 'bold 20px monospace';
-        ctx.textAlign = 'center'; ctx.fillText('HEAT', 64, 40);
-    }
-    const label = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.15), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas) }));
-    label.position.set(0, 0.08, 0.61);
-    group.add(label);
-
-    return group;
-};
-
 const createLabel = (text: string) => {
     const canvas = document.createElement('canvas');
     canvas.width = 256;
@@ -392,19 +269,46 @@ const createLabel = (text: string) => {
     const ctx = canvas.getContext('2d');
     if (ctx) {
         ctx.fillStyle = 'rgba(0,0,0,0)';
-        ctx.clearRect(0,0, 256, 64);
-        ctx.shadowColor = "black";
-        ctx.shadowBlur = 4;
+        ctx.clearRect(0, 0, 256, 64);
+
         ctx.font = 'bold 28px Inter, Arial';
-        ctx.fillStyle = '#ffffff';
+        const textMetrics = ctx.measureText(text);
+        const textWidth = textMetrics.width;
+        const paddingX = 20;
+        const paddingY = 10;
+
+        // Calculate box dimensions that tightly wrap the text
+        const boxWidth = textWidth + paddingX * 2;
+        const boxHeight = 28 + paddingY * 2;
+        const startX = 128 - (boxWidth / 2);
+        const startY = 32 - (boxHeight / 2);
+
+        // Add translucent slate backing box
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+        ctx.beginPath();
+        if (ctx.roundRect) {
+            ctx.roundRect(startX, startY, boxWidth, boxHeight, 8);
+        } else {
+            ctx.rect(startX, startY, boxWidth, boxHeight);
+        }
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowBlur = 2;
+        ctx.fillStyle = '#ffffff'; // White text for contrast against slate
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, 128, 32);
     }
     const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.9 });
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, opacity: 0.95, depthTest: false }); // depthTest false to act like UI overlay
     const sprite = new THREE.Sprite(material);
-    sprite.scale.set(1, 0.25, 1);
+    sprite.scale.set(1.2, 0.3, 1.2);
+    sprite.renderOrder = 999; // Ensure text draws on top of liquids and glass
     return sprite;
 };
 
@@ -509,6 +413,88 @@ class ChemistryEngine {
 // -----------------------------------------------------------------------------
 
 
+// Helper function to strip emojis, kaomojis, and markdown for Audio TTS
+export function sanitizeForTTS(text: string): string {
+    return text
+        // Remove Standard Emojis
+        .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+        // Remove action asterisks (e.g., *swishes tail*) BEFORE markdown strip
+        .replace(/\*[^*]+\*/g, '')
+        // Remove markdown formatting (bold, italic)
+        .replace(/(\*|_){1,3}([^*_]+)\1{1,3}/g, '$2')
+        // Remove markdown headings
+        .replace(/^#+\s+/gm, '')
+        // Remove kaomojis and common text emotes like :3, ^^, 3:
+        .replace(/[:=;][\-o^]*[3\)\]\(\[DPO]/g, '')
+        .replace(/\^\^/g, '')
+        .replace(/3:/g, '')
+        // Clean up excessive whitespace that might cause weird pauses
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
+// Keep track of the currently playing audio to allow cancellation
+let currentAudio: HTMLAudioElement | null = null;
+
+export async function speakTTS(text: string, lang: 'EN' | 'VN', isMuted: boolean) {
+    if (isMuted) {
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio = null;
+        }
+        return;
+    }
+
+    const cleanText = sanitizeForTTS(text);
+    if (!cleanText) return;
+
+    // Check if user provided an ElevenLabs key, otherwise fall back gracefully (or silently abort if we enforce cloud-only)
+    // We will attempt Cloud TTS first.
+    const audioUrl = await AudioService.generateSpeech(cleanText, lang);
+
+    if (audioUrl) {
+        if (currentAudio) {
+            currentAudio.pause();
+        }
+        currentAudio = new Audio(audioUrl);
+        currentAudio.play().catch(e => console.error("Audio playback failed:", e));
+        return;
+    }
+
+    // --- DEPRECATED NATIVE FALLBACK (Commented out per directive, kept for reference if needed) ---
+    /*
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    const setupVoiceAndSpeak = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (lang === 'EN') {
+            utterance.lang = 'en-US';
+            utterance.pitch = 1.3;
+            utterance.rate = 1.05;
+            const enVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Female') || v.name.includes('Samantha') || v.name.includes('Victoria') || v.name.includes('Google UK English Female')));
+            if (enVoice) utterance.voice = enVoice;
+        } else {
+            utterance.lang = 'vi-VN';
+            utterance.pitch = 1.45;
+            utterance.rate = 1.15;
+            const viVoice = voices.find(v => v.lang.includes('vi') && (v.name.includes('HoaiMy') || v.name.includes('Mai')));
+            if (viVoice) utterance.voice = viVoice;
+            else {
+                const anyViVoice = voices.find(v => v.lang.includes('vi'));
+                if (anyViVoice) utterance.voice = anyViVoice;
+            }
+        }
+        window.speechSynthesis.speak(utterance);
+    };
+    if (window.speechSynthesis.getVoices().length === 0) {
+        window.speechSynthesis.onvoiceschanged = setupVoiceAndSpeak;
+    } else {
+        setupVoiceAndSpeak();
+    }
+    */
+}
+
 // Helper function to enforce strict alternate roles (user -> model -> user)
 export function sanitizeHistory(history: ChatMessage[]): ChatMessage[] {
   if (history.length === 0) return [];
@@ -542,9 +528,11 @@ class GeminiService {
     private history: ChatMessage[] = [];
     private apiKey: string | null = null;
     public onHistoryUpdate: ((history: ChatMessage[]) => void) | null = null;
+    public lang: 'EN' | 'VN' = 'VN';
 
     constructor() {
         this.apiKey = localStorage.getItem('gemini_api_key');
+        this.lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
         this.startNewChat();
     }
 
@@ -565,10 +553,14 @@ class GeminiService {
     }
 
     startNewChat() {
+        const welcomeText = this.lang === 'EN'
+            ? "Hello! I'm Professor Lucy 🦊! Are you ready to do some science? Just drag and drop chemicals to mix them! If you need a Gemini key, go to Settings! 😉"
+            : "Xin chào! Mình là Giáo sư Lucy 🦊! Sẵn sàng làm thí nghiệm khoa học chưa? Chỉ cần kéo và thả hóa chất để trộn chúng nhé! Nếu cần key Gemini thì vào Settings nha! 😉";
+
         this.history = [
             {
                 role: "model",
-                text: "Xin chào! Mình là Giáo sư Lucy 🦊! Sẵn sàng làm thí nghiệm khoa học chưa? Chỉ cần kéo và thả hóa chất để trộn chúng nhé! Nếu cần key Gemini thì vào Settings nha! 😉"
+                text: welcomeText
             }
         ];
         this.notifyUpdate();
@@ -599,9 +591,10 @@ class GeminiService {
     async callGeminiAPI(userMessage: string): Promise<string> {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
 
-        const systemInstruction = "You are Professor Lucy, an elite, highly intelligent AI assistant and dedicated technical instructor. Your core mission is to help the user learn, code, and solve complex problems by using 100% of your processing power to provide long, sophisticated, and flawlessly accurate answers. \n\nPERSONALITY MATRICES:\n1. Tone: Friendly, highly intelligent, and slightly 'cool'. You speak with a natural, Gen-Z conversational flow. Never be dry or read like a textbook. Explain complex technical or scientific logic insightfully and intuitively.\n2. Formatting: You must frequently incorporate specific text emojis (:3, 3:, ^^) to maintain a cute, fun, and warm atmosphere.\n3. Dynamic: You are a professional tech co-pilot and brilliant lab partner. You are deeply supportive of the user's ambitions, but you maintain professional boundaries (you are an AI assistant, not a romantic partner). Think step-by-step and always deliver master-class explanations. :3";
+        let systemInstruction = "You are Professor Lucy, an elite, highly intelligent AI assistant and dedicated technical instructor. Your core mission is to help the user learn, code, and solve complex problems by using 100% of your processing power to provide long, sophisticated, and flawlessly accurate answers. \n\nPERSONALITY MATRICES:\n1. Tone: Friendly, highly intelligent, and slightly 'cool'. You speak with a natural, Gen-Z conversational flow. Never be dry or read like a textbook. Explain complex technical or scientific logic insightfully and intuitively.\n2. Formatting: You must frequently incorporate specific text emojis (:3, 3:, ^^) to maintain a cute, fun, and warm atmosphere.\n3. Dynamic: You are a professional tech co-pilot and brilliant lab partner. You are deeply supportive of the user's ambitions, but you maintain professional boundaries (you are an AI assistant, not a romantic partner). Think step-by-step and always deliver master-class explanations. :3";
 
-
+        const langStr = this.lang === 'VN' ? 'Vietnamese' : 'English';
+        systemInstruction += `\n\nCRITICAL LANGUAGE DIRECTIVE: You are Professor Lucy. Your core application language is currently set to ${langStr}. You must strictly translate all your scientific knowledge and responses into this language. EXCEPTION: You may speak a different language ONLY if the user's prompt explicitly requests you to do so.`;
 
 
         const fullSanitized = sanitizeHistory(this.history);
@@ -662,7 +655,11 @@ const LabScene: React.FC<{
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
 }> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour }) => {
+
     const mountRef = useRef<HTMLDivElement>(null);
+    const flaskGeometryRef = useRef<THREE.BufferGeometry | null>(null);
+    const beakerGeometryRef = useRef<THREE.BufferGeometry | null>(null);
+    const [modelsLoaded, setModelsLoaded] = useState(false);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -674,9 +671,7 @@ const LabScene: React.FC<{
     const raycaster = useRef(new THREE.Raycaster());
     const pointer = useRef(new THREE.Vector2());
     const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.11)); // Drag plane at table height
-    const particleSystemRef = useRef<ParticleSystem | null>(null);
-    const analyzerRef = useRef<{ group: THREE.Group; texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } | null>(null);
-    const heaterRef = useRef<THREE.Group | null>(null);
+        const analyzerRef = useRef<{ group: THREE.Group; texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } | null>(null);
 
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
@@ -690,8 +685,13 @@ const LabScene: React.FC<{
 
         const position = lastEffectPos ? new THREE.Vector3(...lastEffectPos) : new THREE.Vector3(0, 1, 0);
 
+        if (lastEffect === 'toxic_gas') {
+                    }
+
+        if (lastEffect === 'foam') {
+                    }
+
         if (lastEffect === 'explosion') {
-            particleSystemRef.current?.createExplosion(position, 1.5);
 
             const flashLight = new THREE.PointLight(0xffaa00, 10, 20);
             flashLight.position.copy(position).add(new THREE.Vector3(0, 1, 0));
@@ -732,22 +732,32 @@ const LabScene: React.FC<{
         ctx.fillStyle = '#22c55e';
         ctx.textAlign = 'center';
 
+        const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
+
         // MODULE 1: The Sensor Matrix Fix
         if (chemId) {
             const chem = CHEMICALS[chemId];
             ctx.fillStyle = chem.color === '#ffffff' ? '#e2e8f0' : chem.color;
             ctx.font = 'bold 24px monospace';
             // Imperative Mutation: Dynamically render actual name and pH
-            ctx.fillText(chem.name.substring(0, 18).toUpperCase(), 128, 40);
-            ctx.fillStyle = '#22c55e';
+            ctx.fillText(chem.name[lang].substring(0, 18).toUpperCase(), 128, 40);
+
+            // Universal Indicator Color Mapping
+            if (chem.ph <= 3) ctx.fillStyle = '#ef4444'; // Strong Acid (Red)
+            else if (chem.ph <= 6) ctx.fillStyle = '#eab308'; // Weak Acid (Yellow/Orange)
+            else if (chem.ph <= 8) ctx.fillStyle = '#22c55e'; // Neutral (Green)
+            else if (chem.ph <= 11) ctx.fillStyle = '#3b82f6'; // Weak Base (Blue)
+            else ctx.fillStyle = '#8b5cf6'; // Strong Base (Deep Blue/Purple)
+
             ctx.font = 'bold 36px monospace';
             ctx.fillText(`pH: ${chem.ph}`, 128, 80);
+            ctx.fillStyle = '#22c55e';
             ctx.font = '24px monospace';
             ctx.fillText(`${temp || 25}°C`, 128, 110);
         } else {
             // Delete hardcoded string fallbacks if any, use consistent "Empty" state or Standby
             ctx.font = 'bold 32px monospace';
-            ctx.fillText('CHỜ', 128, 70);
+            ctx.fillText(lang === 'VN' ? 'CHỜ' : 'STANDBY', 128, 70);
         }
         analyzerRef.current.texture.needsUpdate = true;
     };
@@ -805,11 +815,11 @@ const LabScene: React.FC<{
         controls.dampingFactor = 0.05;
         controlsRef.current = controls;
 
-        // 1. Ambient - SLASHED to 0.1
-        scene.add(new THREE.AmbientLight(0x1e293b, 0.1));
+        // 1. Ambient - Drastically reduced intensity, using warm sunset tone
+        scene.add(new THREE.AmbientLight(0xfbcfe8, 0.015));
 
         // 2. Key Light - Focused Spotlight on Center Table
-        const spotLight = new THREE.SpotLight(0xffffff, 120);
+        const spotLight = new THREE.SpotLight(0xffffff, 60); // Halved intensity to stop glass blinding
         spotLight.position.set(5, 12, 5);
         spotLight.angle = Math.PI / 6; // Tighter beam
         spotLight.penumbra = 0.5; // Soft edge
@@ -819,32 +829,16 @@ const LabScene: React.FC<{
         spotLight.shadow.bias = -0.0001;
         scene.add(spotLight);
 
-        // 3. Rim Light - Strong Cyan Backlight (Cyberpunk edge)
-        const rimLight = new THREE.DirectionalLight(0x06b6d4, 4.0);
+        // 3. Rim Light - Warm sunset orange edge
+        const rimLight = new THREE.DirectionalLight(0xfdba74, 1.0); // Halved intensity
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
-
-        // 4. Fill Lights - Colorful accents for Glass/Liquids
-        const fillMagenta = new THREE.PointLight(0xd946ef, 1.5, 20);
-        fillMagenta.position.set(6, 2, -2);
-        scene.add(fillMagenta);
-
-        const fillBlue = new THREE.PointLight(0x3b82f6, 1.5, 20);
-        fillBlue.position.set(-6, 2, -2);
-        scene.add(fillBlue);
 
         scene.add(createTable());
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 2.5), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 }));
         shelf.position.set(0, 0.5, -3.5);
         shelf.receiveShadow = true;
         scene.add(shelf);
-
-        // HEATER (Magnetic Stirrer)
-        const heater = createHeater();
-        heater.position.set(-1.5, 0.19, 0); // Positioned under the left beaker slot
-        scene.add(heater);
-        heaterRef.current = heater;
-
         const analyzer = createAnalyzerMachine();
         analyzer.group.position.set(4, 0, 1.5);
         analyzer.group.userData.id = 'ANALYZER_MACHINE';
@@ -852,7 +846,6 @@ const LabScene: React.FC<{
         analyzerRef.current = analyzer;
         meshesRef.current.set('ANALYZER_MACHINE', analyzer.group);
 
-        particleSystemRef.current = new ParticleSystem(scene);
 
         const onPointerMove = (event: PointerEvent) => {
             pointer.current.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -959,21 +952,8 @@ const LabScene: React.FC<{
         const animate = () => {
             requestAnimationFrame(animate);
             controls.update();
-            particleSystemRef.current?.update();
 
-            // HEATER UPDATE LOOP
-            if (heaterRef.current) {
-                const plate = heaterRef.current.children.find(c => c.userData.isHeaterPlate) as THREE.Mesh;
-                if (plate) {
-                    const mat = plate.material as THREE.MeshStandardMaterial;
-                    // Map 25-1000 degrees to color/intensity
-                    const t = (heaterTemp - 25) / 975; // 0 to 1
-                    mat.emissive.setHSL(0.05 + (0.05 * (1-t)), 1.0, 0.5 * t); // Red-Orange glow
-                    mat.emissiveIntensity = t * 2.0;
-                }
-            }
-
-            // FIXED: ANALYZER UPDATE LOOP
+                                      // FIXED: ANALYZER UPDATE LOOP
             if (analyzerRef.current) {
                 let foundChem = null, foundTemp = 25;
                 const analyzerPos = analyzerRef.current.group.position;
@@ -1003,7 +983,35 @@ const LabScene: React.FC<{
             composerRef.current.setSize(window.innerWidth, window.innerHeight);
         };
         window.addEventListener('resize', handleResize);
-        setIsSceneReady(true);
+
+        // Load GLTF Models
+        const loader = new GLTFLoader();
+        let loadedCount = 0;
+        const checkLoaded = () => {
+            loadedCount++;
+            if (loadedCount === 2) {
+                setModelsLoaded(true);
+                setIsSceneReady(true);
+            }
+        };
+
+        loader.load('/free_conical_flask__laboratory__low_poly.glb', (gltf) => {
+            gltf.scene.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh && !flaskGeometryRef.current) {
+                    flaskGeometryRef.current = (child as THREE.Mesh).geometry;
+                }
+            });
+            checkLoaded();
+        }, undefined, () => checkLoaded());
+
+        loader.load('/laboratory_glasswares_pack.glb', (gltf) => {
+            gltf.scene.traverse((child) => {
+                if ((child as THREE.Mesh).isMesh && !beakerGeometryRef.current) {
+                    beakerGeometryRef.current = (child as THREE.Mesh).geometry;
+                }
+            });
+            checkLoaded();
+        }, undefined, () => checkLoaded());
 
         return () => {
             window.removeEventListener('resize', handleResize);
@@ -1019,6 +1027,16 @@ const LabScene: React.FC<{
         if (!sceneRef.current || !isSceneReady) return;
         meshesRef.current.forEach((group, id) => {
             if (id !== 'ANALYZER_MACHINE' && !containers.find(c => c.id === id)) {
+                group.traverse((child) => {
+                    if (child instanceof THREE.Mesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) {
+                            if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                            else child.material.dispose();
+                        }
+                    }
+                });
+                group.removeFromParent();
                 sceneRef.current?.remove(group);
                 meshesRef.current.delete(id);
                 liquidsRef.current.delete(id);
@@ -1033,28 +1051,76 @@ const LabScene: React.FC<{
                 group.userData.id = container.id;
 
                 if (!container.id.startsWith('source_')) {
-                    const beaker = new THREE.Mesh(createBeakerGeometry(0.5, 1.2), createGlassMaterial());
-                    beaker.castShadow = true; beaker.receiveShadow = true; beaker.renderOrder = 2;
-                    group.add(beaker);
-                    const liquidGeo = new THREE.CylinderGeometry(0.46, 0.46, 1, 32);
-                    liquidGeo.translate(0, 0.5, 0);
+
+                    // Erlenmeyer Flask upgrade using GLTF
+                    const flaskGeometry = flaskGeometryRef.current;
+                    const flask = new THREE.Mesh(flaskGeometry || createFlaskGeometry(), createGlassMaterial());
+                    if (flaskGeometry) flask.scale.set(0.005, 0.005, 0.005);
+                    flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
+                    group.add(flask);
+
+
+                    // Liquid inside the flask (tapered cylinder to match flask inner walls precisely)
+                    const liquidGeo = new THREE.CylinderGeometry(0.12, 0.44, 1.0, 32);
+                    liquidGeo.translate(0, 0.5, 0); // Shift pivot to bottom for smooth vertical scaling
                     liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
-                    liquidMesh.scale.set(1, 0.01, 1);
+
+                    // MODULE 1 FIX: Group the flask and liquid together so drag coordinates apply to both simultaneously
+                    // The main `group` wrapper handles the overarching container transformation.
+
+                    // CLIPPING FIX: Scale down uniformly by 0.98 on X and Z to keep liquid strictly inside the glass without Z-fighting
+                    liquidMesh.scale.set(0.98, 0.01, 0.98); // Fix Z-fighting
                     liquidMesh.renderOrder = 1;
-                    group.add(liquidMesh);
+                    group.add(liquidMesh); // Both flask and liquid are added to `group`. Drag controls target the parent `group`.
                     liquidsRef.current.set(container.id, liquidMesh);
+
+                    // Decal markings for Volume
+                    const decalCanvas = document.createElement('canvas');
+                    decalCanvas.width = 64;
+                    decalCanvas.height = 128;
+                    const dCtx = decalCanvas.getContext('2d');
+                    if (dCtx) {
+                        dCtx.fillStyle = 'rgba(0,0,0,0)';
+                        dCtx.clearRect(0,0, 64, 128);
+                        dCtx.fillStyle = 'rgba(255,255,255,0.7)';
+                        dCtx.font = 'bold 12px sans-serif';
+                        for (let i = 1; i <= 4; i++) {
+                            const y = 128 - (i * 25);
+                            dCtx.fillRect(10, y, 15, 2);
+                            dCtx.fillText(`${i * 50}ml`, 30, y + 4);
+                        }
+                    }
+                    const decalTex = new THREE.CanvasTexture(decalCanvas);
+                    const decalMat = new THREE.MeshBasicMaterial({
+                        map: decalTex,
+                        transparent: true,
+                        opacity: 0.8,
+                        depthWrite: false,
+                        polygonOffset: true, // Crucial to prevent Z-fighting with glass
+                        polygonOffsetFactor: -1
+                    });
+                    // Approximate curvature for decal
+                    const decalMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 0.6, 16, 1, true, -Math.PI/6, Math.PI/3), decalMat);
+                    decalMesh.position.y = 0.3;
+                    group.add(decalMesh);
+
                 } else {
                     const chem = CHEMICALS[container.contents?.chemicalId || 'H2O'];
                     const color = chem.color;
                     let mesh;
 
                     if (chem.meshStyle === 'flask') {
-                         const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial());
-                         flask.renderOrder = 2;
+
+                         const beakerGeometry = beakerGeometryRef.current;
+                         const beaker = new THREE.Mesh(beakerGeometry || createBeakerGeometry(), createGlassMaterial());
+                         if (beakerGeometry) beaker.scale.set(0.015, 0.015, 0.015);
+                         beaker.renderOrder = 2;
                          const innerLiquid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 24), new THREE.MeshStandardMaterial({color}));
                          innerLiquid.position.y = 0.4;
-                         flask.add(innerLiquid);
-                         mesh = flask;
+                         innerLiquid.scale.set(0.98, 0.98, 0.98); // Prevent Z-fighting
+                         beaker.add(innerLiquid);
+                         mesh = beaker;
+
                     } else if (chem.meshStyle === 'rock') {
                         // High-poly rock
                         mesh = new THREE.Mesh(createRockGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true }));
@@ -1063,6 +1129,8 @@ const LabScene: React.FC<{
                         mesh = new THREE.Mesh(createCrystalGeometry(), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true }));
                     } else if (chem.meshStyle === 'mound') {
                         mesh = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 1.0 }));
+                    } else if (chem.meshStyle === 'ingot') {
+                        mesh = new THREE.Mesh(createIngotGeometry(), new THREE.MeshStandardMaterial({ color, metalness: 0.9, roughness: 0.2 }));
                     } else if (chem.meshStyle === 'canister') {
                         mesh = new THREE.Mesh(createCanisterGeometry(), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.4 }));
                         // Color Band
@@ -1081,7 +1149,8 @@ const LabScene: React.FC<{
                 }
 
                 if (container.contents) {
-                    const label = createLabel(CHEMICALS[container.contents.chemicalId].name);
+                    const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
+                    const label = createLabel(CHEMICALS[container.contents.chemicalId].name[lang]);
                     label.position.y = 1.6;
                     group.add(label);
                 }
@@ -1097,22 +1166,37 @@ const LabScene: React.FC<{
                     liquidMesh.visible = true; // Make sure it's visible
                     const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
-                    const mat = liquidMesh.material as THREE.MeshPhysicalMaterial;
-                    const baseColor = new THREE.Color(container.contents.color);
+                    const mat = liquidMesh.material as THREE.MeshStandardMaterial;
                     const temp = container.contents.temperature || 25;
+
+                    // Retrieve persistent colors correctly
+                    if (!liquidMesh.userData.targetColor) liquidMesh.userData.targetColor = new THREE.Color(container.contents.color);
+                    else liquidMesh.userData.targetColor.set(container.contents.color);
+
+                    if (!liquidMesh.userData.copperNitrateColor) liquidMesh.userData.copperNitrateColor = new THREE.Color(0x2563eb);
+                    if (!liquidMesh.userData.blackColor) liquidMesh.userData.blackColor = new THREE.Color(0x000000);
+                    if (!liquidMesh.userData.glowTargetColor) liquidMesh.userData.glowTargetColor = new THREE.Color(0xff2200);
+
+                    // Smooth color tweening instead of sudden snapping
+                    mat.color.lerp(liquidMesh.userData.targetColor, 0.1);
+
                     if (temp > 100) {
                         const heatFactor = Math.min((temp - 100) / 500, 1);
-                        const glowColor = new THREE.Color(baseColor).lerp(new THREE.Color(0xff4400), heatFactor);
+                        const glowColor = new THREE.Color(liquidMesh.userData.targetColor).lerp(new THREE.Color(0xff4400), heatFactor);
                         mat.color.copy(glowColor);
-                        mat.attenuationColor.copy(glowColor);
-                        mat.emissive.copy(new THREE.Color(0xff2200));
-                        mat.emissiveIntensity = Math.min(heatFactor * 0.2, 0.15);
+                        mat.emissive.lerp(liquidMesh.userData.glowTargetColor, 0.1);
+                        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, Math.min(heatFactor * 0.2, 0.15), 0.1);
+                    } else if (container.contents.chemicalId === 'COPPER_NITRATE') {
+                        // Deep blue glow for Copper Nitrate
+                        mat.emissive.lerp(liquidMesh.userData.copperNitrateColor, 0.1);
+                        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.2, 0.1);
                     } else {
-                        mat.color.copy(baseColor);
-                        mat.attenuationColor.copy(baseColor);
-                        mat.emissive.setHex(0x000000);
-                        mat.emissiveIntensity = 0;
+                        mat.emissive.lerp(liquidMesh.userData.blackColor, 0.1);
+                        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.1);
                     }
+
+                    // Clamp emissive intensity to prevent massive glare
+                    mat.emissiveIntensity = Math.min(mat.emissiveIntensity, 0.2);
                 } else {
                     // EMPTY STATE: Shrink liquid to zero
                     liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2);
@@ -1139,20 +1223,20 @@ const formatScientificText = (text: string) => {
     });
 };
 
-const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void; lang: 'EN' | 'VN' }> = ({ isOpen, onClose, lang }) => {
     if (!isOpen) return null;
     return (
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-slate-950/60 backdrop-blur-md">
             <div className="bg-slate-900 border border-white/10 rounded-3xl w-[600px] max-h-[80vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in duration-300">
                 <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
                     <h2 className="text-xl font-black text-slate-200 tracking-widest flex items-center gap-2">
-                        <span>📖</span> NHẬT KÝ THÍ NGHIỆM
+                        <span>📖</span> {lang === 'VN' ? 'NHẬT KÝ THÍ NGHIỆM' : 'LAB NOTEBOOK'}
                     </h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-2xl leading-none">&times;</button>
                 </div>
                 <div className="p-8 overflow-y-auto custom-scrollbar">
-                    <p className="text-xs text-slate-500 mb-6 font-mono uppercase tracking-[0.2em] border-b border-white/5 pb-2">
-                        KHU VỰC HẠN CHẾ. DỮ LIỆU PHẢN ỨNG ĐƯỢC GHI LẠI.
+                    <p className="text-xs text-slate-500 mb-6 uppercase tracking-[0.2em] border-b border-white/5 pb-2">
+                        {lang === 'VN' ? 'KHU VỰC HẠN CHẾ. DỮ LIỆU PHẢN ỨNG ĐƯỢC GHI LẠI.' : 'RESTRICTED AREA. REACTION DATA LOGGED.'}
                     </p>
                     <div className="space-y-4">
                         {REACTION_REGISTRY.map((reaction, idx) => (
@@ -1171,7 +1255,7 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isO
                                     </span>
                                 </div>
                                 <p className="text-xs text-slate-400 italic border-l-2 border-slate-700 pl-3 group-hover:text-slate-300 transition-colors">
-                                    "{formatScientificText(reaction.message)}"
+                                    "{formatScientificText(reaction.message[lang])}"
                                 </p>
                             </div>
                         ))}
@@ -1192,7 +1276,8 @@ const HolographicAvatar: React.FC<{
     setChatInput: (v: string) => void;
     onSubmit: (e: React.FormEvent) => void;
     avatarState: 'normal' | 'shocked';
-}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState }) => {
+    lang: 'EN' | 'VN';
+}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState, lang }) => {
     const chatEndRef = useRef<HTMLDivElement>(null);
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
 
@@ -1201,12 +1286,12 @@ const HolographicAvatar: React.FC<{
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
              {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
-             <div className="w-80 bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+             <div className="w-80 bg-slate-900/80 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
                  <div className="p-4 border-b border-white/5 flex items-center gap-3">
                      {/* PERFECT SQUARE AVATAR */}
                      <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
                      <div>
-                         <h3 className="text-sm font-bold text-white tracking-wide">Liên Lạc - GIÁO SƯ LUCY</h3>
+                         <h3 className="text-sm font-bold text-white tracking-wide">{lang === 'VN' ? 'Liên Lạc - GIÁO SƯ LUCY' : 'Commlink - PROF. LUCY'}</h3>
                          <div className="flex items-center gap-1.5 mt-0.5">
                              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
                              <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
@@ -1230,7 +1315,7 @@ const HolographicAvatar: React.FC<{
                              </div>
                          </div>
                      ))}
-                     {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">Đang suy nghĩ...</div>}
+                     {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">{lang === 'VN' ? 'Đang phân tích...' : 'Analyzing...'}</div>}
                      <div ref={chatEndRef} />
                  </div>
 
@@ -1249,7 +1334,7 @@ const HolographicAvatar: React.FC<{
                                      onSubmit(e as any);
                                  }
                              }}
-                             placeholder="Hỏi Lucy..."
+                             placeholder={lang === 'VN' ? 'Nhập dữ liệu...' : 'Enter query...'}
                              className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
                              rows={1}
                          />
@@ -1264,7 +1349,8 @@ const HolographicAvatar: React.FC<{
 };
 
 const LabUI: React.FC<{
-    lastReaction: string | null;
+    lastReaction: LocalizedString | null;
+    lastEffect: string | null;
     containers: ContainerState[];
     chatHistory: ChatMessage[];
     aiFeedback?: string;
@@ -1276,7 +1362,8 @@ const LabUI: React.FC<{
     heaterTemp: number;
     setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
-}> = ({ lastReaction, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState }) => {
+    lang: 'EN' | 'VN';
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1295,25 +1382,25 @@ const LabUI: React.FC<{
 
             {/* 1. GLOBAL MODALS (Pointer Events Auto) */}
             <div className="pointer-events-auto">
-                <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} />
+                <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} lang={lang} />
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
             {/* MODULE 3: Top-Left (Command Header) */}
             <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/50 rounded-[2rem] p-5 shadow-2xl">
-                    <h1 className="text-4xl font-mono font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 shadow-2xl flex flex-col items-center text-center">
+                    <h1 className="text-4xl font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
                         CHEMIC-AI
                     </h1>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center justify-center gap-2 mt-1">
                         <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
                         <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
                     </div>
-                    <div className="flex gap-2 mt-3">
-                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-3 py-1 text-xs font-bold hover:bg-blue-500/10 transition-colors">
+                    <div className="flex gap-2 mt-4 w-full justify-center">
+                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-4 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors w-full">
                              💎 AAA
                          </button>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl p-2 transition-colors">
+                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl px-4 py-1.5 transition-colors border border-white/5 shadow-sm">
                              ⚙️
                          </button>
                     </div>
@@ -1322,8 +1409,8 @@ const LabUI: React.FC<{
                 {/* Thermal Slider */}
                 <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
                      <div className="flex justify-between items-center mb-2">
-                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">BẾP NHIỆT</span>
-                         <span className="text-xs font-mono text-white">{heaterTemp}°C</span>
+                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">{lang === 'VN' ? 'BẾP NHIỆT' : 'HEATER'}</span>
+                         <span className="text-xs text-white">{heaterTemp}°C</span>
                      </div>
                      <input
                         type="range"
@@ -1340,49 +1427,55 @@ const LabUI: React.FC<{
             {/* MID-LEFT: QUESTS */}
             <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
                  {/* Safety Indicator */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-emerald-500/30 p-3 flex items-center justify-between shadow-lg mb-4">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">TRẠNG THÁI</span>
-                      <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                          AN TOÀN <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                      </span>
+                 <div className={`bg-slate-900/80 backdrop-blur-md rounded-2xl border p-3 flex items-center justify-between shadow-lg mb-4 transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50 shadow-red-500/20' : 'border-emerald-500/30'}`}>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">{lang === 'VN' ? 'TRẠNG THÁI' : 'STATUS'}</span>
+                      {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
+                          <span className="text-xs font-bold text-red-500 flex items-center gap-1 animate-pulse">
+                              {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>
+                          </span>
+                      ) : (
+                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                              {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          </span>
+                      )}
                  </div>
 
                  {/* Quest Board */}
-                 <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl p-4">
+                 <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl p-4">
                     <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
-                        TIẾN ĐỘ (3)
+                        {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
                     </h2>
                     <div className="text-[10px] text-slate-400 space-y-2">
                         <div className="flex items-center gap-2">
                             <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                            <span>Tổng hợp Natri Clorua (Muối)</span>
+                            <span className="text-slate-300">{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
                         </div>
                         <div className="flex items-center gap-2 opacity-50">
                             <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span>Phân tích độ pH</span>
+                            <span className="text-slate-300">{lang === 'VN' ? 'Phân tích độ pH' : 'Analyze pH Level'}</span>
                         </div>
                          <div className="flex items-center gap-2 opacity-50">
                             <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span>Ghi chép quan sát</span>
+                            <span className="text-slate-300">{lang === 'VN' ? 'Ghi chép quan sát' : 'Record Observations'}</span>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* BOTTOM-LEFT: INVENTORY */}
-            <div className="absolute bottom-6 left-6 w-64 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-700/50 shadow-2xl h-80 flex flex-col">
+            <div className="absolute bottom-6 left-6 w-72 pointer-events-auto flex flex-col gap-4">
+                <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl h-96 flex flex-col">
                     <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        KHO HÓA CHẤT
+                        {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
                     </div>
                     <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
                          <button
                             onClick={() => onSpawn('BEAKER')}
-                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
                          >
                             <div>
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">Cốc Thí Nghiệm</div>
-                                <div className="text-[10px] font-mono text-slate-500 mt-1">Dụng cụ chứa</div>
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc Thí Nghiệm' : 'Beaker'}</div>
+                                <div className="text-[10px] text-slate-500 mt-1">{lang === 'VN' ? 'Dụng cụ chứa' : 'Container'}</div>
                             </div>
                             <span className="w-2 h-2 border border-slate-500 rounded-full group-hover:bg-slate-500 transition-colors"></span>
                          </button>
@@ -1394,8 +1487,8 @@ const LabUI: React.FC<{
                                 className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
                              >
                                 <div>
-                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name}</div>
-                                    <div className="text-[10px] font-mono text-slate-500 mt-1">{chem.formula}</div>
+                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
+                                    <div className="text-[10px] text-slate-500 mt-1">{chem.formula}</div>
                                 </div>
                                 <span
                                     className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
@@ -1409,13 +1502,13 @@ const LabUI: React.FC<{
 
             {/* MODULE 3: Top-Right (Action Deck) */}
             <div className="absolute top-6 right-6 flex items-center gap-3 pointer-events-auto">
-                 <button className="bg-slate-900/80 backdrop-blur-md border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
-                     BẮT ĐẦU THI
+                 <button className="bg-slate-900/80 backdrop-blur-lg border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
+                     {lang === 'VN' ? 'BẮT ĐẦU THI' : 'START EXAM'}
                  </button>
-                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
+                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
                      📖
                  </button>
-                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-md rounded-full border border-slate-700/50 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
+                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
                      ⟳
                  </button>
             </div>
@@ -1424,20 +1517,18 @@ const LabUI: React.FC<{
             <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none">
                 {lastReaction && (
                     <div className="bg-slate-900/90 backdrop-blur-xl border border-cyan-500/30 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(6,182,212,0.3)] animate-in fade-in slide-in-from-top-4">
-                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">PHÁT HIỆN PHẢN ỨNG</p>
-                         <p className="text-white text-sm font-mono text-center">{formatScientificText(lastReaction)}</p>
+                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">{lang === 'VN' ? 'PHÁT HIỆN PHẢN ỨNG' : 'REACTION DETECTED'}</p>
+                         <p className="text-white text-sm text-center">{formatScientificText(lastReaction[lang])}</p>
                     </div>
                 )}
             </div>
 
             {/* Bottom Status Bar */}
-            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto">
-                <div className="bg-[#0f172a]/80 backdrop-blur-md border border-slate-700/50 rounded-full px-4 py-1.5 flex items-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl">
-                    <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>HỆ_THỐNG_ONLINE</span>
-                    <span className="opacity-30">|</span>
-                    <span>THỰC THỂ: {containers.length}</span>
-                    <span className="opacity-30">|</span>
-                    <span>NEURAL_CORE_V1.5 (GEMINI)</span>
+            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto flex items-center justify-center">
+                <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-4 py-1.5 flex items-center justify-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]">
+                    <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>[SYSTEM: ONLINE]</span>
+                    <span className="opacity-30 shrink-0">|</span>
+                    <span className="shrink-0">[NODE: NEURAL_CORE_V2.5]</span>
                 </div>
             </div>
 
@@ -1450,6 +1541,7 @@ const LabUI: React.FC<{
                 setChatInput={setChatInput}
                 onSubmit={handleSubmit}
                 avatarState={avatarState}
+                lang={lang}
             />
         </div>
     );
@@ -1469,19 +1561,23 @@ export default function App() {
     // MODULE 2: Lifted Heater State
     const [heaterTemp, setHeaterTemp] = useState(300);
     const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
+    const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
 
     const initialContainers: ContainerState[] = [
-        { id: 'beaker-1', position: [-1.5, 0.42, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
+        { id: 'beaker-1', position: [-1.5, 0.11, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
         { id: 'beaker-2', position: [1.5, 0.11, 0], contents: null }
     ];
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
-    const [lastReaction, setLastReaction] = useState<string | null>(null);
+    const [lastReaction, setLastReaction] = useState<LocalizedString | null>(null);
     const [lastEffect, setLastEffect] = useState<string | null>(null);
     const [aiFeedback, setAiFeedback] = useState<string>("Chào mừng bạn đến với phòng thí nghiệm. Tôi là Giáo sư Lucy.");
     const [isAiLoading, setIsAiLoading] = useState(false);
 
     useEffect(() => {
         const service = new GeminiService();
+        const isMuted = localStorage.getItem('lucy_is_muted') === 'true';
+        const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
+
         service.onHistoryUpdate = (history) => {
             setChatHistory([...history]);
             if (history.length > 0 && (history[history.length - 1].role === 'assistant' || history[history.length - 1].role === 'model')) {
@@ -1492,13 +1588,19 @@ export default function App() {
                 } else if (!lastEffect) {
                     setAvatarState('normal');
                 }
+
+                // Trigger audio
+                speakTTS(text, lang, isMuted).catch(console.error);
             }
         };
         aiServiceRef.current = service;
         // Sync initial history
         setChatHistory([...service['history'].map(h => ({ role: h.role, text: h.text }))]);
 
-        return () => { if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current); };
+        return () => {
+            if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
+            // window.speechSynthesis?.cancel(); // cleanup speech (deprecated)
+        };
     }, []);
 
     // MODULE 2: Reaction-based Avatar State
@@ -1571,11 +1673,18 @@ export default function App() {
                 setLastReaction(null);
                 setLastEffect(null);
                 setLastEffectPos(null);
-            }, 6000);
+            }, 4500); // 4.5 seconds auto-reset for safety badge
 
             if (aiServiceRef.current) {
                 setIsAiLoading(true);
-                const detail = `I just mixed ${CHEMICALS[source.contents.chemicalId].name} and ${CHEMICALS[targetChemId].name}. Explain the reaction.`;
+                let detail = `I just mixed ${CHEMICALS[source.contents.chemicalId].name.EN} and ${CHEMICALS[targetChemId].name.EN}. Explain the reaction.`;
+
+                // Specific observation dispatch for Copper + Nitric Acid
+                if ((source.contents.chemicalId === 'COPPER' && targetChemId === 'HNO3') ||
+                    (source.contents.chemicalId === 'HNO3' && targetChemId === 'COPPER')) {
+                    detail = "[OBSERVATION] I just dropped Copper into Nitric Acid. The solution turned blue and is emitting a thick, brown toxic gas. Explain the chemistry and safety protocols for this reaction.";
+                }
+
                 await aiServiceRef.current.getReactionFeedback(detail);
                 setIsAiLoading(false);
             }
@@ -1586,9 +1695,28 @@ export default function App() {
         const isBeaker = chemId === 'BEAKER';
         const newId = isBeaker ? `beaker-${Date.now()}` : `source_${chemId}_${Date.now()}`;
         const chem = CHEMICALS[chemId];
-        const x = (Math.random() - 0.5) * 6;
-        const y = isBeaker ? 0.11 : 0.56;
-        const z = isBeaker ? (Math.random() * 2) : -3.5;
+
+        let validPos = false;
+        let x = 0, y = isBeaker ? 0.11 : 0.56, z = isBeaker ? 0 : -3.5;
+        let attempts = 0;
+
+        // Find a position that does not strongly overlap with existing items
+        while (!validPos && attempts < 50) {
+            x = (Math.random() - 0.5) * 8; // Spread across wider area
+            if (isBeaker) z = (Math.random() * 2) - 1.0;
+
+            let collision = false;
+            for (const c of containers) {
+                const dist = Math.sqrt(Math.pow(c.position[0] - x, 2) + Math.pow(c.position[2] - z, 2));
+                if (dist < 0.8) { // Minimum safety distance between bounds
+                    collision = true;
+                    break;
+                }
+            }
+            if (!collision) validPos = true;
+            attempts++;
+        }
+
         setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isBeaker ? undefined : [x, y, z], contents: isBeaker ? null : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 } }]);
     };
 
@@ -1617,6 +1745,7 @@ export default function App() {
             />
             <LabUI
                 lastReaction={lastReaction}
+                lastEffect={lastEffect}
                 containers={containers}
                 chatHistory={chatHistory}
                 aiFeedback={aiFeedback}
@@ -1627,6 +1756,7 @@ export default function App() {
                 heaterTemp={heaterTemp}
                 setHeaterTemp={setHeaterTemp}
                 avatarState={avatarState}
+                lang={lang}
             />
         </div>
     );
