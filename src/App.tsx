@@ -652,9 +652,10 @@ const LabScene: React.FC<{
     containers: ContainerState[];
     lastEffect: string | null;
     lastEffectPos: [number, number, number] | null;
+    isAAA: boolean;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
-}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour }) => {
+}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, isAAA, onMove, onPour }) => {
 
     const mountRef = useRef<HTMLDivElement>(null);
     const flaskGeometryRef = useRef<THREE.BufferGeometry | null>(null);
@@ -971,7 +972,11 @@ const LabScene: React.FC<{
                 });
                 updateAnalyzerDisplay(foundChem, foundTemp);
             }
-            composer.render();
+            if (isAAA) {
+                composer.render();
+            } else {
+                renderer.render(scene, camera);
+            }
         };
         animate();
 
@@ -1363,7 +1368,9 @@ const LabUI: React.FC<{
     setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
     lang: 'EN' | 'VN';
-}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang }) => {
+    isAAA: boolean;
+    setIsAAA: (val: boolean) => void;
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, isAAA, setIsAAA }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1397,8 +1404,11 @@ const LabUI: React.FC<{
                         <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
                     </div>
                     <div className="flex gap-2 mt-4 w-full justify-center">
-                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-4 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors w-full">
-                             💎 AAA
+                         <button
+                             onClick={() => setIsAAA(!isAAA)}
+                             className={`border rounded-xl px-4 py-1.5 text-xs font-bold transition-colors w-full ${isAAA ? 'border-blue-500/50 text-blue-400 hover:bg-blue-500/10' : 'border-slate-600 text-slate-500 hover:bg-slate-800'}`}
+                         >
+                             {isAAA ? '💎 AAA' : '⚡ PERF'}
                          </button>
                          <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl px-4 py-1.5 transition-colors border border-white/5 shadow-sm">
                              ⚙️
@@ -1562,6 +1572,7 @@ export default function App() {
     const [heaterTemp, setHeaterTemp] = useState(300);
     const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
     const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
+    const [isAAA, setIsAAA] = useState(true);
 
     const initialContainers: ContainerState[] = [
         { id: 'beaker-1', position: [-1.5, 0.11, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
@@ -1740,6 +1751,7 @@ export default function App() {
                 containers={containers}
                 lastEffect={lastEffect}
                 lastEffectPos={lastEffectPos}
+                isAAA={isAAA}
                 onMove={handleMoveContainer}
                 onPour={handlePour}
             />
@@ -1757,6 +1769,8 @@ export default function App() {
                 setHeaterTemp={setHeaterTemp}
                 avatarState={avatarState}
                 lang={lang}
+                isAAA={isAAA}
+                setIsAAA={setIsAAA}
             />
         </div>
     );
