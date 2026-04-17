@@ -5,7 +5,6 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import SettingsModal from './components/SettingsModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
@@ -105,10 +104,10 @@ const CHEMICALS: Record<string, Chemical> = {
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
-    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', temperature: 550, message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
-    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', temperature: 700, message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
+    { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', temperature: 550, effect: 'explosion', message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
+    { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', temperature: 700, effect: 'explosion', message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
     { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 60, message: { VN: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.', EN: 'Single displacement reaction. Mg + 2HCl → MgCl₂ + H₂. Rapid hydrogen gas bubbling.' } },
-    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', temperature: 80, message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
+    { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', temperature: 80, effect: 'toxic_gas', message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
     { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', temperature: 20, message: { VN: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.', EN: 'Acid-carbonate reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. CO2 bubbling.' } },
     { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 30, message: { VN: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.', EN: 'Strong decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Vigorous bubbling.' } },
     { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', temperature: 15, message: { VN: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.', EN: 'Acid-base neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Releases bubbling CO2.' } },
@@ -116,7 +115,7 @@ const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', temperature: 95, message: { VN: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.', EN: 'Neutralization reaction. HCl + NaOH → NaCl + H₂O. Forms salt solution and releases strong heat.' } },
     { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', temperature: 800, minTemp: 100, message: { VN: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.', EN: 'Synthesis reaction. 2Na + Cl₂ → 2NaCl. Redox reaction forming table salt.' } },
     { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', temperature: 30, message: { VN: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.', EN: 'Precipitation reaction. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Blue Copper(II) Hydroxide precipitate forms.' } },
-    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', temperature: 80, message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } },
+    { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', temperature: 80, effect: 'foam', message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } },
     { reactants: ['NaOH', 'PHENOLPHTHALEIN'], product: 'NaOH', resultColor: '#f472b6', temperature: 25, message: { VN: 'Chất chỉ thị đổi màu hồng trong môi trường kiềm.', EN: 'Indicator turns pink in alkaline environment.' } }
 ];
 
@@ -125,23 +124,129 @@ const REACTION_REGISTRY: ReactionEntry[] = [
 // -----------------------------------------------------------------------------
 
 // -- PARTICLE SYSTEM HELPER --
+interface Particle {
+    mesh: THREE.Mesh;
+    velocity: THREE.Vector3;
+    life: number;
+    maxLife: number;
+    scaleStep: number;
+    type: 'spark' | 'smoke' | 'foam' | 'toxic_gas';
+}
+
+class ParticleSystem {
+    private scene: THREE.Scene;
+    private particles: Particle[] = [];
+
+    constructor(scene: THREE.Scene) {
+        this.scene = scene;
+    }
+
+    createExplosion(position: THREE.Vector3, intensity: number = 1.0) {
+        // Glowing sparks
+        const sparkGeo = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+        const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+        for (let i = 0; i < 30 * intensity; i++) {
+            const mesh = new THREE.Mesh(sparkGeo, sparkMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.5; // Offset above beaker
+            this.scene.add(mesh);
+            const v = new THREE.Vector3((Math.random() - 0.5) * 8, Math.random() * 8, (Math.random() - 0.5) * 8).multiplyScalar(intensity);
+            this.particles.push({ mesh, velocity: v, life: 1.0, maxLife: 1.0, scaleStep: -0.05, type: 'spark' });
+        }
+
+        // Dark expanding smoke
+        const smokeGeo = new THREE.DodecahedronGeometry(0.2);
+        const smokeMat = new THREE.MeshStandardMaterial({ color: 0x111111, transparent: true, opacity: 0.8, roughness: 1.0 });
+        for (let i = 0; i < 15 * intensity; i++) {
+            const mesh = new THREE.Mesh(smokeGeo, smokeMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.6;
+            this.scene.add(mesh);
+            const v = new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 3, (Math.random() - 0.5) * 2);
+            this.particles.push({ mesh, velocity: v, life: 2.0, maxLife: 2.0, scaleStep: 0.02, type: 'smoke' });
+        }
+    }
+
+    createFoam(position: THREE.Vector3) {
+        const foamGeo = new THREE.DodecahedronGeometry(0.15);
+        const foamMat = new THREE.MeshStandardMaterial({ color: 0xfef3c7, transparent: true, opacity: 0.9, roughness: 0.8 });
+        for (let i = 0; i < 40; i++) {
+            const mesh = new THREE.Mesh(foamGeo, foamMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.2 + Math.random() * 0.2;
+            mesh.position.x += (Math.random() - 0.5) * 0.2;
+            mesh.position.z += (Math.random() - 0.5) * 0.2;
+            this.scene.add(mesh);
+            const v = new THREE.Vector3((Math.random() - 0.5) * 1.5, Math.random() * 4 + 1, (Math.random() - 0.5) * 1.5);
+            this.particles.push({ mesh, velocity: v, life: 3.0, maxLife: 3.0, scaleStep: 0.03, type: 'foam' });
+        }
+    }
+
+    createToxicGas(position: THREE.Vector3) {
+        const gasGeo = new THREE.DodecahedronGeometry(0.25);
+        const gasMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, transparent: true, opacity: 0.6, roughness: 1.0 });
+        for (let i = 0; i < 20; i++) {
+            const mesh = new THREE.Mesh(gasGeo, gasMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.5 + Math.random() * 0.3;
+            this.scene.add(mesh);
+            const v = new THREE.Vector3((Math.random() - 0.5) * 1.0, Math.random() * 1.5 + 0.5, (Math.random() - 0.5) * 1.0);
+            this.particles.push({ mesh, velocity: v, life: 4.0, maxLife: 4.0, scaleStep: 0.015, type: 'toxic_gas' });
+        }
+    }
+
+    update(dt: number) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            p.life -= dt;
+
+            if (p.life <= 0) {
+                this.scene.remove(p.mesh);
+                if (p.mesh.geometry) p.mesh.geometry.dispose();
+                if (p.mesh.material) (p.mesh.material as THREE.Material).dispose();
+                this.particles.splice(i, 1);
+                continue;
+            }
+
+            p.mesh.position.addScaledVector(p.velocity, dt);
+
+            if (p.type === 'spark') {
+                p.velocity.y -= 9.8 * dt; // Gravity
+                p.mesh.scale.addScalar(p.scaleStep);
+            } else if (p.type === 'smoke') {
+                p.velocity.multiplyScalar(0.95); // Drag
+                p.mesh.scale.addScalar(p.scaleStep);
+                (p.mesh.material as THREE.MeshStandardMaterial).opacity = (p.life / p.maxLife) * 0.8;
+            } else if (p.type === 'foam') {
+                p.velocity.y -= 4.0 * dt; // Light gravity
+                p.velocity.multiplyScalar(0.9); // High drag to pile up
+                p.mesh.scale.addScalar(p.scaleStep);
+            } else if (p.type === 'toxic_gas') {
+                p.velocity.multiplyScalar(0.98);
+                p.mesh.scale.addScalar(p.scaleStep);
+                (p.mesh.material as THREE.MeshStandardMaterial).opacity = (p.life / p.maxLife) * 0.6;
+            }
+
+            // Prevent negative scale crash
+            if (p.mesh.scale.x < 0.01) p.mesh.scale.setScalar(0.01);
+        }
+    }
+}
 
 // -- GEOMETRY GENERATORS --
 const createFlaskGeometry = () => {
     const points = [];
-    // High-poly smooth curve for the flask belly
-    for (let i = 0; i <= 40; i++) {
-        const t = i / 40;
-        const x = Math.sin(t * Math.PI) * 0.45 + 0.1;
-        points.push(new THREE.Vector2(x, t * 0.8));
-    }
-    points.push(new THREE.Vector2(0.12, 0.8)); // Neck base
-    points.push(new THREE.Vector2(0.12, 1.15)); // Tall neck
-    // Thick, realistic beveled laboratory rim
-    points.push(new THREE.Vector2(0.18, 1.17));
-    points.push(new THREE.Vector2(0.18, 1.20));
-    points.push(new THREE.Vector2(0.11, 1.20));
-    return new THREE.LatheGeometry(points, 128);
+    // Base and conical sides
+    points.push(new THREE.Vector2(0, 0)); // center
+    points.push(new THREE.Vector2(0.45, 0)); // outer base
+    // Conical slope up to neck
+    points.push(new THREE.Vector2(0.15, 0.8)); // neck base
+    points.push(new THREE.Vector2(0.15, 1.15)); // tall neck
+    // Rim
+    points.push(new THREE.Vector2(0.2, 1.17));
+    points.push(new THREE.Vector2(0.2, 1.20));
+    points.push(new THREE.Vector2(0.14, 1.20));
+    return new THREE.LatheGeometry(points, 64);
 };
 
 const createCanisterGeometry = () => {
@@ -186,21 +291,19 @@ const createCrystalGeometry = () => {
 const createGlassMaterial = () => {
     // REALISTIC LABORATORY GLASS
     return new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
-        metalness: 0.1,
-        roughness: 0.05, // very smooth
-        transmission: 1.0, // fully transmissive
+        color: '#ffffff',
+        transmission: 1.0,
         opacity: 1.0,
-        ior: 1.5, // standard glass
-        thickness: 0.1, // thin realistic wall
-        clearcoat: 1.0,
         transparent: true,
+        roughness: 0.05,
+        ior: 1.45,
+        thickness: 0.05,
         side: THREE.DoubleSide,
         depthWrite: false
     });
 };
 
-const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
+const createLiquidMaterial = (color: THREE.ColorRepresentation, clipPlane?: THREE.Plane) => {
     return new THREE.MeshStandardMaterial({
         color: color,
         transparent: true,
@@ -208,20 +311,39 @@ const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
         depthWrite: false, // Prevents Z-fighting and occluding glass front faces
         side: THREE.DoubleSide,
         roughness: 0.2,
-        metalness: 0.0
+        metalness: 0.0,
+        clippingPlanes: clipPlane ? [clipPlane] : [],
     });
 };
 
-const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
+const createBeakerGeometry = (radius: number = 0.4, height: number = 1.0) => {
     const points = [];
-    points.push(new THREE.Vector2(0, 0));
-    points.push(new THREE.Vector2(radius, 0));
-    points.push(new THREE.Vector2(radius, height));
-    // Pronounced, thick glass rim for the beaker
-    points.push(new THREE.Vector2(radius + 0.08, height + 0.03));
-    points.push(new THREE.Vector2(radius + 0.08, height + 0.07));
-    points.push(new THREE.Vector2(radius - 0.03, height + 0.07));
-    return new THREE.LatheGeometry(points, 128);
+    points.push(new THREE.Vector2(0, 0)); // Center of base
+    points.push(new THREE.Vector2(radius, 0)); // Outer edge of base
+    points.push(new THREE.Vector2(radius, height)); // Straight wall
+    // Outward rim
+    points.push(new THREE.Vector2(radius + 0.05, height + 0.02));
+    points.push(new THREE.Vector2(radius + 0.05, height + 0.05));
+    points.push(new THREE.Vector2(radius - 0.02, height + 0.05));
+    return new THREE.LatheGeometry(points, 64);
+};
+
+const createFlaskLiquidGeometry = () => {
+    const points = [];
+    // Trace the exact inner walls of the flask geometry
+    points.push(new THREE.Vector2(0, 0)); // center
+    points.push(new THREE.Vector2(0.44, 0)); // inner base (slightly smaller than 0.45 outer)
+    points.push(new THREE.Vector2(0.14, 0.8)); // inner neck base
+    // Note: We don't trace all the way up the neck because liquid height is capped via scaling
+    return new THREE.LatheGeometry(points, 64);
+};
+
+const createBeakerLiquidGeometry = (radius: number = 0.39, height: number = 0.95) => {
+    const points = [];
+    points.push(new THREE.Vector2(0, 0)); // Center of base
+    points.push(new THREE.Vector2(radius, 0)); // Inner edge of base
+    points.push(new THREE.Vector2(radius, height)); // Straight wall up to max liquid line
+    return new THREE.LatheGeometry(points, 64);
 };
 
 const createTable = () => {
@@ -658,9 +780,6 @@ const LabScene: React.FC<{
 }> = ({ heaterTemp, containers, lastEffect, lastEffectPos, isAAA, onMove, onPour }) => {
 
     const mountRef = useRef<HTMLDivElement>(null);
-    const flaskGeometryRef = useRef<THREE.BufferGeometry | null>(null);
-    const beakerGeometryRef = useRef<THREE.BufferGeometry | null>(null);
-    const [modelsLoaded, setModelsLoaded] = useState(false);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -672,7 +791,8 @@ const LabScene: React.FC<{
     const raycaster = useRef(new THREE.Raycaster());
     const pointer = useRef(new THREE.Vector2());
     const plane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.11)); // Drag plane at table height
-        const analyzerRef = useRef<{ group: THREE.Group; texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } | null>(null);
+    const analyzerRef = useRef<{ group: THREE.Group; texture: THREE.CanvasTexture; canvas: HTMLCanvasElement } | null>(null);
+    const particleSystemRef = useRef<ParticleSystem | null>(null);
 
     const onMoveRef = useRef(onMove);
     const onPourRef = useRef(onPour);
@@ -687,12 +807,15 @@ const LabScene: React.FC<{
         const position = lastEffectPos ? new THREE.Vector3(...lastEffectPos) : new THREE.Vector3(0, 1, 0);
 
         if (lastEffect === 'toxic_gas') {
-                    }
+            particleSystemRef.current?.createToxicGas(position);
+        }
 
         if (lastEffect === 'foam') {
-                    }
+            particleSystemRef.current?.createFoam(position);
+        }
 
         if (lastEffect === 'explosion') {
+            particleSystemRef.current?.createExplosion(position, 1.5);
 
             const flashLight = new THREE.PointLight(0xffaa00, 10, 20);
             flashLight.position.copy(position).add(new THREE.Vector3(0, 1, 0));
@@ -796,8 +919,15 @@ const LabScene: React.FC<{
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         // MODULE 1: Exposure Clamp
         renderer.toneMappingExposure = 0.8;
+        // MODULE 2: Enable Local Clipping for Liquid Physics
+        renderer.localClippingEnabled = true;
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
+
+        // MODULE 1: Native High-Fidelity RoomEnvironment
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        pmremGenerator.compileEquirectangularShader();
+        scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
@@ -834,6 +964,8 @@ const LabScene: React.FC<{
         const rimLight = new THREE.DirectionalLight(0xfdba74, 1.0); // Halved intensity
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
+
+        particleSystemRef.current = new ParticleSystem(scene);
 
         scene.add(createTable());
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(10, 0.1, 2.5), new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.1 }));
@@ -950,9 +1082,16 @@ const LabScene: React.FC<{
         window.addEventListener('pointerdown', onPointerDown);
         window.addEventListener('pointerup', onPointerUp);
 
+        const clock = new THREE.Clock();
+
         const animate = () => {
             requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.1); // cap delta time
             controls.update();
+
+            if (particleSystemRef.current) {
+                particleSystemRef.current.update(dt);
+            }
 
                                       // FIXED: ANALYZER UPDATE LOOP
             if (analyzerRef.current) {
@@ -989,34 +1128,8 @@ const LabScene: React.FC<{
         };
         window.addEventListener('resize', handleResize);
 
-        // Load GLTF Models
-        const loader = new GLTFLoader();
-        let loadedCount = 0;
-        const checkLoaded = () => {
-            loadedCount++;
-            if (loadedCount === 2) {
-                setModelsLoaded(true);
-                setIsSceneReady(true);
-            }
-        };
-
-        loader.load('/free_conical_flask__laboratory__low_poly.glb', (gltf) => {
-            gltf.scene.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh && !flaskGeometryRef.current) {
-                    flaskGeometryRef.current = (child as THREE.Mesh).geometry;
-                }
-            });
-            checkLoaded();
-        }, undefined, () => checkLoaded());
-
-        loader.load('/laboratory_glasswares_pack.glb', (gltf) => {
-            gltf.scene.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh && !beakerGeometryRef.current) {
-                    beakerGeometryRef.current = (child as THREE.Mesh).geometry;
-                }
-            });
-            checkLoaded();
-        }, undefined, () => checkLoaded());
+        // Scene ready since we use procedural geometry
+        setIsSceneReady(true);
 
         return () => {
             window.removeEventListener('resize', handleResize);
@@ -1055,59 +1168,55 @@ const LabScene: React.FC<{
                 group = new THREE.Group();
                 group.userData.id = container.id;
 
-                if (!container.id.startsWith('source_')) {
+                if (container.id.startsWith('flask-') || container.id.startsWith('beaker-')) {
+                    const isFlask = container.id.startsWith('flask-');
 
-                    // Erlenmeyer Flask upgrade using GLTF
-                    const flaskGeometry = flaskGeometryRef.current;
-                    const flask = new THREE.Mesh(flaskGeometry || createFlaskGeometry(), createGlassMaterial());
-                    if (flaskGeometry) flask.scale.set(0.005, 0.005, 0.005);
-                    flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
-                    group.add(flask);
+                    const glassMesh = new THREE.Mesh(isFlask ? createFlaskGeometry() : createBeakerGeometry(), createGlassMaterial());
+                    glassMesh.castShadow = true; glassMesh.receiveShadow = true; glassMesh.renderOrder = 2;
+                    group.add(glassMesh);
 
+                    const liquidGeo = isFlask ? createFlaskLiquidGeometry() : createBeakerLiquidGeometry();
+                    const fillPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff, fillPlane));
+                    liquidMesh.userData.fillPlane = fillPlane;
+                    liquidMesh.userData.maxFillHeight = isFlask ? 0.8 : 0.95;
 
-                    // Liquid inside the flask (tapered cylinder to match flask inner walls precisely)
-                    const liquidGeo = new THREE.CylinderGeometry(0.12, 0.44, 1.0, 32);
-                    liquidGeo.translate(0, 0.5, 0); // Shift pivot to bottom for smooth vertical scaling
-                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
-
-                    // MODULE 1 FIX: Group the flask and liquid together so drag coordinates apply to both simultaneously
-                    // The main `group` wrapper handles the overarching container transformation.
-
-                    // CLIPPING FIX: Scale down uniformly by 0.98 on X and Z to keep liquid strictly inside the glass without Z-fighting
-                    liquidMesh.scale.set(0.98, 0.01, 0.98); // Fix Z-fighting
+                    liquidMesh.scale.set(0.98, 1.0, 0.98); // Fix Z-fighting
                     liquidMesh.renderOrder = 1;
-                    group.add(liquidMesh); // Both flask and liquid are added to `group`. Drag controls target the parent `group`.
+                    group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
 
-                    // Decal markings for Volume
-                    const decalCanvas = document.createElement('canvas');
-                    decalCanvas.width = 64;
-                    decalCanvas.height = 128;
-                    const dCtx = decalCanvas.getContext('2d');
-                    if (dCtx) {
-                        dCtx.fillStyle = 'rgba(0,0,0,0)';
-                        dCtx.clearRect(0,0, 64, 128);
-                        dCtx.fillStyle = 'rgba(255,255,255,0.7)';
-                        dCtx.font = 'bold 12px sans-serif';
-                        for (let i = 1; i <= 4; i++) {
-                            const y = 128 - (i * 25);
-                            dCtx.fillRect(10, y, 15, 2);
-                            dCtx.fillText(`${i * 50}ml`, 30, y + 4);
+                    if (isFlask) {
+                        // Decal markings for Volume only on flasks for now
+                        const decalCanvas = document.createElement('canvas');
+                        decalCanvas.width = 64;
+                        decalCanvas.height = 128;
+                        const dCtx = decalCanvas.getContext('2d');
+                        if (dCtx) {
+                            dCtx.fillStyle = 'rgba(0,0,0,0)';
+                            dCtx.clearRect(0,0, 64, 128);
+                            dCtx.fillStyle = 'rgba(255,255,255,0.7)';
+                            dCtx.font = 'bold 12px sans-serif';
+                            for (let i = 1; i <= 4; i++) {
+                                const y = 128 - (i * 25);
+                                dCtx.fillRect(10, y, 15, 2);
+                                dCtx.fillText(`${i * 50}ml`, 30, y + 4);
+                            }
                         }
+                        const decalTex = new THREE.CanvasTexture(decalCanvas);
+                        const decalMat = new THREE.MeshBasicMaterial({
+                            map: decalTex,
+                            transparent: true,
+                            opacity: 0.8,
+                            depthWrite: false,
+                            polygonOffset: true, // Crucial to prevent Z-fighting with glass
+                            polygonOffsetFactor: -1
+                        });
+                        // Approximate curvature for decal
+                        const decalMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 0.6, 16, 1, true, -Math.PI/6, Math.PI/3), decalMat);
+                        decalMesh.position.y = 0.3;
+                        group.add(decalMesh);
                     }
-                    const decalTex = new THREE.CanvasTexture(decalCanvas);
-                    const decalMat = new THREE.MeshBasicMaterial({
-                        map: decalTex,
-                        transparent: true,
-                        opacity: 0.8,
-                        depthWrite: false,
-                        polygonOffset: true, // Crucial to prevent Z-fighting with glass
-                        polygonOffsetFactor: -1
-                    });
-                    // Approximate curvature for decal
-                    const decalMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 0.6, 16, 1, true, -Math.PI/6, Math.PI/3), decalMat);
-                    decalMesh.position.y = 0.3;
-                    group.add(decalMesh);
 
                 } else {
                     const chem = CHEMICALS[container.contents?.chemicalId || 'H2O'];
@@ -1116,14 +1225,15 @@ const LabScene: React.FC<{
 
                     if (chem.meshStyle === 'flask') {
 
-                         const beakerGeometry = beakerGeometryRef.current;
-                         const beaker = new THREE.Mesh(beakerGeometry || createBeakerGeometry(), createGlassMaterial());
-                         if (beakerGeometry) beaker.scale.set(0.015, 0.015, 0.015);
+                         const beaker = new THREE.Mesh(createBeakerGeometry(), createGlassMaterial());
                          beaker.renderOrder = 2;
-                         const innerLiquid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 24), new THREE.MeshStandardMaterial({color}));
-                         innerLiquid.position.y = 0.4;
-                         innerLiquid.scale.set(0.98, 0.98, 0.98); // Prevent Z-fighting
+                         const fillPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+                         const innerLiquid = new THREE.Mesh(createBeakerLiquidGeometry(), createLiquidMaterial(color, fillPlane));
+                         innerLiquid.userData.fillPlane = fillPlane;
+                         innerLiquid.userData.maxFillHeight = 0.95; // Match LatheGeometry height
+                         innerLiquid.scale.set(0.98, 1.0, 0.98); // Prevent Z-fighting, maintain Y=1.0
                          beaker.add(innerLiquid);
+                         liquidsRef.current.set(container.id, innerLiquid); // Track beaker liquids too for animations
                          mesh = beaker;
 
                     } else if (chem.meshStyle === 'rock') {
@@ -1169,8 +1279,17 @@ const LabScene: React.FC<{
             if (liquidMesh) {
                 if (container.contents) {
                     liquidMesh.visible = true; // Make sure it's visible
-                    const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
-                    liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1);
+
+                    // MODULE 2: Animate the clipping plane constant instead of Y scale!
+                    if (liquidMesh.userData.fillPlane && liquidMesh.userData.maxFillHeight) {
+                        const localTargetY = container.contents.volume * liquidMesh.userData.maxFillHeight;
+                        // The plane is (0, -1, 0), so it slices everything BELOW a certain world Y value.
+                        // We must set its constant to the maximum Y value we want to keep.
+                        // That is: parent_world_Y + localTargetY
+                        const worldTargetY = group.position.y + localTargetY;
+                        liquidMesh.userData.fillPlane.constant = THREE.MathUtils.lerp(liquidMesh.userData.fillPlane.constant, worldTargetY, 0.1);
+                    }
+
                     const mat = liquidMesh.material as THREE.MeshStandardMaterial;
                     const temp = container.contents.temperature || 25;
 
@@ -1203,9 +1322,16 @@ const LabScene: React.FC<{
                     // Clamp emissive intensity to prevent massive glare
                     mat.emissiveIntensity = Math.min(mat.emissiveIntensity, 0.2);
                 } else {
-                    // EMPTY STATE: Shrink liquid to zero
-                    liquidMesh.scale.y = THREE.MathUtils.lerp(liquidMesh.scale.y, 0, 0.2);
-                    if (liquidMesh.scale.y < 0.01) liquidMesh.visible = false;
+                    // EMPTY STATE: Slice it to nothing
+                    if (liquidMesh.userData.fillPlane) {
+                        const worldTargetY = group.position.y - 0.1; // Slice slightly below bottom
+                        liquidMesh.userData.fillPlane.constant = THREE.MathUtils.lerp(liquidMesh.userData.fillPlane.constant, worldTargetY, 0.2);
+                        if (liquidMesh.userData.fillPlane.constant < group.position.y + 0.01) {
+                            liquidMesh.visible = false;
+                        }
+                    } else {
+                        liquidMesh.visible = false;
+                    }
                 }
             }
         });
@@ -1479,16 +1605,22 @@ const LabUI: React.FC<{
                         {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
                     </div>
                     <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
-                         <button
-                            onClick={() => onSpawn('BEAKER')}
-                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
-                         >
-                            <div>
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc Thí Nghiệm' : 'Beaker'}</div>
-                                <div className="text-[10px] text-slate-500 mt-1">{lang === 'VN' ? 'Dụng cụ chứa' : 'Container'}</div>
-                            </div>
-                            <span className="w-2 h-2 border border-slate-500 rounded-full group-hover:bg-slate-500 transition-colors"></span>
-                         </button>
+                         <div className="flex gap-2">
+                             <button
+                                onClick={() => onSpawn('BEAKER')}
+                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                             >
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc' : 'Beaker'}</div>
+                                <div className="text-[10px] text-slate-500 mt-1">1000ml</div>
+                             </button>
+                             <button
+                                onClick={() => onSpawn('FLASK')}
+                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                             >
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
+                                <div className="text-[10px] text-slate-500 mt-1">Erlenmeyer</div>
+                             </button>
+                         </div>
 
                          {Object.values(CHEMICALS).map(chem => (
                              <button
@@ -1576,7 +1708,7 @@ export default function App() {
 
     const initialContainers: ContainerState[] = [
         { id: 'beaker-1', position: [-1.5, 0.11, 0], contents: { chemicalId: 'H2O', volume: 0.6, color: CHEMICALS['H2O'].color, temperature: 25 } },
-        { id: 'beaker-2', position: [1.5, 0.11, 0], contents: null }
+        { id: 'flask-1', position: [1.5, 0.11, 0], contents: { chemicalId: 'COPPER_SULFATE', volume: 0.4, color: CHEMICALS['COPPER_SULFATE'].color, temperature: 25 } }
     ];
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
     const [lastReaction, setLastReaction] = useState<LocalizedString | null>(null);
@@ -1704,17 +1836,19 @@ export default function App() {
 
     const handleSpawn = (chemId: string) => {
         const isBeaker = chemId === 'BEAKER';
-        const newId = isBeaker ? `beaker-${Date.now()}` : `source_${chemId}_${Date.now()}`;
-        const chem = CHEMICALS[chemId];
+        const isFlask = chemId === 'FLASK';
+        const isContainer = isBeaker || isFlask;
+        const newId = isBeaker ? `beaker-${Date.now()}` : isFlask ? `flask-${Date.now()}` : `source_${chemId}_${Date.now()}`;
+        const chem = !isContainer ? CHEMICALS[chemId] : null;
 
         let validPos = false;
-        let x = 0, y = isBeaker ? 0.11 : 0.56, z = isBeaker ? 0 : -3.5;
+        let x = 0, y = isContainer ? 0.11 : 0.56, z = isContainer ? 0 : -3.5;
         let attempts = 0;
 
         // Find a position that does not strongly overlap with existing items
         while (!validPos && attempts < 50) {
             x = (Math.random() - 0.5) * 8; // Spread across wider area
-            if (isBeaker) z = (Math.random() * 2) - 1.0;
+            if (isContainer) z = (Math.random() * 2) - 1.0;
 
             let collision = false;
             for (const c of containers) {
@@ -1728,7 +1862,7 @@ export default function App() {
             attempts++;
         }
 
-        setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isBeaker ? undefined : [x, y, z], contents: isBeaker ? null : { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 } }]);
+        setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isContainer ? undefined : [x, y, z], contents: isContainer ? null : { chemicalId: chemId, volume: 1.0, color: chem!.color, temperature: 25 } }]);
     };
 
     const handleReset = () => {
