@@ -171,15 +171,15 @@ const createCrystalGeometry = () => {
 };
 
 const createGlassMaterial = () => {
-    // REALISTIC LABORATORY GLASS
+    // PEAK AESTHETIC: BOROSILICATE GLASS
     return new THREE.MeshPhysicalMaterial({
         color: 0xffffff,
         metalness: 0.1,
-        roughness: 0.05, // very smooth
-        transmission: 1.0, // fully transmissive
+        roughness: 0.0, // Borosilicate peak aesthetic
+        transmission: 1.0,
         opacity: 1.0,
-        ior: 1.5, // standard glass
-        thickness: 0.1, // thin realistic wall
+        ior: 1.45, // Borosilicate IOR
+        thickness: 0.02, // Borosilicate realistic wall thickness
         clearcoat: 1.0,
         transparent: true,
         side: THREE.DoubleSide,
@@ -1031,55 +1031,49 @@ const LabScene: React.FC<{
 
                 if (!container.id.startsWith('source_')) {
 
-                    // Erlenmeyer Flask
+                    // Erlenmeyer Flask upgrade using GLTF
                     const flaskGeometry = createFlaskGeometry();
                     const flask = new THREE.Mesh(flaskGeometry, createGlassMaterial());
                     flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
                     group.add(flask);
+
+                    // Peak Aesthetic: Decals for Flask
+                    {
+                        const canvasF = document.createElement('canvas');
+                        canvasF.width = 128;
+                        canvasF.height = 128;
+                        const ctxF = canvasF.getContext('2d');
+                        if (ctxF) {
+                            ctxF.fillStyle = 'white';
+                            ctxF.font = '24px Inter, sans-serif';
+                            ctxF.textAlign = 'center';
+                            ctxF.textBaseline = 'middle';
+                            ctxF.fillText('100ml', 64, 32);
+                            ctxF.fillText('50ml', 64, 80);
+                            ctxF.lineWidth = 2;
+                            ctxF.beginPath(); ctxF.moveTo(20, 32); ctxF.lineTo(40, 32); ctxF.stroke();
+                            ctxF.beginPath(); ctxF.moveTo(20, 80); ctxF.lineTo(40, 80); ctxF.stroke();
+                        }
+                        const decalTexF = new THREE.CanvasTexture(canvasF);
+                        const decalGeoF = new THREE.PlaneGeometry(0.4, 0.4);
+                        const decalMatF = new THREE.MeshBasicMaterial({ map: decalTexF, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+                        const decalMeshF = new THREE.Mesh(decalGeoF, decalMatF);
+                        decalMeshF.position.set(0, 0.4, 0.25);
+                        decalMeshF.rotation.y = 0; // Front face
+                        group.add(decalMeshF);
+                    }
 
                     // Liquid inside the flask
                     const liquidGeo = new THREE.CylinderGeometry(0.15, 0.45, 1.2, 32);
                     liquidGeo.translate(0, 0.6, 0); // Shift pivot to bottom for smooth vertical scaling
                     liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
 
-                    // MODULE 1 FIX: Group the flask and liquid together so drag coordinates apply to both simultaneously
-                    // The main `group` wrapper handles the overarching container transformation.
-
-                    // CLIPPING FIX: Scale down uniformly by 0.98 on X and Z to keep liquid strictly inside the glass without Z-fighting
                     liquidMesh.scale.set(0.98, 0.01, 0.98); // Fix Z-fighting
                     liquidMesh.renderOrder = 1;
-                    group.add(liquidMesh); // Both flask and liquid are added to `group`. Drag controls target the parent `group`.
+                    group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
 
-                    // Decal markings for Volume
-                    const decalCanvas = document.createElement('canvas');
-                    decalCanvas.width = 64;
-                    decalCanvas.height = 128;
-                    const dCtx = decalCanvas.getContext('2d');
-                    if (dCtx) {
-                        dCtx.fillStyle = 'rgba(0,0,0,0)';
-                        dCtx.clearRect(0,0, 64, 128);
-                        dCtx.fillStyle = 'rgba(255,255,255,0.7)';
-                        dCtx.font = 'bold 12px sans-serif';
-                        for (let i = 1; i <= 4; i++) {
-                            const y = 128 - (i * 25);
-                            dCtx.fillRect(10, y, 15, 2);
-                            dCtx.fillText(`${i * 50}ml`, 30, y + 4);
-                        }
-                    }
-                    const decalTex = new THREE.CanvasTexture(decalCanvas);
-                    const decalMat = new THREE.MeshBasicMaterial({
-                        map: decalTex,
-                        transparent: true,
-                        opacity: 0.8,
-                        depthWrite: false,
-                        polygonOffset: true, // Crucial to prevent Z-fighting with glass
-                        polygonOffsetFactor: -1
-                    });
-                    // Approximate curvature for decal
-                    const decalMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 0.6, 16, 1, true, -Math.PI/6, Math.PI/3), decalMat);
-                    decalMesh.position.y = 0.3;
-                    group.add(decalMesh);
+
 
                 } else {
                     const chem = CHEMICALS[container.contents?.chemicalId || 'H2O'];
@@ -1091,13 +1085,38 @@ const LabScene: React.FC<{
                          const beakerGeometry = createBeakerGeometry();
                          const beaker = new THREE.Mesh(beakerGeometry, createGlassMaterial());
                          beaker.renderOrder = 2;
-
                          const innerLiquidGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.2, 32);
                          innerLiquidGeo.translate(0, 0.6, 0); // Shift pivot to bottom for smooth vertical scaling
                          const innerLiquid = new THREE.Mesh(innerLiquidGeo, createLiquidMaterial(color));
-                         // innerLiquid.position.y = 0; // Handled by translate
                          innerLiquid.scale.set(0.98, 0.98, 0.98); // Prevent Z-fighting
                          beaker.add(innerLiquid);
+
+                         // Peak Aesthetic: Decals for Beaker
+                         {
+                             const bCanvas = document.createElement('canvas');
+                             bCanvas.width = 128;
+                             bCanvas.height = 128;
+                             const bCtx = bCanvas.getContext('2d');
+                             if (bCtx) {
+                                 bCtx.fillStyle = 'white';
+                                 bCtx.font = '24px Inter, sans-serif';
+                                 bCtx.textAlign = 'center';
+                                 bCtx.textBaseline = 'middle';
+                                 bCtx.fillText('200ml', 64, 32);
+                                 bCtx.fillText('100ml', 64, 80);
+                                 bCtx.lineWidth = 2;
+                                 bCtx.beginPath(); bCtx.moveTo(20, 32); bCtx.lineTo(40, 32); bCtx.stroke();
+                                 bCtx.beginPath(); bCtx.moveTo(20, 80); bCtx.lineTo(40, 80); bCtx.stroke();
+                             }
+                             const bDecalTex = new THREE.CanvasTexture(bCanvas);
+                             const bDecalGeo = new THREE.PlaneGeometry(0.5, 0.5);
+                             const bDecalMat = new THREE.MeshBasicMaterial({ map: bDecalTex, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+                             const bDecalMesh = new THREE.Mesh(bDecalGeo, bDecalMat);
+                             bDecalMesh.position.set(0, 0.6, 0.401); // Just outside the beaker radius
+                             bDecalMesh.rotation.y = 0;
+                             beaker.add(bDecalMesh);
+                         }
+
                          mesh = beaker;
 
                     } else if (chem.meshStyle === 'rock') {
@@ -1144,7 +1163,6 @@ const LabScene: React.FC<{
                 if (container.contents) {
                     liquidMesh.visible = true; // Make sure it's visible
                     const targetScaleY = Math.max(0.01, container.contents.volume * 1.15);
-                    // Explicitly preserve X and Z scale to 0.98 while animating Y
                     liquidMesh.scale.set(
                         0.98,
                         THREE.MathUtils.lerp(liquidMesh.scale.y, targetScaleY, 0.1),
@@ -1323,10 +1341,10 @@ const HolographicAvatar: React.FC<{
                                  }
                              }}
                              placeholder={lang === 'VN' ? 'Nhập dữ liệu...' : 'Enter query...'}
-                             className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
+                             className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-white/10 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
                              rows={1}
                          />
-                         <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50">
+                         <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-600/20 hover:bg-cyan-600/40 text-slate-200 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50">
                              <span className="text-sm -mt-0.5">^</span>
                          </button>
                      </div>
@@ -1459,10 +1477,10 @@ const LabUI: React.FC<{
                     <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
                          <button
                             onClick={() => onSpawn('BEAKER')}
-                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                            className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-white/10 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
                          >
                             <div>
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc Thí Nghiệm' : 'Beaker'}</div>
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-slate-200 transition-colors">{lang === 'VN' ? 'Cốc Thí Nghiệm' : 'Beaker'}</div>
                                 <div className="text-[10px] text-slate-500 mt-1">{lang === 'VN' ? 'Dụng cụ chứa' : 'Container'}</div>
                             </div>
                             <span className="w-2 h-2 border border-slate-500 rounded-full group-hover:bg-slate-500 transition-colors"></span>
@@ -1472,10 +1490,10 @@ const LabUI: React.FC<{
                              <button
                                 key={chem.id}
                                 onClick={() => onSpawn(chem.id)}
-                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-white/10 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
                              >
                                 <div>
-                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
+                                    <div className="text-xs font-bold text-slate-200 group-hover:text-slate-200 transition-colors">{chem.name[lang]}</div>
                                     <div className="text-[10px] text-slate-500 mt-1">{chem.formula}</div>
                                 </div>
                                 <span
@@ -1504,8 +1522,8 @@ const LabUI: React.FC<{
             {/* MODULE 4: Notification Alignment Matrix */}
             <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50 flex flex-col items-center pointer-events-none">
                 {lastReaction && (
-                    <div className="bg-slate-900/90 backdrop-blur-xl border border-cyan-500/30 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(6,182,212,0.3)] animate-in fade-in slide-in-from-top-4">
-                         <p className="text-cyan-400 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">{lang === 'VN' ? 'PHÁT HIỆN PHẢN ỨNG' : 'REACTION DETECTED'}</p>
+                    <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 px-8 py-4 rounded-2xl shadow-[0_0_40px_rgba(6,182,212,0.3)] animate-in fade-in slide-in-from-top-4">
+                         <p className="text-slate-200 font-bold text-xs uppercase tracking-[0.2em] text-center mb-1">{lang === 'VN' ? 'PHÁT HIỆN PHẢN ỨNG' : 'REACTION DETECTED'}</p>
                          <p className="text-white text-sm text-center">{formatScientificText(lastReaction[lang])}</p>
                     </div>
                 )}

@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@400;700;900&display=swap');
 @import "tailwindcss";
 
 @theme {
@@ -5,9 +6,9 @@
   --color-lab-card: #0f1623;
   --color-lab-border: #1e293b;
   --color-lab-text: #94a3b8;
-  --color-lab-cyan: #06b6d4;
-  --color-lab-cyan-dark: #0891b2;
-  --color-neon-cyan: #00f3ff;
+  --color-lab-cyan: #38bdf8;
+  --color-lab-cyan: #38bdf8;
+  --color-neon-cyan: #e2e8f0;
   --color-neon-purple: #bd00ff;
   --color-glass-bg: rgba(15, 23, 42, 0.6);
   --color-glass-border: rgba(255, 255, 255, 0.1);
@@ -31,7 +32,7 @@
 }
 
 /* Base styles */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Orbitron:wght@400;700;900&display=swap');
+
 
 :root {
   font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
