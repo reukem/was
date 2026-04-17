@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('Verify Lab Interaction (Performance Toggle)', async ({ page }) => {
+test('Verify Lab Interaction (AAA Mode)', async ({ page }) => {
   // Listen for console logs
   page.on('console', msg => console.log(`BROWSER: ${msg.text()}`));
 
@@ -12,29 +12,21 @@ test('Verify Lab Interaction (Performance Toggle)', async ({ page }) => {
   await titleLocator.waitFor({ state: 'visible', timeout: 30000 });
   console.log('App loaded.');
 
-  // Check TTS is removed (no audio element with src)
-  // This is a loose check, as we are looking for lack of external TTS calls.
-  // We can check if `window.speechSynthesis` is called, but that's hard.
-  // Instead, we verify the UI element for Performance Toggle exists.
+  // Verify AAA Mode Badge is present
+  const aaaBadge = page.locator('text=AAA').first();
+  await expect(aaaBadge).toBeVisible();
 
-  // NOTE: We defaulted Performance Mode to TRUE in App.tsx to avoid heavy WebGL in test environment.
-  // So we expect '⚡ FAST' initially.
-  const fastBtn = page.getByRole('button', { name: '⚡ FAST' });
+  // Verify Safe Mode Badge
+  const safeModeBadge = page.locator('text=AN TOÀN').first();
+  await expect(safeModeBadge).toBeVisible();
 
-  // Ensure button is visible and enabled
-  await expect(fastBtn).toBeVisible();
-  await expect(fastBtn).toBeEnabled();
+  // Verify Professor Lucy Header
+  const professorHeader = page.getByRole('heading', { name: 'Professor Lucy', exact: true });
+  await expect(professorHeader).toBeVisible();
 
-  console.log('Clicking Performance Toggle (Disabling Performance Mode -> AAA)...');
-  // Force click via JS to bypass potential overlay/stability issues in headless env
-  await fastBtn.evaluate((node) => node.click());
+  // Verify Canvas
+  const canvas = page.locator('canvas');
+  await expect(canvas).toBeVisible();
 
-  // Wait for state change - button text should change to '💎 AAA'
-  const aaaBtn = page.getByRole('button', { name: '💎 AAA' });
-  await aaaBtn.waitFor({ state: 'visible', timeout: 10000 });
-
-  console.log('AAA Mode Activated.');
-
-  // Test Complete - Avoid toggling back to prevent timeouts from heavy rendering
-  // If we got here, the toggle works and state updated correctly.
+  console.log('AAA Mode Verified.');
 });
