@@ -5,7 +5,6 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import SettingsModal from './components/SettingsModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
@@ -129,19 +128,17 @@ const REACTION_REGISTRY: ReactionEntry[] = [
 // -- GEOMETRY GENERATORS --
 const createFlaskGeometry = () => {
     const points = [];
-    // High-poly smooth curve for the flask belly
-    for (let i = 0; i <= 40; i++) {
-        const t = i / 40;
-        const x = Math.sin(t * Math.PI) * 0.45 + 0.1;
-        points.push(new THREE.Vector2(x, t * 0.8));
-    }
-    points.push(new THREE.Vector2(0.12, 0.8)); // Neck base
-    points.push(new THREE.Vector2(0.12, 1.15)); // Tall neck
-    // Thick, realistic beveled laboratory rim
-    points.push(new THREE.Vector2(0.18, 1.17));
-    points.push(new THREE.Vector2(0.18, 1.20));
-    points.push(new THREE.Vector2(0.11, 1.20));
-    return new THREE.LatheGeometry(points, 128);
+    // Base and conical sides
+    points.push(new THREE.Vector2(0, 0)); // center
+    points.push(new THREE.Vector2(0.45, 0)); // outer base
+    // Conical slope up to neck
+    points.push(new THREE.Vector2(0.15, 0.8)); // neck base
+    points.push(new THREE.Vector2(0.15, 1.15)); // tall neck
+    // Rim
+    points.push(new THREE.Vector2(0.2, 1.17));
+    points.push(new THREE.Vector2(0.2, 1.20));
+    points.push(new THREE.Vector2(0.14, 1.20));
+    return new THREE.LatheGeometry(points, 64);
 };
 
 const createCanisterGeometry = () => {
@@ -186,15 +183,13 @@ const createCrystalGeometry = () => {
 const createGlassMaterial = () => {
     // REALISTIC LABORATORY GLASS
     return new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
-        metalness: 0.1,
-        roughness: 0.05, // very smooth
-        transmission: 1.0, // fully transmissive
+        color: '#ffffff',
+        transmission: 1.0,
         opacity: 1.0,
-        ior: 1.5, // standard glass
-        thickness: 0.1, // thin realistic wall
-        clearcoat: 1.0,
         transparent: true,
+        roughness: 0.05,
+        ior: 1.45,
+        thickness: 0.05,
         side: THREE.DoubleSide,
         depthWrite: false
     });
@@ -212,16 +207,34 @@ const createLiquidMaterial = (color: THREE.ColorRepresentation) => {
     });
 };
 
-const createBeakerGeometry = (radius: number = 0.5, height: number = 1.2) => {
+const createBeakerGeometry = (radius: number = 0.4, height: number = 1.0) => {
     const points = [];
-    points.push(new THREE.Vector2(0, 0));
-    points.push(new THREE.Vector2(radius, 0));
-    points.push(new THREE.Vector2(radius, height));
-    // Pronounced, thick glass rim for the beaker
-    points.push(new THREE.Vector2(radius + 0.08, height + 0.03));
-    points.push(new THREE.Vector2(radius + 0.08, height + 0.07));
-    points.push(new THREE.Vector2(radius - 0.03, height + 0.07));
-    return new THREE.LatheGeometry(points, 128);
+    points.push(new THREE.Vector2(0, 0)); // Center of base
+    points.push(new THREE.Vector2(radius, 0)); // Outer edge of base
+    points.push(new THREE.Vector2(radius, height)); // Straight wall
+    // Outward rim
+    points.push(new THREE.Vector2(radius + 0.05, height + 0.02));
+    points.push(new THREE.Vector2(radius + 0.05, height + 0.05));
+    points.push(new THREE.Vector2(radius - 0.02, height + 0.05));
+    return new THREE.LatheGeometry(points, 64);
+};
+
+const createFlaskLiquidGeometry = () => {
+    const points = [];
+    // Trace the exact inner walls of the flask geometry
+    points.push(new THREE.Vector2(0, 0)); // center
+    points.push(new THREE.Vector2(0.44, 0)); // inner base (slightly smaller than 0.45 outer)
+    points.push(new THREE.Vector2(0.14, 0.8)); // inner neck base
+    // Note: We don't trace all the way up the neck because liquid height is capped via scaling
+    return new THREE.LatheGeometry(points, 64);
+};
+
+const createBeakerLiquidGeometry = (radius: number = 0.39, height: number = 0.95) => {
+    const points = [];
+    points.push(new THREE.Vector2(0, 0)); // Center of base
+    points.push(new THREE.Vector2(radius, 0)); // Inner edge of base
+    points.push(new THREE.Vector2(radius, height)); // Straight wall up to max liquid line
+    return new THREE.LatheGeometry(points, 64);
 };
 
 const createTable = () => {
@@ -657,9 +670,6 @@ const LabScene: React.FC<{
 }> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour }) => {
 
     const mountRef = useRef<HTMLDivElement>(null);
-    const flaskGeometryRef = useRef<THREE.BufferGeometry | null>(null);
-    const beakerGeometryRef = useRef<THREE.BufferGeometry | null>(null);
-    const [modelsLoaded, setModelsLoaded] = useState(false);
     const sceneRef = useRef<THREE.Scene | null>(null);
     const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
     const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -797,6 +807,11 @@ const LabScene: React.FC<{
         renderer.toneMappingExposure = 0.8;
         mountRef.current.appendChild(renderer.domElement);
         rendererRef.current = renderer;
+
+        // MODULE 1: Native High-Fidelity RoomEnvironment
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        pmremGenerator.compileEquirectangularShader();
+        scene.environment = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
 
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
@@ -984,34 +999,8 @@ const LabScene: React.FC<{
         };
         window.addEventListener('resize', handleResize);
 
-        // Load GLTF Models
-        const loader = new GLTFLoader();
-        let loadedCount = 0;
-        const checkLoaded = () => {
-            loadedCount++;
-            if (loadedCount === 2) {
-                setModelsLoaded(true);
-                setIsSceneReady(true);
-            }
-        };
-
-        loader.load('/free_conical_flask__laboratory__low_poly.glb', (gltf) => {
-            gltf.scene.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh && !flaskGeometryRef.current) {
-                    flaskGeometryRef.current = (child as THREE.Mesh).geometry;
-                }
-            });
-            checkLoaded();
-        }, undefined, () => checkLoaded());
-
-        loader.load('/laboratory_glasswares_pack.glb', (gltf) => {
-            gltf.scene.traverse((child) => {
-                if ((child as THREE.Mesh).isMesh && !beakerGeometryRef.current) {
-                    beakerGeometryRef.current = (child as THREE.Mesh).geometry;
-                }
-            });
-            checkLoaded();
-        }, undefined, () => checkLoaded());
+        // Scene ready since we use procedural geometry
+        setIsSceneReady(true);
 
         return () => {
             window.removeEventListener('resize', handleResize);
@@ -1052,26 +1041,19 @@ const LabScene: React.FC<{
 
                 if (!container.id.startsWith('source_')) {
 
-                    // Erlenmeyer Flask upgrade using GLTF
-                    const flaskGeometry = flaskGeometryRef.current;
-                    const flask = new THREE.Mesh(flaskGeometry || createFlaskGeometry(), createGlassMaterial());
-                    if (flaskGeometry) flask.scale.set(0.005, 0.005, 0.005);
+                    // Erlenmeyer Flask
+                    const flask = new THREE.Mesh(createFlaskGeometry(), createGlassMaterial());
                     flask.castShadow = true; flask.receiveShadow = true; flask.renderOrder = 2;
                     group.add(flask);
 
-
-                    // Liquid inside the flask (tapered cylinder to match flask inner walls precisely)
-                    const liquidGeo = new THREE.CylinderGeometry(0.12, 0.44, 1.0, 32);
-                    liquidGeo.translate(0, 0.5, 0); // Shift pivot to bottom for smooth vertical scaling
+                    // Liquid inside the flask using procedural LatheGeometry
+                    const liquidGeo = createFlaskLiquidGeometry();
                     liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff));
-
-                    // MODULE 1 FIX: Group the flask and liquid together so drag coordinates apply to both simultaneously
-                    // The main `group` wrapper handles the overarching container transformation.
 
                     // CLIPPING FIX: Scale down uniformly by 0.98 on X and Z to keep liquid strictly inside the glass without Z-fighting
                     liquidMesh.scale.set(0.98, 0.01, 0.98); // Fix Z-fighting
                     liquidMesh.renderOrder = 1;
-                    group.add(liquidMesh); // Both flask and liquid are added to `group`. Drag controls target the parent `group`.
+                    group.add(liquidMesh);
                     liquidsRef.current.set(container.id, liquidMesh);
 
                     // Decal markings for Volume
@@ -1111,12 +1093,9 @@ const LabScene: React.FC<{
 
                     if (chem.meshStyle === 'flask') {
 
-                         const beakerGeometry = beakerGeometryRef.current;
-                         const beaker = new THREE.Mesh(beakerGeometry || createBeakerGeometry(), createGlassMaterial());
-                         if (beakerGeometry) beaker.scale.set(0.015, 0.015, 0.015);
+                         const beaker = new THREE.Mesh(createBeakerGeometry(), createGlassMaterial());
                          beaker.renderOrder = 2;
-                         const innerLiquid = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 24), new THREE.MeshStandardMaterial({color}));
-                         innerLiquid.position.y = 0.4;
+                         const innerLiquid = new THREE.Mesh(createBeakerLiquidGeometry(), createLiquidMaterial(color));
                          innerLiquid.scale.set(0.98, 0.98, 0.98); // Prevent Z-fighting
                          beaker.add(innerLiquid);
                          mesh = beaker;
