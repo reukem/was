@@ -1281,7 +1281,7 @@ const HolographicAvatar: React.FC<{
     const chatEndRef = useRef<HTMLDivElement>(null);
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
 
-    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy_avatar.png';
+    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy_avatar_v2.jpg';
 
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
