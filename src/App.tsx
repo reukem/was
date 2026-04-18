@@ -53,6 +53,20 @@ interface ContainerState {
     contents: ContainerContents | null;
 }
 
+interface Quest {
+    id: string;
+    title: LocalizedString;
+    trigger: string; // 'synthesize_salt', 'analyze_ph', 'record_observation', 'exothermic', 'toxic'
+}
+
+const QUEST_REGISTRY: Quest[] = [
+    { id: 'q1_salt', title: { VN: 'Tổng hợp Natri Clorua (Muối)', EN: 'Synthesize Sodium Chloride' }, trigger: 'synthesize_salt' },
+    { id: 'q2_ph', title: { VN: 'Phân tích độ pH', EN: 'Analyze pH Level' }, trigger: 'analyze_ph' },
+    { id: 'q3_obs', title: { VN: 'Ghi chép quan sát', EN: 'Record Observations' }, trigger: 'record_observation' },
+    { id: 'q4_exo', title: { VN: 'Tạo phản ứng tỏa nhiệt mạnh', EN: 'Trigger Strong Exothermic Reaction' }, trigger: 'exothermic' },
+    { id: 'q5_toxic', title: { VN: 'Phát hiện khí độc', EN: 'Detect Toxic Gas' }, trigger: 'toxic' }
+];
+
 interface ReactionEntry {
     reactants: [string, string];
     product: string;
@@ -1541,7 +1555,8 @@ const LabUI: React.FC<{
     setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
     lang: 'EN' | 'VN';
-}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang }) => {
+    completedQuests: string[];
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, completedQuests }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1625,22 +1640,25 @@ const LabUI: React.FC<{
 
                      {/* Quest Board */}
                      <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl p-4">
-                        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
-                            {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
+                        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2 flex justify-between">
+                            <span>{lang === 'VN' ? 'TIẾN ĐỘ' : 'PROGRESS'}</span>
+                            <span className="text-cyan-500">({completedQuests.length}/{QUEST_REGISTRY.length})</span>
                         </h2>
                         <div className="text-[10px] text-slate-400 space-y-2">
-                            <div className="flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                                <span className="text-slate-300">{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 opacity-50">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                                <span className="text-slate-300">{lang === 'VN' ? 'Phân tích độ pH' : 'Analyze pH Level'}</span>
-                            </div>
-                             <div className="flex items-center gap-2 opacity-50">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                                <span className="text-slate-300">{lang === 'VN' ? 'Ghi chép quan sát' : 'Record Observations'}</span>
-                            </div>
+                            {QUEST_REGISTRY.map((quest, idx) => {
+                                // Show first 3 quests by default, reveal others as progress is made to avoid overwhelming the UI
+                                if (idx > 2 && completedQuests.length < 2) return null;
+
+                                const isComplete = completedQuests.includes(quest.trigger);
+                                return (
+                                    <div key={quest.id} className={`flex items-center gap-2 transition-all ${isComplete ? 'opacity-100' : 'opacity-70'}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${isComplete ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-yellow-500 animate-pulse'}`}></span>
+                                        <span className={isComplete ? 'text-slate-500 line-through' : 'text-slate-300'}>
+                                            {quest.title[lang]}
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -1758,6 +1776,7 @@ export default function App() {
         { id: 'flask-1', position: [1.5, 0.11, 0], contents: { chemicalId: 'COPPER_SULFATE', volume: 0.4, color: CHEMICALS['COPPER_SULFATE'].color, temperature: 25 } }
     ];
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
+    const [completedQuests, setCompletedQuests] = useState<string[]>([]);
     const [lastReaction, setLastReaction] = useState<LocalizedString | null>(null);
     const [lastEffect, setLastEffect] = useState<string | null>(null);
     const [aiFeedback, setAiFeedback] = useState<string>("Chào mừng bạn đến với phòng thí nghiệm. Tôi là Giáo sư Lucy.");
@@ -1811,6 +1830,12 @@ export default function App() {
         setIsAiLoading(true);
         await aiServiceRef.current.chat(message);
         setIsAiLoading(false);
+
+        // Quest trigger for recording observations
+        if (!completedQuests.includes('record_observation') && (message.toLowerCase().includes('observe') || message.toLowerCase().includes('quan sát') || message.toLowerCase().includes('why') || message.toLowerCase().includes('tại sao') || chatHistory.length > 2)) {
+            setCompletedQuests(prev => [...prev, 'record_observation']);
+            SFXService.playClink();
+        }
     };
 
     const handlePour = useCallback(async (sourceId: string, targetId: string) => {
@@ -1868,6 +1893,24 @@ export default function App() {
                 SFXService.playSizzle();
             }
 
+            // Quest Triggers
+            if (mixResult.resultId === 'SALT' && !completedQuests.includes('synthesize_salt')) {
+                setCompletedQuests(prev => [...prev, 'synthesize_salt']);
+                SFXService.playClink(); // Soft ding for quest complete
+            }
+            if (mixResult.resultId === 'NaOH' && mixResult.resultColor === '#f472b6' && !completedQuests.includes('analyze_ph')) {
+                setCompletedQuests(prev => [...prev, 'analyze_ph']);
+                SFXService.playClink();
+            }
+            if (mixResult.reaction.effect === 'explosion' && !completedQuests.includes('exothermic')) {
+                setCompletedQuests(prev => [...prev, 'exothermic']);
+                SFXService.playClink();
+            }
+            if (mixResult.reaction.effect === 'toxic_gas' && !completedQuests.includes('toxic')) {
+                setCompletedQuests(prev => [...prev, 'toxic']);
+                SFXService.playClink();
+            }
+
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
             reactionTimeoutRef.current = window.setTimeout(() => {
                 setLastReaction(null);
@@ -1887,6 +1930,12 @@ export default function App() {
 
                 await aiServiceRef.current.getReactionFeedback(detail);
                 setIsAiLoading(false);
+
+                // Trigger observation quest automatically if AI is invoked during a reaction
+                if (!completedQuests.includes('record_observation')) {
+                    setCompletedQuests(prev => [...prev, 'record_observation']);
+                    SFXService.playClink();
+                }
             }
         }
     }, [containers, heaterTemp]); // Add heaterTemp to dependencies
@@ -1964,6 +2013,7 @@ export default function App() {
                 setHeaterTemp={setHeaterTemp}
                 avatarState={avatarState}
                 lang={lang}
+                completedQuests={completedQuests}
             />
         </div>
     );
