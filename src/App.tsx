@@ -1824,11 +1824,29 @@ export default function App() {
     }, [containers, heaterTemp]); // Add heaterTemp to dependencies
 
     const handleSpawn = (chemId: string) => {
-        const isBeaker = chemId === 'BEAKER';
-        const isFlask = chemId === 'FLASK';
+        let isBeaker = false;
+        let isFlask = false;
+        let newId = '';
+        let contentsObj = null;
+
+        if (chemId === 'BEAKER' || chemId === 'FLASK') {
+            isBeaker = chemId === 'BEAKER';
+            isFlask = chemId === 'FLASK';
+            newId = isBeaker ? `beaker-${Date.now()}` : `flask-${Date.now()}`;
+            contentsObj = null;
+        } else {
+            const chem = CHEMICALS[chemId];
+            if (chem.type === 'liquid') {
+                isFlask = true;
+                newId = `flask-${Date.now()}`;
+                contentsObj = { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 };
+            } else {
+                newId = `source_${chemId}_${Date.now()}`;
+                contentsObj = { chemicalId: chemId, volume: 1.0, color: chem.color, temperature: 25 };
+            }
+        }
+
         const isContainer = isBeaker || isFlask;
-        const newId = isBeaker ? `beaker-${Date.now()}` : isFlask ? `flask-${Date.now()}` : `source_${chemId}_${Date.now()}`;
-        const chem = !isContainer ? CHEMICALS[chemId] : null;
 
         let validPos = false;
         let x = 0, y = isContainer ? 0.11 : 0.56, z = isContainer ? 0 : -3.5;
@@ -1851,7 +1869,7 @@ export default function App() {
             attempts++;
         }
 
-        setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isContainer ? undefined : [x, y, z], contents: isContainer ? null : { chemicalId: chemId, volume: 1.0, color: chem!.color, temperature: 25 } }]);
+        setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isContainer ? undefined : [x, y, z], contents: contentsObj }]);
     };
 
     const handleReset = () => {
