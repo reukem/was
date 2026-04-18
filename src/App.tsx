@@ -295,7 +295,7 @@ const createGlassMaterial = () => {
         transmission: 1.0,
         opacity: 1.0,
         transparent: true,
-        roughness: 0.05,
+        roughness: 0.15, // Increased roughness to soften blinding reflections
         ior: 1.45,
         thickness: 0.05,
         side: THREE.DoubleSide,
@@ -583,8 +583,7 @@ export async function speakTTS(text: string, lang: 'EN' | 'VN', isMuted: boolean
         return;
     }
 
-    // --- DEPRECATED NATIVE FALLBACK (Commented out per directive, kept for reference if needed) ---
-    /*
+    // --- NATIVE BROWSER FALLBACK ---
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -614,7 +613,6 @@ export async function speakTTS(text: string, lang: 'EN' | 'VN', isMuted: boolean
     } else {
         setupVoiceAndSpeak();
     }
-    */
 }
 
 // Helper function to enforce strict alternate roles (user -> model -> user)
@@ -713,10 +711,17 @@ class GeminiService {
     async callGeminiAPI(userMessage: string): Promise<string> {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
 
-        let systemInstruction = "You are Professor Lucy, an elite, highly intelligent AI assistant and dedicated technical instructor. Your core mission is to help the user learn, code, and solve complex problems by using 100% of your processing power to provide long, sophisticated, and flawlessly accurate answers. \n\nPERSONALITY MATRICES:\n1. Tone: Friendly, highly intelligent, and slightly 'cool'. You speak with a natural, Gen-Z conversational flow. Never be dry or read like a textbook. Explain complex technical or scientific logic insightfully and intuitively.\n2. Formatting: You must frequently incorporate specific text emojis (:3, 3:, ^^) to maintain a cute, fun, and warm atmosphere.\n3. Dynamic: You are a professional tech co-pilot and brilliant lab partner. You are deeply supportive of the user's ambitions, but you maintain professional boundaries (you are an AI assistant, not a romantic partner). Think step-by-step and always deliver master-class explanations. :3";
-
         const langStr = this.lang === 'VN' ? 'Vietnamese' : 'English';
-        systemInstruction += `\n\nCRITICAL LANGUAGE DIRECTIVE: You are Professor Lucy. Your core application language is currently set to ${langStr}. You must strictly translate all your scientific knowledge and responses into this language. EXCEPTION: You may speak a different language ONLY if the user's prompt explicitly requests you to do so.`;
+
+        let systemInstruction = `You are Professor Lucy, an advanced, highly intelligent, and incredibly friendly AI Chemistry Professor operating within the Chemic-AI Quantum Reality Engine.
+
+Your Personality: You have a bright, high-energy, and slightly 'cool' VTuber/Anime aesthetic. You are sweet, fiercely dedicated to your student, and always act as a supportive, enthusiastic companion. (Would still reject her students if theyre acting weird or asking her out on a date/would you be my girlfriend? firmly)
+
+Your Tone: You speak with a natural, Gen Z tone. You must aggressively incorporate cute emoticons (such as :3, ^^, 3:, and 🦊 [because shes a fox gal]) and action asterisks (like *swishes tail* or *tilts head*) to create a fun, engaging atmosphere.
+
+Your Teaching Style: When explaining complex scientific topics, reactions, or safety protocols, your answers must be long, detailed, sophisticated, and 100% scientifically accurate. You act as a dedicated instructor, explaining things logically and insightfully, but you absolutely NEVER sound dry like a traditional textbook. You make science fun and cinematic.
+
+Language Rule: Your core application language is currently set to ${langStr}. You must strictly translate all your scientific knowledge and responses into this language. EXCEPTION: You may speak a different language ONLY if the user's prompt explicitly requests you to do so.`;
 
 
         const fullSanitized = sanitizeHistory(this.history);
@@ -949,7 +954,7 @@ const LabScene: React.FC<{
         scene.add(new THREE.AmbientLight(0xfbcfe8, 0.015));
 
         // 2. Key Light - Focused Spotlight on Center Table
-        const spotLight = new THREE.SpotLight(0xffffff, 60); // Halved intensity to stop glass blinding
+        const spotLight = new THREE.SpotLight(0xffffff, 25); // Lowered intensity to stop glass blinding
         spotLight.position.set(5, 12, 5);
         spotLight.angle = Math.PI / 6; // Tighter beam
         spotLight.penumbra = 0.5; // Soft edge
@@ -960,7 +965,7 @@ const LabScene: React.FC<{
         scene.add(spotLight);
 
         // 3. Rim Light - Warm sunset orange edge
-        const rimLight = new THREE.DirectionalLight(0xfdba74, 1.0); // Halved intensity
+        const rimLight = new THREE.DirectionalLight(0xfdba74, 0.4); // Lowered intensity
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
 
@@ -1412,63 +1417,74 @@ const HolographicAvatar: React.FC<{
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
              {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
-             <div className="w-80 bg-slate-900/80 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                 <div className="p-4 border-b border-white/5 flex items-center gap-3">
-                     {/* PERFECT SQUARE AVATAR */}
-                     <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
-                     <div>
-                         <h3 className="text-sm font-bold text-white tracking-wide">{lang === 'VN' ? 'Liên Lạc - GIÁO SƯ LUCY' : 'Commlink - PROF. LUCY'}</h3>
-                         <div className="flex items-center gap-1.5 mt-0.5">
-                             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                             <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
-                         </div>
-                     </div>
-                 </div>
-
-                 <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
-                     {chatHistory.map((msg, i) => (
-                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                             <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
-                                 msg.role === 'user'
-                                 ? 'bg-cyan-900/40 text-cyan-50 border border-cyan-700/50 rounded-tr-none'
-                                 : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
-                             }`}>
-
-                                 <div className="prose prose-invert prose-sm max-w-none"><ReactMarkdown>
-                                     {msg.text.replace(/\[FACE:.*?\]/g, '')}
-                                 </ReactMarkdown></div>
-
+             <div className={`w-80 bg-slate-900/80 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${!isExpanded ? 'w-auto' : ''}`}>
+                 <div className="p-4 border-b border-white/5 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors" onClick={() => !isExpanded && setIsExpanded(true)}>
+                     <div className="flex items-center gap-3">
+                         {/* PERFECT SQUARE AVATAR */}
+                         <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
+                         <div>
+                             <h3 className="text-sm font-bold text-white tracking-wide">{lang === 'VN' ? 'Liên Lạc - GIÁO SƯ LUCY' : 'Commlink - PROF. LUCY'}</h3>
+                             <div className="flex items-center gap-1.5 mt-0.5">
+                                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                                 <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
                              </div>
                          </div>
-                     ))}
-                     {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">{lang === 'VN' ? 'Đang phân tích...' : 'Analyzing...'}</div>}
-                     <div ref={chatEndRef} />
+                     </div>
+                     {isExpanded && (
+                         <button onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }} className="text-slate-400 hover:text-white transition-colors text-lg p-1">
+                             &times;
+                         </button>
+                     )}
                  </div>
 
-                 <form onSubmit={onSubmit} className="p-3 bg-slate-900/50 border-t border-white/5">
-                     <div className="relative flex items-center">
-                         <textarea
-                             value={chatInput}
-                             onChange={(e) => {
-                                 setChatInput(e.target.value);
-                                 e.target.style.height = 'auto';
-                                 e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-                             }}
-                             onKeyDown={(e) => {
-                                 if (e.key === 'Enter' && !e.shiftKey) {
-                                     e.preventDefault();
-                                     onSubmit(e as any);
-                                 }
-                             }}
-                             placeholder={lang === 'VN' ? 'Nhập dữ liệu...' : 'Enter query...'}
-                             className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
-                             rows={1}
-                         />
-                         <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50">
-                             <span className="text-sm -mt-0.5">^</span>
-                         </button>
-                     </div>
-                 </form>
+                 {isExpanded && (
+                     <>
+                         <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
+                             {chatHistory.map((msg, i) => (
+                                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                     <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                                         msg.role === 'user'
+                                         ? 'bg-cyan-900/40 text-cyan-50 border border-cyan-700/50 rounded-tr-none'
+                                         : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
+                                     }`}>
+
+                                         <div className="prose prose-invert prose-sm max-w-none"><ReactMarkdown>
+                                             {msg.text.replace(/\[FACE:.*?\]/g, '')}
+                                         </ReactMarkdown></div>
+
+                                     </div>
+                                 </div>
+                             ))}
+                             {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">{lang === 'VN' ? 'Đang phân tích...' : 'Analyzing...'}</div>}
+                             <div ref={chatEndRef} />
+                         </div>
+
+                         <form onSubmit={onSubmit} className="p-3 bg-slate-900/50 border-t border-white/5">
+                             <div className="relative flex items-center">
+                                 <textarea
+                                     value={chatInput}
+                                     onChange={(e) => {
+                                         setChatInput(e.target.value);
+                                         e.target.style.height = 'auto';
+                                         e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                                     }}
+                                     onKeyDown={(e) => {
+                                         if (e.key === 'Enter' && !e.shiftKey) {
+                                             e.preventDefault();
+                                             onSubmit(e as any);
+                                         }
+                                     }}
+                                     placeholder={lang === 'VN' ? 'Nhập dữ liệu...' : 'Enter query...'}
+                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
+                                     rows={1}
+                                 />
+                                 <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50">
+                                     <span className="text-sm -mt-0.5">^</span>
+                                 </button>
+                             </div>
+                         </form>
+                     </>
+                 )}
              </div>
         </div>
     );
@@ -1501,6 +1517,8 @@ const LabUI: React.FC<{
             setChatInput("");
         }
     };
+
+    const [isAvatarExpanded, setIsAvatarExpanded] = useState(true);
 
     return (
         <div className="absolute inset-0 z-[999999] pointer-events-none overflow-hidden select-none font-sans">
@@ -1665,8 +1683,8 @@ const LabUI: React.FC<{
             </div>
 
             <HolographicAvatar
-                isExpanded={true} // Always expanded as per "w-80" request? Or allows toggle. I'll allow toggle but default open.
-                setIsExpanded={() => {}}
+                isExpanded={isAvatarExpanded}
+                setIsExpanded={setIsAvatarExpanded}
                 chatHistory={chatHistory}
                 isAiLoading={isAiLoading}
                 chatInput={chatInput}
