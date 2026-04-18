@@ -349,37 +349,29 @@ const createBeakerLiquidGeometry = (radius: number = 0.39, height: number = 0.95
 const createTable = () => {
     const group = new THREE.Group();
 
-    // 1. Table Top (Matte Slate-Grey)
+    // 1. Table Top (Smooth Marble-like Slate)
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
-        color: 0x718096, // Professional slate grey
-        roughness: 0.7,  // Smooth enough to ground shadows
-        metalness: 0.1   // Subtle response to environment
+        color: 0x475569, // Slightly darker, cooler slate grey
+        roughness: 0.25, // Lower roughness for a smooth, reflective surface
+        metalness: 0.3   // Slight metallic response for "clean" look
     });
     const tableTop = new THREE.Mesh(geometry, material);
     tableTop.receiveShadow = true;
     group.add(tableTop);
 
-    // 2. Quantum Grid (Glowing Cyan)
-    // We use a GridHelper but boost its color for the bloom effect
-    const grid = new THREE.GridHelper(12, 24, 0x06b6d4, 0x1e293b);
-    grid.position.y = 0.11;
-    // Enhance grid material for bloom
-    (grid.material as THREE.LineBasicMaterial).color.setHex(0x22d3ee); // Brighter cyan
-    (grid.material as THREE.LineBasicMaterial).opacity = 0.6;
-    (grid.material as THREE.LineBasicMaterial).transparent = true;
-    group.add(grid);
+    // 2. Clean Central Glowing Lines (X and Z axis)
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff }); // Bright neon cyan
 
-    // 3. Emissive Rim (The "Holographic" Edge)
-    const rimGeo = new THREE.BoxGeometry(14.05, 0.22, 8.05);
-    const rimMat = new THREE.MeshBasicMaterial({
-        color: 0x0891b2, // Cyan-700
-        transparent: true,
-        opacity: 0.3,
-        side: THREE.BackSide // Render inside out for a "shell" effect
-    });
-    const rim = new THREE.Mesh(rimGeo, rimMat);
-    group.add(rim);
+    const lineXGeo = new THREE.BoxGeometry(14, 0.01, 0.04);
+    const lineX = new THREE.Mesh(lineXGeo, lineMat);
+    lineX.position.y = 0.105; // Just slightly above the table surface
+    group.add(lineX);
+
+    const lineZGeo = new THREE.BoxGeometry(0.04, 0.01, 8);
+    const lineZ = new THREE.Mesh(lineZGeo, lineMat);
+    lineZ.position.y = 0.105;
+    group.add(lineZ);
 
     return group;
 };
@@ -1532,26 +1524,26 @@ const LabUI: React.FC<{
 
             {/* MODULE 3: Top-Left (Command Header) */}
             <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 shadow-2xl flex flex-col items-center text-center">
-                    <h1 className="text-4xl font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
+                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col items-start w-64">
+                    <h1 className="text-4xl font-sans font-black text-slate-200 tracking-tight leading-none mb-1">
                         CHEMIC-AI
                     </h1>
-                    <div className="flex items-center justify-center gap-2 mt-1">
-                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
+                    <div className="flex items-center gap-2 mb-4">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                        <span className="text-[10px] font-sans font-bold text-slate-300 uppercase tracking-widest">QUANTUM REALITY ENGINE</span>
                     </div>
-                    <div className="flex gap-2 mt-4 w-full justify-center">
-                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-4 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors w-full">
-                             💎 AAA
+                    <div className="flex gap-2 w-full">
+                         <button className="flex-1 border border-blue-500/50 text-blue-400 rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors flex items-center justify-center gap-2">
+                             <span className="text-blue-500">💎</span> AAA
                          </button>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl px-4 py-1.5 transition-colors border border-white/5 shadow-sm">
+                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 py-1.5 transition-colors flex items-center justify-center">
                              ⚙️
                          </button>
                     </div>
                 </div>
 
                 {/* Thermal Slider */}
-                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
+                <div className="bg-slate-950/90 border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
                      <div className="flex justify-between items-center mb-2">
                          <span className="text-[10px] font-bold text-orange-500 tracking-wider">{lang === 'VN' ? 'BẾP NHIỆT' : 'HEATER'}</span>
                          <span className="text-xs text-white">{heaterTemp}°C</span>
