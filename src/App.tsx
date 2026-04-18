@@ -373,6 +373,41 @@ const createTable = () => {
     lineZ.position.y = 0.105;
     group.add(lineZ);
 
+    // 3. Subtle Dark Grid (Perfectly even squares for a 14x8 area)
+    // We use LineSegments to manually draw a precise grid without scaling distortion
+    const gridGeo = new THREE.BufferGeometry();
+    const gridVertices = [];
+    const step = 0.5; // 0.5 unit squares
+    const halfWidth = 14 / 2;
+    const halfDepth = 8 / 2;
+
+    // Lines along Z (parallel to X axis)
+    for (let z = -halfDepth; z <= halfDepth; z += step) {
+        gridVertices.push(-halfWidth, 0, z);
+        gridVertices.push(halfWidth, 0, z);
+    }
+    // Lines along X (parallel to Z axis)
+    for (let x = -halfWidth; x <= halfWidth; x += step) {
+        gridVertices.push(x, 0, -halfDepth);
+        gridVertices.push(x, 0, halfDepth);
+    }
+    gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(gridVertices, 3));
+    const gridMat = new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.8 });
+    const grid = new THREE.LineSegments(gridGeo, gridMat);
+    grid.position.y = 0.102; // Slightly lower than the cyan lines
+    group.add(grid);
+
+    // 4. Emissive Green/Cyan Rim Outline
+    const rimGeo = new THREE.BoxGeometry(14.05, 0.22, 8.05);
+    const rimMat = new THREE.MeshBasicMaterial({
+        color: 0x06b6d4, // Cyan/greenish edge
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.BackSide // Render inside out for outline effect
+    });
+    const rim = new THREE.Mesh(rimGeo, rimMat);
+    group.add(rim);
+
     return group;
 };
 
@@ -1525,7 +1560,7 @@ const LabUI: React.FC<{
             {/* MODULE 3: Top-Left (Command Header) */}
             <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
                 <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col items-start w-64">
-                    <h1 className="text-4xl font-sans font-black text-slate-200 tracking-tight leading-none mb-1">
+                    <h1 className="text-4xl font-sans font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-300 to-slate-500 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] tracking-tight leading-none mb-1">
                         CHEMIC-AI
                     </h1>
                     <div className="flex items-center gap-2 mb-4">
