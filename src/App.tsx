@@ -1565,122 +1565,126 @@ const LabUI: React.FC<{
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
-            {/* MODULE 3: Top-Left (Command Header) */}
-            <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col items-start w-64">
-                    <h1 className="text-4xl font-sans font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-300 to-slate-500 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] tracking-tight leading-none mb-1">
-                        CHEMIC-AI
-                    </h1>
-                    <div className="flex items-center gap-2 mb-4">
-                        <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                        <span className="text-[10px] font-sans font-bold text-slate-300 uppercase tracking-widest">QUANTUM REALITY ENGINE</span>
-                    </div>
-                    <div className="flex gap-2 w-full">
-                         <button className="flex-1 border border-blue-500/50 text-blue-400 rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors flex items-center justify-center gap-2">
-                             <span className="text-blue-500">💎</span> AAA
-                         </button>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 py-1.5 transition-colors flex items-center justify-center">
-                             ⚙️
-                         </button>
-                    </div>
-                </div>
+            {/* MODULE 3: Left Sidebar (Unified Command, Quests, Inventory) */}
+            <div className="absolute top-6 bottom-6 left-6 w-72 flex flex-col gap-4 pointer-events-none">
 
-                {/* Thermal Slider */}
-                <div className="bg-slate-950/90 border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
-                     <div className="flex justify-between items-center mb-2">
-                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">{lang === 'VN' ? 'BẾP NHIỆT' : 'HEATER'}</span>
-                         <span className="text-xs text-white">{heaterTemp}°C</span>
-                     </div>
-                     <input
-                        type="range"
-                        min="25"
-                        max="1000"
-                        step="25"
-                        value={heaterTemp}
-                        onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                     />
-                </div>
-            </div>
-
-            {/* MID-LEFT: QUESTS */}
-            <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
-                 {/* Safety Indicator */}
-                 <div className={`bg-slate-900/80 backdrop-blur-md rounded-2xl border p-3 flex items-center justify-between shadow-lg mb-4 transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50 shadow-red-500/20' : 'border-emerald-500/30'}`}>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">{lang === 'VN' ? 'TRẠNG THÁI' : 'STATUS'}</span>
-                      {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
-                          <span className="text-xs font-bold text-red-500 flex items-center gap-1 animate-pulse">
-                              {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>
-                          </span>
-                      ) : (
-                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                              {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                          </span>
-                      )}
-                 </div>
-
-                 {/* Quest Board */}
-                 <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl p-4">
-                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
-                        {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
-                    </h2>
-                    <div className="text-[10px] text-slate-400 space-y-2">
-                        <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                            <span className="text-slate-300">{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
+                {/* TOP: Command Header & Thermal Slider (Fixed Height) */}
+                <div className="pointer-events-auto flex flex-col gap-4 shrink-0">
+                    <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col items-start w-full">
+                        <h1 className="text-4xl font-sans font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-300 to-slate-500 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] tracking-tight leading-none mb-1">
+                            CHEMIC-AI
+                        </h1>
+                        <div className="flex items-center gap-2 mb-4">
+                            <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                            <span className="text-[10px] font-sans font-bold text-slate-300 uppercase tracking-widest">QUANTUM REALITY ENGINE</span>
                         </div>
-                        <div className="flex items-center gap-2 opacity-50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span className="text-slate-300">{lang === 'VN' ? 'Phân tích độ pH' : 'Analyze pH Level'}</span>
-                        </div>
-                         <div className="flex items-center gap-2 opacity-50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span className="text-slate-300">{lang === 'VN' ? 'Ghi chép quan sát' : 'Record Observations'}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* BOTTOM-LEFT: INVENTORY */}
-            <div className="absolute bottom-6 left-6 w-72 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl h-96 flex flex-col">
-                    <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
-                    </div>
-                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
-                         <div className="flex gap-2">
-                             <button
-                                onClick={() => onSpawn('BEAKER')}
-                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
-                             >
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc' : 'Beaker'}</div>
-                                <div className="text-[10px] text-slate-500 mt-1">1000ml</div>
+                        <div className="flex gap-2 w-full">
+                             <button className="flex-1 border border-blue-500/50 text-blue-400 rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors flex items-center justify-center gap-2">
+                                 <span className="text-blue-500">💎</span> AAA
                              </button>
-                             <button
-                                onClick={() => onSpawn('FLASK')}
-                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
-                             >
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
-                                <div className="text-[10px] text-slate-500 mt-1">Erlenmeyer</div>
+                             <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 py-1.5 transition-colors flex items-center justify-center">
+                                 ⚙️
                              </button>
+                        </div>
+                    </div>
+
+                    {/* Thermal Slider */}
+                    <div className="bg-slate-950/90 border border-orange-500/30 rounded-xl p-3 w-full shadow-xl">
+                         <div className="flex justify-between items-center mb-2">
+                             <span className="text-[10px] font-bold text-orange-500 tracking-wider">{lang === 'VN' ? 'BẾP NHIỆT' : 'HEATER'}</span>
+                             <span className="text-xs text-white">{heaterTemp}°C</span>
                          </div>
+                         <input
+                            type="range"
+                            min="25"
+                            max="1000"
+                            step="25"
+                            value={heaterTemp}
+                            onChange={(e) => setHeaterTemp(Number(e.target.value))}
+                            className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                         />
+                    </div>
+                </div>
 
-                         {Object.values(CHEMICALS).map(chem => (
-                             <button
-                                key={chem.id}
-                                onClick={() => onSpawn(chem.id)}
-                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
-                             >
-                                <div>
-                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
-                                    <div className="text-[10px] text-slate-500 mt-1">{chem.formula}</div>
-                                </div>
-                                <span
-                                    className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
-                                    style={{ backgroundColor: chem.color, boxShadow: `0 0 10px ${chem.color}` }}
-                                ></span>
-                             </button>
-                         ))}
+                {/* MID: Status & Quests (Fixed Height) */}
+                <div className="pointer-events-auto flex flex-col gap-4 shrink-0">
+                     {/* Safety Indicator */}
+                     <div className={`bg-slate-900/80 backdrop-blur-md rounded-2xl border p-3 flex items-center justify-between shadow-lg transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50 shadow-red-500/20' : 'border-emerald-500/30'}`}>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">{lang === 'VN' ? 'TRẠNG THÁI' : 'STATUS'}</span>
+                          {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
+                              <span className="text-xs font-bold text-red-500 flex items-center gap-1 animate-pulse">
+                                  {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>
+                              </span>
+                          ) : (
+                              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                                  {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                              </span>
+                          )}
+                     </div>
+
+                     {/* Quest Board */}
+                     <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl p-4">
+                        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
+                            {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
+                        </h2>
+                        <div className="text-[10px] text-slate-400 space-y-2">
+                            <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+                                <span className="text-slate-300">{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 opacity-50">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                                <span className="text-slate-300">{lang === 'VN' ? 'Phân tích độ pH' : 'Analyze pH Level'}</span>
+                            </div>
+                             <div className="flex items-center gap-2 opacity-50">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                                <span className="text-slate-300">{lang === 'VN' ? 'Ghi chép quan sát' : 'Record Observations'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* BOTTOM: Inventory (Flexible Height to fill remaining space) */}
+                <div className="pointer-events-auto flex flex-col flex-1 min-h-0">
+                    <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl flex flex-col h-full">
+                        <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">
+                            {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
+                        </div>
+                        <div className="overflow-y-auto custom-scrollbar p-3 space-y-3 flex-1">
+                             <div className="flex gap-2">
+                                 <button
+                                    onClick={() => onSpawn('BEAKER')}
+                                    className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                                 >
+                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc' : 'Beaker'}</div>
+                                    <div className="text-[10px] text-slate-500 mt-1">1000ml</div>
+                                 </button>
+                                 <button
+                                    onClick={() => onSpawn('FLASK')}
+                                    className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                                 >
+                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
+                                    <div className="text-[10px] text-slate-500 mt-1">Erlenmeyer</div>
+                                 </button>
+                             </div>
+
+                             {Object.values(CHEMICALS).map(chem => (
+                                 <button
+                                    key={chem.id}
+                                    onClick={() => onSpawn(chem.id)}
+                                    className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                                 >
+                                    <div>
+                                        <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
+                                        <div className="text-[10px] text-slate-500 mt-1">{chem.formula}</div>
+                                    </div>
+                                    <span
+                                        className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
+                                        style={{ backgroundColor: chem.color, boxShadow: `0 0 10px ${chem.color}` }}
+                                    ></span>
+                                 </button>
+                             ))}
+                        </div>
                     </div>
                 </div>
             </div>
