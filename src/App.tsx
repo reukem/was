@@ -8,6 +8,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import SettingsModal from './components/SettingsModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
+import { SFXService } from './services/SFXService';
 
 // -----------------------------------------------------------------------------
 // 1. TYPES & INTERFACES
@@ -1857,6 +1858,16 @@ export default function App() {
             setLastEffect(mixResult.reaction.effect || null);
             setLastEffectPos(target.position);
 
+            // Trigger specific sound effects based on reaction type
+            if (mixResult.reaction.effect === 'explosion') {
+                SFXService.playExplosion();
+            } else if (mixResult.reaction.effect === 'foam' || mixResult.reaction.effect === 'toxic_gas') {
+                SFXService.playSizzle();
+            } else {
+                // Default slight bubbling for standard reactions
+                SFXService.playSizzle();
+            }
+
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
             reactionTimeoutRef.current = window.setTimeout(() => {
                 setLastReaction(null);
@@ -1909,6 +1920,11 @@ export default function App() {
         }
 
         setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isContainer ? undefined : [x, y, z], contents: isContainer ? null : { chemicalId: chemId, volume: 1.0, color: chem!.color, temperature: 25 } }]);
+
+        // Play clink sound when dropping a new glass container onto the table
+        if (isContainer) {
+            SFXService.playClink();
+        }
     };
 
     const handleReset = () => {
