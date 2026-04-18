@@ -380,16 +380,24 @@ const createTable = () => {
     const step = 0.5; // 0.5 unit squares
     const halfWidth = 14 / 2;
     const halfDepth = 8 / 2;
+    const centerLineHalfWidth = 0.04 / 2; // Offset for central cyan lines
 
     // Lines along Z (parallel to X axis)
-    for (let z = -halfDepth; z <= halfDepth; z += step) {
+    // Start drawing outward from the edge of the central cyan line
+    for (let z = centerLineHalfWidth + step; z <= halfDepth; z += step) {
         gridVertices.push(-halfWidth, 0, z);
         gridVertices.push(halfWidth, 0, z);
+        gridVertices.push(-halfWidth, 0, -z);
+        gridVertices.push(halfWidth, 0, -z);
     }
+
     // Lines along X (parallel to Z axis)
-    for (let x = -halfWidth; x <= halfWidth; x += step) {
+    // Start drawing outward from the edge of the central cyan line
+    for (let x = centerLineHalfWidth + step; x <= halfWidth; x += step) {
         gridVertices.push(x, 0, -halfDepth);
         gridVertices.push(x, 0, halfDepth);
+        gridVertices.push(-x, 0, -halfDepth);
+        gridVertices.push(-x, 0, halfDepth);
     }
     gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(gridVertices, 3));
     const gridMat = new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.8 });
