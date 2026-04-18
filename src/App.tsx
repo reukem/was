@@ -1714,8 +1714,8 @@ const LabUI: React.FC<{
 
             {/* Bottom Status Bar */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto flex items-center justify-center">
-                <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-4 py-1.5 flex items-center justify-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]">
-                    <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>[SYSTEM: ONLINE]</span>
+                <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-5 py-2 flex items-center justify-center gap-4 text-xs font-sans font-bold tracking-widest text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]">
+                    <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>[SYSTEM: ONLINE]</span>
                     <span className="opacity-30 shrink-0">|</span>
                     <span className="shrink-0">[NODE: NEURAL_CORE_V2.5]</span>
                 </div>
