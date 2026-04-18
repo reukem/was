@@ -1717,7 +1717,7 @@ const LabUI: React.FC<{
                 <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-5 py-2 flex items-center justify-center gap-4 text-xs font-sans font-bold tracking-widest text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]" style={{ fontFamily: "Inter, sans-serif" }}>
                     <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>[SYSTEM: ONLINE]</span>
                     <span className="opacity-30 shrink-0">|</span>
-                    <span className="shrink-0">[NODE: NEURAL_CORE_V2.5]</span>
+                    <span className="shrink-0">[NODE: GEMINI_2.5]</span>
                 </div>
             </div>
 
