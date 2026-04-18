@@ -1,0 +1,4 @@
+## 2024-05-24 - [Prevent Secret Leakage in Vite Define Config]
+**Vulnerability:** The `vite.config.ts` was using `JSON.stringify(env.GEMINI_API_KEY)` within the `define` block to replace `process.env` references. This bakes the build environment's sensitive API key directly into the public client-side bundle.
+**Learning:** In BYOK (Bring Your Own Key) architectures, dependencies that check `process.env` (like `@google/genai`) can cause runtime crashes in the browser if not stubbed. However, replacing them with actual build-time environment variables leaks secrets.
+**Prevention:** Always stub `process.env` references for third-party libraries in client bundles with empty strings (`JSON.stringify('')`) rather than real environment variables, ensuring secrets remain off the client while preventing `ReferenceError` crashes.
