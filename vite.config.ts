@@ -15,8 +15,9 @@ export default defineConfig(({ mode }) => {
         tailwindcss()
       ],
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        // Safely stub process.env references to prevent secret leakage
+        'process.env.API_KEY': JSON.stringify(''),
+        'process.env.GEMINI_API_KEY': JSON.stringify('')
       },
       resolve: {
         alias: {
