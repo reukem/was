@@ -349,12 +349,12 @@ const createBeakerLiquidGeometry = (radius: number = 0.39, height: number = 0.95
 const createTable = () => {
     const group = new THREE.Group();
 
-    // 1. Table Top (Matte Slate-Grey)
+    // 1. Table Top (Matte surface)
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
-        color: 0x1e293b, // Darker, sleeker slate-blue/grey
-        roughness: 0.85,
-        metalness: 0.15
+        color: 0x1e293b, // Sleek slate-blue/grey
+        roughness: 0.9,  // Matte surface to prevent glare
+        metalness: 0.05, // Barely metallic
     });
     const tableTop = new THREE.Mesh(geometry, material);
     tableTop.receiveShadow = true;
@@ -372,18 +372,20 @@ const createTable = () => {
     crossZ.rotation.x = -Math.PI / 2;
     gridGroup.add(crossX, crossZ);
 
-    // Subtle dark grid
+    // Subtle dark grid - Calculated exactly from center out
     const gridGeometry = new THREE.BufferGeometry();
     const gridVertices: number[] = [];
     const step = 0.5;
+    const centerLineHalfWidth = 0.02; // crossX and crossZ are 0.04 wide
 
     // Lines parallel to Z (along X axis)
-    for (let x = step; x <= 7; x += step) {
+    // Start exactly 'step' distance away from the *edge* of the central crosshair
+    for (let x = centerLineHalfWidth + step; x <= 7; x += step) {
         gridVertices.push(x, 0, -4, x, 0, 4);
         gridVertices.push(-x, 0, -4, -x, 0, 4);
     }
     // Lines parallel to X (along Z axis)
-    for (let z = step; z <= 4; z += step) {
+    for (let z = centerLineHalfWidth + step; z <= 4; z += step) {
         gridVertices.push(-7, 0, z, 7, 0, z);
         gridVertices.push(-7, 0, -z, 7, 0, -z);
     }
@@ -986,7 +988,7 @@ const LabScene: React.FC<{
         scene.add(new THREE.AmbientLight(0xfbcfe8, 0.015));
 
         // 2. Key Light - Focused Spotlight on Center Table
-        const spotLight = new THREE.SpotLight(0xffffff, 60); // Halved intensity to stop glass blinding
+        const spotLight = new THREE.SpotLight(0xffffff, 25); // Lowered intensity to 25 to fix blinding glare
         spotLight.position.set(5, 12, 5);
         spotLight.angle = Math.PI / 6; // Tighter beam
         spotLight.penumbra = 0.5; // Soft edge
@@ -997,7 +999,7 @@ const LabScene: React.FC<{
         scene.add(spotLight);
 
         // 3. Rim Light - Warm sunset orange edge
-        const rimLight = new THREE.DirectionalLight(0xfdba74, 1.0); // Halved intensity
+        const rimLight = new THREE.DirectionalLight(0xfdba74, 0.5); // Halved intensity again
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
 
