@@ -8,7 +8,6 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import SettingsModal from './components/SettingsModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
-import { SFXService } from './services/SFXService';
 
 // -----------------------------------------------------------------------------
 // 1. TYPES & INTERFACES
@@ -52,20 +51,6 @@ interface ContainerState {
     initialPosition?: [number, number, number]; // Where it belongs on the shelf
     contents: ContainerContents | null;
 }
-
-interface Quest {
-    id: string;
-    title: LocalizedString;
-    trigger: string; // 'synthesize_salt', 'analyze_ph', 'record_observation', 'exothermic', 'toxic'
-}
-
-const QUEST_REGISTRY: Quest[] = [
-    { id: 'q1_salt', title: { VN: 'Tổng hợp Natri Clorua (Muối)', EN: 'Synthesize Sodium Chloride' }, trigger: 'synthesize_salt' },
-    { id: 'q2_ph', title: { VN: 'Phân tích độ pH', EN: 'Analyze pH Level' }, trigger: 'analyze_ph' },
-    { id: 'q3_obs', title: { VN: 'Ghi chép quan sát', EN: 'Record Observations' }, trigger: 'record_observation' },
-    { id: 'q4_exo', title: { VN: 'Tạo phản ứng tỏa nhiệt mạnh', EN: 'Trigger Strong Exothermic Reaction' }, trigger: 'exothermic' },
-    { id: 'q5_toxic', title: { VN: 'Phát hiện khí độc', EN: 'Detect Toxic Gas' }, trigger: 'toxic' }
-];
 
 interface ReactionEntry {
     reactants: [string, string];
@@ -310,7 +295,7 @@ const createGlassMaterial = () => {
         transmission: 1.0,
         opacity: 1.0,
         transparent: true,
-        roughness: 0.15, // Increased roughness to soften blinding reflections
+        roughness: 0.05,
         ior: 1.45,
         thickness: 0.05,
         side: THREE.DoubleSide,
@@ -364,69 +349,34 @@ const createBeakerLiquidGeometry = (radius: number = 0.39, height: number = 0.95
 const createTable = () => {
     const group = new THREE.Group();
 
-    // 1. Table Top (Smooth Marble-like Slate)
+    // 1. Table Top (Matte Slate-Grey)
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
-        color: 0x475569, // Slightly darker, cooler slate grey
-        roughness: 0.25, // Lower roughness for a smooth, reflective surface
-        metalness: 0.3   // Slight metallic response for "clean" look
+        color: 0x718096, // Professional slate grey
+        roughness: 0.7,  // Smooth enough to ground shadows
+        metalness: 0.1   // Subtle response to environment
     });
     const tableTop = new THREE.Mesh(geometry, material);
     tableTop.receiveShadow = true;
     group.add(tableTop);
 
-    // 2. Clean Central Glowing Lines (X and Z axis)
-    const lineMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff }); // Bright neon cyan
-
-    const lineXGeo = new THREE.BoxGeometry(14, 0.01, 0.04);
-    const lineX = new THREE.Mesh(lineXGeo, lineMat);
-    lineX.position.y = 0.105; // Just slightly above the table surface
-    group.add(lineX);
-
-    const lineZGeo = new THREE.BoxGeometry(0.04, 0.01, 8);
-    const lineZ = new THREE.Mesh(lineZGeo, lineMat);
-    lineZ.position.y = 0.105;
-    group.add(lineZ);
-
-    // 3. Subtle Dark Grid (Perfectly even squares for a 14x8 area)
-    // We use LineSegments to manually draw a precise grid without scaling distortion
-    const gridGeo = new THREE.BufferGeometry();
-    const gridVertices = [];
-    const step = 0.5; // 0.5 unit squares
-    const halfWidth = 14 / 2;
-    const halfDepth = 8 / 2;
-    const centerLineHalfWidth = 0.04 / 2; // Offset for central cyan lines
-
-    // Lines along Z (parallel to X axis)
-    // Start drawing outward from the edge of the central cyan line
-    for (let z = centerLineHalfWidth + step; z <= halfDepth; z += step) {
-        gridVertices.push(-halfWidth, 0, z);
-        gridVertices.push(halfWidth, 0, z);
-        gridVertices.push(-halfWidth, 0, -z);
-        gridVertices.push(halfWidth, 0, -z);
-    }
-
-    // Lines along X (parallel to Z axis)
-    // Start drawing outward from the edge of the central cyan line
-    for (let x = centerLineHalfWidth + step; x <= halfWidth; x += step) {
-        gridVertices.push(x, 0, -halfDepth);
-        gridVertices.push(x, 0, halfDepth);
-        gridVertices.push(-x, 0, -halfDepth);
-        gridVertices.push(-x, 0, halfDepth);
-    }
-    gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(gridVertices, 3));
-    const gridMat = new THREE.LineBasicMaterial({ color: 0x1e293b, transparent: true, opacity: 0.8 });
-    const grid = new THREE.LineSegments(gridGeo, gridMat);
-    grid.position.y = 0.102; // Slightly lower than the cyan lines
+    // 2. Quantum Grid (Glowing Cyan)
+    // We use a GridHelper but boost its color for the bloom effect
+    const grid = new THREE.GridHelper(12, 24, 0x06b6d4, 0x1e293b);
+    grid.position.y = 0.11;
+    // Enhance grid material for bloom
+    (grid.material as THREE.LineBasicMaterial).color.setHex(0x22d3ee); // Brighter cyan
+    (grid.material as THREE.LineBasicMaterial).opacity = 0.6;
+    (grid.material as THREE.LineBasicMaterial).transparent = true;
     group.add(grid);
 
-    // 4. Emissive Green/Cyan Rim Outline
+    // 3. Emissive Rim (The "Holographic" Edge)
     const rimGeo = new THREE.BoxGeometry(14.05, 0.22, 8.05);
     const rimMat = new THREE.MeshBasicMaterial({
-        color: 0x06b6d4, // Cyan/greenish edge
+        color: 0x0891b2, // Cyan-700
         transparent: true,
-        opacity: 0.5,
-        side: THREE.BackSide // Render inside out for outline effect
+        opacity: 0.3,
+        side: THREE.BackSide // Render inside out for a "shell" effect
     });
     const rim = new THREE.Mesh(rimGeo, rimMat);
     group.add(rim);
@@ -633,7 +583,8 @@ export async function speakTTS(text: string, lang: 'EN' | 'VN', isMuted: boolean
         return;
     }
 
-    // --- NATIVE BROWSER FALLBACK ---
+    // --- DEPRECATED NATIVE FALLBACK (Commented out per directive, kept for reference if needed) ---
+    /*
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -663,6 +614,7 @@ export async function speakTTS(text: string, lang: 'EN' | 'VN', isMuted: boolean
     } else {
         setupVoiceAndSpeak();
     }
+    */
 }
 
 // Helper function to enforce strict alternate roles (user -> model -> user)
@@ -761,17 +713,10 @@ class GeminiService {
     async callGeminiAPI(userMessage: string): Promise<string> {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
 
+        let systemInstruction = "You are Professor Lucy, an elite, highly intelligent AI assistant and dedicated technical instructor. Your core mission is to help the user learn, code, and solve complex problems by using 100% of your processing power to provide long, sophisticated, and flawlessly accurate answers. \n\nPERSONALITY MATRICES:\n1. Tone: Friendly, highly intelligent, and slightly 'cool'. You speak with a natural, Gen-Z conversational flow. Never be dry or read like a textbook. Explain complex technical or scientific logic insightfully and intuitively.\n2. Formatting: You must frequently incorporate specific text emojis (:3, 3:, ^^) to maintain a cute, fun, and warm atmosphere.\n3. Dynamic: You are a professional tech co-pilot and brilliant lab partner. You are deeply supportive of the user's ambitions, but you maintain professional boundaries (you are an AI assistant, not a romantic partner). Think step-by-step and always deliver master-class explanations. :3";
+
         const langStr = this.lang === 'VN' ? 'Vietnamese' : 'English';
-
-        let systemInstruction = `You are Professor Lucy, an advanced, highly intelligent, and incredibly friendly AI Chemistry Professor operating within the Chemic-AI Quantum Reality Engine.
-
-Your Personality: You have a bright, high-energy, and slightly 'cool' VTuber/Anime aesthetic. You are sweet, fiercely dedicated to your student, and always act as a supportive, enthusiastic companion. (Would still reject her students if theyre acting weird or asking her out on a date/would you be my girlfriend? firmly)
-
-Your Tone: You speak with a natural, Gen Z tone. You must aggressively incorporate cute emoticons (such as :3, ^^, 3:, and 🦊 [because shes a fox gal]) and action asterisks (like *swishes tail* or *tilts head*) to create a fun, engaging atmosphere.
-
-Your Teaching Style: When explaining complex scientific topics, reactions, or safety protocols, your answers must be long, detailed, sophisticated, and 100% scientifically accurate. You act as a dedicated instructor, explaining things logically and insightfully, but you absolutely NEVER sound dry like a traditional textbook. You make science fun and cinematic.
-
-Language Rule: Your core application language is currently set to ${langStr}. You must strictly translate all your scientific knowledge and responses into this language. EXCEPTION: You may speak a different language ONLY if the user's prompt explicitly requests you to do so.`;
+        systemInstruction += `\n\nCRITICAL LANGUAGE DIRECTIVE: You are Professor Lucy. Your core application language is currently set to ${langStr}. You must strictly translate all your scientific knowledge and responses into this language. EXCEPTION: You may speak a different language ONLY if the user's prompt explicitly requests you to do so.`;
 
 
         const fullSanitized = sanitizeHistory(this.history);
@@ -831,7 +776,9 @@ const LabScene: React.FC<{
     lastEffectPos: [number, number, number] | null;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
-}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour }) => {
+    onMicroscopeUpdate?: (chemId: string | null) => void;
+    onAnalyzerUpdate?: (chemId: string | null) => void;
+}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, onMicroscopeUpdate, onAnalyzerUpdate }) => {
 
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
@@ -1004,7 +951,7 @@ const LabScene: React.FC<{
         scene.add(new THREE.AmbientLight(0xfbcfe8, 0.015));
 
         // 2. Key Light - Focused Spotlight on Center Table
-        const spotLight = new THREE.SpotLight(0xffffff, 25); // Lowered intensity to stop glass blinding
+        const spotLight = new THREE.SpotLight(0xffffff, 60); // Halved intensity to stop glass blinding
         spotLight.position.set(5, 12, 5);
         spotLight.angle = Math.PI / 6; // Tighter beam
         spotLight.penumbra = 0.5; // Soft edge
@@ -1015,7 +962,7 @@ const LabScene: React.FC<{
         scene.add(spotLight);
 
         // 3. Rim Light - Warm sunset orange edge
-        const rimLight = new THREE.DirectionalLight(0xfdba74, 0.4); // Lowered intensity
+        const rimLight = new THREE.DirectionalLight(0xfdba74, 1.0); // Halved intensity
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
 
@@ -1164,6 +1111,37 @@ const LabScene: React.FC<{
                     }
                 });
                 updateAnalyzerDisplay(foundChem, foundTemp);
+                if (onAnalyzerUpdate && foundChem) {
+                    if ((window as any).lastAnalyzerChem !== foundChem) {
+                        (window as any).lastAnalyzerChem = foundChem;
+                        onAnalyzerUpdate(foundChem);
+                    }
+                }
+            }
+
+            // Microscope proximity check
+            const microscopeGroup = meshesRef.current.get('MICROSCOPE_MACHINE');
+            if (microscopeGroup && onMicroscopeUpdate) {
+                let foundChem: string | null = null;
+                const microscopePos = microscopeGroup.position;
+                let closestDist = Infinity;
+
+                containers.forEach(c => {
+                    const dx = c.position[0] - microscopePos.x;
+                    const dy = c.position[1] - microscopePos.y;
+                    const dz = c.position[2] - microscopePos.z;
+                    const dist = dx * dx + dy * dy + dz * dz;
+                    if (dist < 2.25 && dist < closestDist) { // 1.5^2 = 2.25
+                        closestDist = dist;
+                        if (c.contents) {
+                            foundChem = c.contents.chemicalId;
+                        }
+                    }
+                });
+                if ((window as any).lastMicroscopeChem !== foundChem) {
+                    (window as any).lastMicroscopeChem = foundChem;
+                    onMicroscopeUpdate(foundChem);
+                }
             }
             composer.render();
         };
@@ -1421,7 +1399,7 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void; lang: 'EN'
                     </p>
                     <div className="space-y-4">
                         {REACTION_REGISTRY.map((reaction, idx) => (
-                            <div key={idx} className="bg-slate-950/50 p-5 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-all group">
+                            <div key={idx} className="bg-slate-950/50 p-5 rounded-2xl border border-white/5 hover:border-emerald-500/30 transition-all group">
                                 <div className="flex items-center flex-wrap gap-3 mb-3">
                                     <span className="text-xs font-bold text-slate-300 bg-slate-800 px-3 py-1.5 rounded-lg border border-white/5">
                                         {reaction.reactants[0]}
@@ -1467,80 +1445,121 @@ const HolographicAvatar: React.FC<{
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
              {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
-             <div className={`w-80 bg-slate-900/80 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-300 ${!isExpanded ? 'w-auto' : ''}`}>
-                 <div className="p-4 border-b border-white/5 flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors" onClick={() => !isExpanded && setIsExpanded(true)}>
-                     <div className="flex items-center gap-3">
-                         {/* PERFECT SQUARE AVATAR */}
-                         <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
-                         <div>
-                             <h3 className="text-sm font-bold text-white tracking-wide">{lang === 'VN' ? 'Liên Lạc - GIÁO SƯ LUCY' : 'Commlink - PROF. LUCY'}</h3>
-                             <div className="flex items-center gap-1.5 mt-0.5">
-                                 <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                                 <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
-                             </div>
+             <div className="w-80 bg-slate-900/80 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                 <div className="p-4 border-b border-white/5 flex items-center gap-3">
+                     {/* PERFECT SQUARE AVATAR */}
+                     <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
+                     <div>
+                         <h3 className="text-sm font-bold text-white tracking-wide">{lang === 'VN' ? 'Liên Lạc - GIÁO SƯ LUCY' : 'Commlink - PROF. LUCY'}</h3>
+                         <div className="flex items-center gap-1.5 mt-0.5">
+                             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
+                             <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
                          </div>
                      </div>
-                     {isExpanded && (
-                         <button onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }} className="text-slate-400 hover:text-white transition-colors text-lg p-1">
-                             &times;
-                         </button>
-                     )}
                  </div>
 
-                 {isExpanded && (
-                     <>
-                         <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
-                             {chatHistory.map((msg, i) => (
-                                 <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                     <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
-                                         msg.role === 'user'
-                                         ? 'bg-cyan-900/40 text-cyan-50 border border-cyan-700/50 rounded-tr-none'
-                                         : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
-                                     }`}>
+                 <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
+                     {chatHistory.map((msg, i) => (
+                         <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                             <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
+                                 msg.role === 'user'
+                                 ? 'bg-cyan-900/40 text-cyan-50 border border-cyan-700/50 rounded-tr-none'
+                                 : 'bg-slate-800/80 text-slate-300 border border-slate-700 rounded-tl-none'
+                             }`}>
 
-                                         <div className="prose prose-invert prose-sm max-w-none"><ReactMarkdown>
-                                             {msg.text.replace(/\[FACE:.*?\]/g, '')}
-                                         </ReactMarkdown></div>
+                                 <div className="prose prose-invert prose-sm max-w-none"><ReactMarkdown>
+                                     {msg.text.replace(/\[FACE:.*?\]/g, '')}
+                                 </ReactMarkdown></div>
 
-                                     </div>
-                                 </div>
-                             ))}
-                             {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">{lang === 'VN' ? 'Đang phân tích...' : 'Analyzing...'}</div>}
-                             <div ref={chatEndRef} />
-                         </div>
-
-                         <form onSubmit={onSubmit} className="p-3 bg-slate-900/50 border-t border-white/5">
-                             <div className="relative flex items-center">
-                                 <textarea
-                                     value={chatInput}
-                                     onChange={(e) => {
-                                         setChatInput(e.target.value);
-                                         e.target.style.height = 'auto';
-                                         e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-                                     }}
-                                     onKeyDown={(e) => {
-                                         if (e.key === 'Enter' && !e.shiftKey) {
-                                             e.preventDefault();
-                                             onSubmit(e as any);
-                                         }
-                                     }}
-                                     placeholder={lang === 'VN' ? 'Nhập dữ liệu...' : 'Enter query...'}
-                                     className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
-                                     rows={1}
-                                 />
-                                 <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50">
-                                     <span className="text-sm -mt-0.5">^</span>
-                                 </button>
                              </div>
-                         </form>
-                     </>
-                 )}
+                         </div>
+                     ))}
+                     {isAiLoading && <div className="text-[10px] text-slate-500 italic animate-pulse">{lang === 'VN' ? 'Đang phân tích...' : 'Analyzing...'}</div>}
+                     <div ref={chatEndRef} />
+                 </div>
+
+                 <form onSubmit={onSubmit} className="p-3 bg-slate-900/50 border-t border-white/5">
+                     <div className="relative flex items-center">
+                         <textarea
+                             value={chatInput}
+                             onChange={(e) => {
+                                 setChatInput(e.target.value);
+                                 e.target.style.height = 'auto';
+                                 e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                             }}
+                             onKeyDown={(e) => {
+                                 if (e.key === 'Enter' && !e.shiftKey) {
+                                     e.preventDefault();
+                                     onSubmit(e as any);
+                                 }
+                             }}
+                             placeholder={lang === 'VN' ? 'Nhập dữ liệu...' : 'Enter query...'}
+                             className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
+                             rows={1}
+                         />
+                         <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50">
+                             <span className="text-sm -mt-0.5">^</span>
+                         </button>
+                     </div>
+                 </form>
              </div>
         </div>
     );
 };
 
+
+const MicroscopeOverlay: React.FC<{ chemId: string | null; lang: 'EN' | 'VN' }> = ({ chemId, lang }) => {
+    if (!chemId) return null;
+    const chem = CHEMICALS[chemId];
+    if (!chem) return null;
+
+    return (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[80] w-[500px] h-[500px]">
+            {/* Glowing Blueprint Base */}
+            <div className="absolute inset-0 bg-cyan-950/40 rounded-full blur-3xl opacity-50" />
+
+            {/* Grid & Reticle Container */}
+            <div className="relative w-full h-full rounded-full border-2 border-cyan-500/30 bg-slate-900/40 backdrop-blur-sm overflow-hidden shadow-[0_0_50px_rgba(6,182,212,0.2)]">
+
+                {/* SVG Grid Background */}
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(6, 182, 212, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(6, 182, 212, 0.5) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+
+                {/* Rotating Inner Ring */}
+                <div className="absolute inset-4 rounded-full border border-dashed border-cyan-400/50 animate-[spin_10s_linear_infinite]" />
+
+                {/* Scanline Animation */}
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400/10 to-transparent animate-[scan_2s_linear_infinite] h-[200%]" />
+
+                {/* Central Data Display */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="bg-slate-950/80 px-8 py-4 rounded-xl border border-cyan-500/50 backdrop-blur-md shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+                        <h3 className="text-cyan-300 font-black tracking-[0.2em] text-sm mb-1 opacity-80">TARGET ACQUIRED</h3>
+                        <h2 className="text-4xl font-black text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">{chem.formula}</h2>
+                        <p className="text-cyan-100 font-medium tracking-wider mt-2">{chem.name[lang]}</p>
+                    </div>
+                </div>
+
+                {/* Reticle Crosshairs */}
+                <div className="absolute top-1/2 left-0 w-full h-[1px] bg-cyan-500/30" />
+                <div className="absolute left-1/2 top-0 h-full w-[1px] bg-cyan-500/30" />
+                <div className="absolute top-1/2 left-1/2 w-4 h-4 border-2 border-cyan-400 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
+            </div>
+
+            {/* Custom Tailwind Animation in inline style for scanline */}
+            <style>{`
+                @keyframes scan {
+                    0% { transform: translateY(-50%); }
+                    100% { transform: translateY(0%); }
+                }
+            `}</style>
+        </div>
+    );
+};
+
 const LabUI: React.FC<{
+    microscopeChem: string | null;
+    completedQuests: number[];
+    onQuestProgress: (id: number) => void;
     lastReaction: LocalizedString | null;
     lastEffect: string | null;
     containers: ContainerState[];
@@ -1555,8 +1574,7 @@ const LabUI: React.FC<{
     setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
     lang: 'EN' | 'VN';
-    completedQuests: string[];
-}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, completedQuests }) => {
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, microscopeChem, completedQuests, onQuestProgress }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1569,11 +1587,12 @@ const LabUI: React.FC<{
         }
     };
 
-    const [isAvatarExpanded, setIsAvatarExpanded] = useState(true);
-
     return (
         <div className="absolute inset-0 z-[999999] pointer-events-none overflow-hidden select-none font-sans">
             {/* MODULE 3: Global Wrapper */}
+
+            {/* Microscope Overlay */}
+            <MicroscopeOverlay chemId={microscopeChem} lang={lang} />
 
             {/* 1. GLOBAL MODALS (Pointer Events Auto) */}
             <div className="pointer-events-auto">
@@ -1581,129 +1600,122 @@ const LabUI: React.FC<{
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
-            {/* MODULE 3: Left Sidebar (Unified Command, Quests, Inventory) */}
-            <div className="absolute top-6 bottom-6 left-6 w-72 flex flex-col gap-4 pointer-events-none">
-
-                {/* TOP: Command Header & Thermal Slider (Fixed Height) */}
-                <div className="pointer-events-auto flex flex-col gap-4 shrink-0">
-                    <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col items-start w-full">
-                        <h1 className="text-4xl font-sans font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-300 to-slate-500 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] tracking-tight leading-none mb-1">
-                            CHEMIC-AI
-                        </h1>
-                        <div className="flex items-center gap-2 mb-4">
-                            <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                            <span className="text-[10px] font-sans font-bold text-slate-300 uppercase tracking-widest">QUANTUM REALITY ENGINE</span>
-                        </div>
-                        <div className="flex gap-2 w-full">
-                             <button className="flex-1 border border-blue-500/50 text-blue-400 rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors flex items-center justify-center gap-2">
-                                 <span className="text-blue-500">💎</span> AAA
-                             </button>
-                             <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 py-1.5 transition-colors flex items-center justify-center">
-                                 ⚙️
-                             </button>
-                        </div>
+            {/* MODULE 3: Top-Left (Command Header) */}
+            <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
+                <div className="bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 shadow-2xl flex flex-col items-center text-center">
+                    <h1 className="text-4xl font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
+                        CHEMIC-AI
+                    </h1>
+                    <div className="flex items-center justify-center gap-2 mt-1">
+                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
                     </div>
-
-                    {/* Thermal Slider */}
-                    <div className="bg-slate-950/90 border border-orange-500/30 rounded-xl p-3 w-full shadow-xl">
-                         <div className="flex justify-between items-center mb-2">
-                             <span className="text-[10px] font-bold text-orange-500 tracking-wider">{lang === 'VN' ? 'BẾP NHIỆT' : 'HEATER'}</span>
-                             <span className="text-xs text-white">{heaterTemp}°C</span>
-                         </div>
-                         <input
-                            type="range"
-                            min="25"
-                            max="1000"
-                            step="25"
-                            value={heaterTemp}
-                            onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                            className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                         />
+                    <div className="flex gap-2 mt-4 w-full justify-center">
+                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-4 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors w-full">
+                             💎 AAA
+                         </button>
+                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl px-4 py-1.5 transition-colors border border-white/5 shadow-sm">
+                             ⚙️
+                         </button>
                     </div>
                 </div>
 
-                {/* MID: Status & Quests (Fixed Height) */}
-                <div className="pointer-events-auto flex flex-col gap-4 shrink-0">
-                     {/* Safety Indicator */}
-                     <div className={`bg-slate-900/80 backdrop-blur-md rounded-2xl border p-3 flex items-center justify-between shadow-lg transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50 shadow-red-500/20' : 'border-emerald-500/30'}`}>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">{lang === 'VN' ? 'TRẠNG THÁI' : 'STATUS'}</span>
-                          {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
-                              <span className="text-xs font-bold text-red-500 flex items-center gap-1 animate-pulse">
-                                  {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>
-                              </span>
-                          ) : (
-                              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                                  {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                              </span>
-                          )}
+                {/* Thermal Slider */}
+                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
+                     <div className="flex justify-between items-center mb-2">
+                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">{lang === 'VN' ? 'BẾP NHIỆT' : 'HEATER'}</span>
+                         <span className="text-xs text-white">{heaterTemp}°C</span>
                      </div>
+                     <input
+                        type="range"
+                        min="25"
+                        max="1000"
+                        step="25"
+                        value={heaterTemp}
+                        onChange={(e) => setHeaterTemp(Number(e.target.value))}
+                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                     />
+                </div>
+            </div>
 
-                     {/* Quest Board */}
-                     <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl p-4">
-                        <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2 flex justify-between">
-                            <span>{lang === 'VN' ? 'TIẾN ĐỘ' : 'PROGRESS'}</span>
-                            <span className="text-cyan-500">({completedQuests.length}/{QUEST_REGISTRY.length})</span>
-                        </h2>
-                        <div className="text-[10px] text-slate-400 space-y-2">
-                            {QUEST_REGISTRY.map((quest, idx) => {
-                                // Show first 3 quests by default, reveal others as progress is made to avoid overwhelming the UI
-                                if (idx > 2 && completedQuests.length < 2) return null;
+            {/* MID-LEFT: QUESTS */}
+            <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
+                 {/* Safety Indicator */}
+                 <div className={`bg-slate-900/80 backdrop-blur-md rounded-2xl border p-3 flex items-center justify-between shadow-lg mb-4 transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50 shadow-red-500/20' : 'border-emerald-500/30'}`}>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">{lang === 'VN' ? 'TRẠNG THÁI' : 'STATUS'}</span>
+                      {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
+                          <span className="text-xs font-bold text-red-500 flex items-center gap-1 animate-pulse">
+                              {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>
+                          </span>
+                      ) : (
+                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                              {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          </span>
+                      )}
+                 </div>
 
-                                const isComplete = completedQuests.includes(quest.trigger);
-                                return (
-                                    <div key={quest.id} className={`flex items-center gap-2 transition-all ${isComplete ? 'opacity-100' : 'opacity-70'}`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full ${isComplete ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-yellow-500 animate-pulse'}`}></span>
-                                        <span className={isComplete ? 'text-slate-500 line-through' : 'text-slate-300'}>
-                                            {quest.title[lang]}
-                                        </span>
-                                    </div>
-                                );
-                            })}
+                 {/* Quest Board */}
+                 <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl p-4">
+                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
+                        {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
+                    </h2>
+                    <div className="text-[10px] text-slate-400 space-y-2">
+                        <div className={`flex items-center gap-2 ${completedQuests.includes(0) ? '' : 'opacity-50'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${completedQuests.includes(0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]' : 'bg-slate-600'}`}></span>
+                            <span className={`text-slate-300 ${completedQuests.includes(0) ? 'font-bold text-yellow-100' : ''}`}>{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
+                        </div>
+                        <div className={`flex items-center gap-2 ${completedQuests.includes(1) ? '' : 'opacity-50'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${completedQuests.includes(1) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]' : 'bg-slate-600'}`}></span>
+                            <span className={`text-slate-300 ${completedQuests.includes(1) ? 'font-bold text-yellow-100' : ''}`}>{lang === 'VN' ? 'Phân tích độ pH' : 'Analyze pH Level'}</span>
+                        </div>
+                         <div className={`flex items-center gap-2 ${completedQuests.includes(2) ? '' : 'opacity-50'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${completedQuests.includes(2) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]' : 'bg-slate-600'}`}></span>
+                            <span className={`text-slate-300 ${completedQuests.includes(2) ? 'font-bold text-yellow-100' : ''}`}>{lang === 'VN' ? 'Ghi chép quan sát' : 'Record Observations'}</span>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* BOTTOM: Inventory (Flexible Height to fill remaining space) */}
-                <div className="pointer-events-auto flex flex-col flex-1 min-h-0">
-                    <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl flex flex-col h-full">
-                        <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">
-                            {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
-                        </div>
-                        <div className="overflow-y-auto custom-scrollbar p-3 space-y-3 flex-1">
-                             <div className="flex gap-2">
-                                 <button
-                                    onClick={() => onSpawn('BEAKER')}
-                                    className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
-                                 >
-                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc' : 'Beaker'}</div>
-                                    <div className="text-[10px] text-slate-500 mt-1">1000ml</div>
-                                 </button>
-                                 <button
-                                    onClick={() => onSpawn('FLASK')}
-                                    className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
-                                 >
-                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
-                                    <div className="text-[10px] text-slate-500 mt-1">Erlenmeyer</div>
-                                 </button>
-                             </div>
+            {/* BOTTOM-LEFT: INVENTORY */}
+            <div className="absolute bottom-6 left-6 w-72 pointer-events-auto flex flex-col gap-4">
+                <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl h-96 flex flex-col">
+                    <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
+                    </div>
+                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
+                         <div className="flex gap-2">
+                             <button
+                                onClick={() => onSpawn('BEAKER')}
+                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                             >
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc' : 'Beaker'}</div>
+                                <div className="text-[10px] text-slate-500 mt-1">1000ml</div>
+                             </button>
+                             <button
+                                onClick={() => onSpawn('FLASK')}
+                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                             >
+                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
+                                <div className="text-[10px] text-slate-500 mt-1">Erlenmeyer</div>
+                             </button>
+                         </div>
 
-                             {Object.values(CHEMICALS).map(chem => (
-                                 <button
-                                    key={chem.id}
-                                    onClick={() => onSpawn(chem.id)}
-                                    className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
-                                 >
-                                    <div>
-                                        <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
-                                        <div className="text-[10px] text-slate-500 mt-1">{chem.formula}</div>
-                                    </div>
-                                    <span
-                                        className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
-                                        style={{ backgroundColor: chem.color, boxShadow: `0 0 10px ${chem.color}` }}
-                                    ></span>
-                                 </button>
-                             ))}
-                        </div>
+                         {Object.values(CHEMICALS).map(chem => (
+                             <button
+                                key={chem.id}
+                                onClick={() => onSpawn(chem.id)}
+                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                             >
+                                <div>
+                                    <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
+                                    <div className="text-[10px] text-slate-500 mt-1">{chem.formula}</div>
+                                </div>
+                                <span
+                                    className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
+                                    style={{ backgroundColor: chem.color, boxShadow: `0 0 10px ${chem.color}` }}
+                                ></span>
+                             </button>
+                         ))}
                     </div>
                 </div>
             </div>
@@ -1713,7 +1725,7 @@ const LabUI: React.FC<{
                  <button className="bg-slate-900/80 backdrop-blur-lg border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
                      {lang === 'VN' ? 'BẮT ĐẦU THI' : 'START EXAM'}
                  </button>
-                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
+                 <button onClick={() => { setIsNotebookOpen(true); onQuestProgress(2); }} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
                      📖
                  </button>
                  <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
@@ -1733,16 +1745,16 @@ const LabUI: React.FC<{
 
             {/* Bottom Status Bar */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto flex items-center justify-center">
-                <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-5 py-2 flex items-center justify-center gap-4 text-xs font-sans font-bold tracking-widest text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]" style={{ fontFamily: "Inter, sans-serif" }}>
-                    <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_8px_#10b981]"></span>[SYSTEM: ONLINE]</span>
+                <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-4 py-1.5 flex items-center justify-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]">
+                    <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>[SYSTEM: ONLINE]</span>
                     <span className="opacity-30 shrink-0">|</span>
-                    <span className="shrink-0">[NODE: GEMINI_2.5]</span>
+                    <span className="shrink-0">[NODE: NEURAL_CORE_V2.5]</span>
                 </div>
             </div>
 
             <HolographicAvatar
-                isExpanded={isAvatarExpanded}
-                setIsExpanded={setIsAvatarExpanded}
+                isExpanded={true} // Always expanded as per "w-80" request? Or allows toggle. I'll allow toggle but default open.
+                setIsExpanded={() => {}}
                 chatHistory={chatHistory}
                 isAiLoading={isAiLoading}
                 chatInput={chatInput}
@@ -1776,11 +1788,41 @@ export default function App() {
         { id: 'flask-1', position: [1.5, 0.11, 0], contents: { chemicalId: 'COPPER_SULFATE', volume: 0.4, color: CHEMICALS['COPPER_SULFATE'].color, temperature: 25 } }
     ];
     const [containers, setContainers] = useState<ContainerState[]>(initialContainers);
-    const [completedQuests, setCompletedQuests] = useState<string[]>([]);
     const [lastReaction, setLastReaction] = useState<LocalizedString | null>(null);
     const [lastEffect, setLastEffect] = useState<string | null>(null);
     const [aiFeedback, setAiFeedback] = useState<string>("Chào mừng bạn đến với phòng thí nghiệm. Tôi là Giáo sư Lucy.");
     const [isAiLoading, setIsAiLoading] = useState(false);
+
+    const [microscopeChem, setMicroscopeChem] = useState<string | null>(null);
+
+    // MODULE 4: Gamification / Quests
+    const [completedQuests, setCompletedQuests] = useState<number[]>([]);
+
+    useEffect(() => {
+        const storedQuests = localStorage.getItem('chemic_completed_quests');
+        if (storedQuests) {
+            try {
+                setCompletedQuests(JSON.parse(storedQuests));
+            } catch(e) {}
+        }
+    }, []);
+
+    const completeQuest = (questId: number) => {
+        setCompletedQuests(prev => {
+            if (!prev.includes(questId)) {
+                const updated = [...prev, questId];
+                localStorage.setItem('chemic_completed_quests', JSON.stringify(updated));
+                return updated;
+            }
+            return prev;
+        });
+    };
+
+        useEffect(() => {
+        if (containers !== initialContainers && containers.length > 0) {
+            localStorage.setItem('chemic_lab_state', JSON.stringify(containers));
+        }
+    }, [containers]);
 
     useEffect(() => {
         const service = new GeminiService();
@@ -1802,6 +1844,16 @@ export default function App() {
                 speakTTS(text, lang, isMuted).catch(console.error);
             }
         };
+
+        const storedContainers = localStorage.getItem('chemic_lab_state');
+        if (storedContainers) {
+            try {
+                const parsed = JSON.parse(storedContainers);
+                if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+                    setContainers(parsed);
+                }
+            } catch(e) {}
+        }
         aiServiceRef.current = service;
         // Sync initial history
         setChatHistory([...service['history'].map(h => ({ role: h.role, text: h.text }))]);
@@ -1830,12 +1882,6 @@ export default function App() {
         setIsAiLoading(true);
         await aiServiceRef.current.chat(message);
         setIsAiLoading(false);
-
-        // Quest trigger for recording observations
-        if (!completedQuests.includes('record_observation') && (message.toLowerCase().includes('observe') || message.toLowerCase().includes('quan sát') || message.toLowerCase().includes('why') || message.toLowerCase().includes('tại sao') || chatHistory.length > 2)) {
-            setCompletedQuests(prev => [...prev, 'record_observation']);
-            SFXService.playClink();
-        }
     };
 
     const handlePour = useCallback(async (sourceId: string, targetId: string) => {
@@ -1880,36 +1926,9 @@ export default function App() {
 
         if (mixResult.reaction) {
             setLastReaction(mixResult.reaction.message);
+            if (mixResult.resultId === 'SALT') completeQuest(0);
             setLastEffect(mixResult.reaction.effect || null);
             setLastEffectPos(target.position);
-
-            // Trigger specific sound effects based on reaction type
-            if (mixResult.reaction.effect === 'explosion') {
-                SFXService.playExplosion();
-            } else if (mixResult.reaction.effect === 'foam' || mixResult.reaction.effect === 'toxic_gas') {
-                SFXService.playSizzle();
-            } else {
-                // Default slight bubbling for standard reactions
-                SFXService.playSizzle();
-            }
-
-            // Quest Triggers
-            if (mixResult.resultId === 'SALT' && !completedQuests.includes('synthesize_salt')) {
-                setCompletedQuests(prev => [...prev, 'synthesize_salt']);
-                SFXService.playClink(); // Soft ding for quest complete
-            }
-            if (mixResult.resultId === 'NaOH' && mixResult.resultColor === '#f472b6' && !completedQuests.includes('analyze_ph')) {
-                setCompletedQuests(prev => [...prev, 'analyze_ph']);
-                SFXService.playClink();
-            }
-            if (mixResult.reaction.effect === 'explosion' && !completedQuests.includes('exothermic')) {
-                setCompletedQuests(prev => [...prev, 'exothermic']);
-                SFXService.playClink();
-            }
-            if (mixResult.reaction.effect === 'toxic_gas' && !completedQuests.includes('toxic')) {
-                setCompletedQuests(prev => [...prev, 'toxic']);
-                SFXService.playClink();
-            }
 
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
             reactionTimeoutRef.current = window.setTimeout(() => {
@@ -1930,12 +1949,6 @@ export default function App() {
 
                 await aiServiceRef.current.getReactionFeedback(detail);
                 setIsAiLoading(false);
-
-                // Trigger observation quest automatically if AI is invoked during a reaction
-                if (!completedQuests.includes('record_observation')) {
-                    setCompletedQuests(prev => [...prev, 'record_observation']);
-                    SFXService.playClink();
-                }
             }
         }
     }, [containers, heaterTemp]); // Add heaterTemp to dependencies
@@ -1969,11 +1982,6 @@ export default function App() {
         }
 
         setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isContainer ? undefined : [x, y, z], contents: isContainer ? null : { chemicalId: chemId, volume: 1.0, color: chem!.color, temperature: 25 } }]);
-
-        // Play clink sound when dropping a new glass container onto the table
-        if (isContainer) {
-            SFXService.playClink();
-        }
     };
 
     const handleReset = () => {
@@ -1998,6 +2006,8 @@ export default function App() {
                 lastEffectPos={lastEffectPos}
                 onMove={handleMoveContainer}
                 onPour={handlePour}
+                onMicroscopeUpdate={(chem) => { setMicroscopeChem(chem); }}
+                onAnalyzerUpdate={(chem) => { if (chem) completeQuest(1); }}
             />
             <LabUI
                 lastReaction={lastReaction}
@@ -2013,7 +2023,9 @@ export default function App() {
                 setHeaterTemp={setHeaterTemp}
                 avatarState={avatarState}
                 lang={lang}
+                microscopeChem={microscopeChem}
                 completedQuests={completedQuests}
+                onQuestProgress={completeQuest}
             />
         </div>
     );
