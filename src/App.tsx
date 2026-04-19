@@ -1463,6 +1463,7 @@ const HolographicAvatar: React.FC<{
                              placeholder={lang === 'VN' ? 'Nhập dữ liệu...' : 'Enter query...'}
                              className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
                              rows={1}
+                             maxLength={50000} /* [SECURITY] Prevent client-side DoS from overly large inputs */
                          />
                          <button type="submit" disabled={isAiLoading || !chatInput.trim()} className="absolute right-2 bottom-1.5 w-7 h-7 bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-400 rounded-lg flex items-center justify-center transition-colors disabled:opacity-50">
                              <span className="text-sm -mt-0.5">^</span>
@@ -1496,6 +1497,8 @@ const LabUI: React.FC<{
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+        // [SECURITY] Prevent concurrent submissions to avoid API abuse/race conditions
+        if (isAiLoading) return;
         if (chatInput.trim()) {
             onChat(chatInput);
             setChatInput("");
