@@ -1600,31 +1600,33 @@ const LabUI: React.FC<{
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
-            {/* MODULE 3: Top-Left (Command Header) */}
-            <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 shadow-2xl flex flex-col items-center text-center">
-                    <h1 className="text-4xl font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
+            {/* --- UNIFIED LEFT SIDEBAR --- */}
+            <div className="absolute top-6 left-6 bottom-6 w-80 flex flex-col gap-4 pointer-events-none z-50">
+
+                {/* 1. Command Header */}
+                <div className="pointer-events-auto bg-[#1a1f30] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex flex-col items-start border border-slate-700/50">
+                    <h1 className="text-4xl font-extrabold tracking-wide bg-gradient-to-b from-white via-slate-200 to-slate-400 text-transparent bg-clip-text drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] pb-1">
                         CHEMIC-AI
                     </h1>
-                    <div className="flex items-center justify-center gap-2 mt-1">
-                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
+                        <span className="text-[10px] tracking-[0.2em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
                     </div>
-                    <div className="flex gap-2 mt-4 w-full justify-center">
-                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-4 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors w-full">
+                    <div className="flex gap-2 mt-4 w-full">
+                         <button className="flex-1 border border-blue-500/30 text-blue-400 bg-blue-950/20 rounded-lg px-4 py-2 text-xs font-bold hover:bg-blue-500/20 transition-colors shadow-inner flex items-center justify-center gap-2">
                              💎 AAA
                          </button>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl px-4 py-1.5 transition-colors border border-white/5 shadow-sm">
+                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 h-10 flex items-center justify-center transition-colors border border-slate-600 shadow-sm shrink-0">
                              ⚙️
                          </button>
                     </div>
                 </div>
 
-                {/* Thermal Slider */}
-                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
+                {/* 2. Thermal Slider */}
+                <div className="pointer-events-auto bg-slate-800/90 rounded-xl p-3 shadow-xl border border-slate-700">
                      <div className="flex justify-between items-center mb-2">
-                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">{lang === 'VN' ? 'BẾP NHIỆT' : 'HEATER'}</span>
-                         <span className="text-xs text-white">{heaterTemp}°C</span>
+                         <span className="text-[10px] font-bold text-orange-500 tracking-wider uppercase">{lang === 'VN' ? 'Bếp Nhiệt' : 'Heater'}</span>
+                         <span className="text-xs text-white font-mono">{heaterTemp}°C</span>
                      </div>
                      <input
                         type="range"
@@ -1633,33 +1635,30 @@ const LabUI: React.FC<{
                         step="25"
                         value={heaterTemp}
                         onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
                      />
                 </div>
-            </div>
 
-            {/* MID-LEFT: QUESTS */}
-            <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
-                 {/* Safety Indicator */}
-                 <div className={`bg-slate-900/80 backdrop-blur-md rounded-2xl border p-3 flex items-center justify-between shadow-lg mb-4 transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50 shadow-red-500/20' : 'border-emerald-500/30'}`}>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">{lang === 'VN' ? 'TRẠNG THÁI' : 'STATUS'}</span>
+                 {/* 3. Safety Indicator */}
+                 <div className={`pointer-events-auto bg-slate-800/90 rounded-xl border p-3 flex items-center justify-between shadow-lg transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50' : 'border-slate-700'}`}>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{lang === 'VN' ? 'Trạng Thái' : 'Status'}</span>
                       {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
-                          <span className="text-xs font-bold text-red-500 flex items-center gap-1 animate-pulse">
-                              {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>
+                          <span className="text-xs font-bold text-red-500 flex items-center gap-2">
+                              {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
                           </span>
                       ) : (
-                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                              {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-2 tracking-wider">
+                              {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
                           </span>
                       )}
                  </div>
 
-                 {/* Quest Board */}
-                 <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl p-4">
-                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
-                        {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
+                 {/* 4. Quest Board */}
+                 <div className="pointer-events-auto bg-slate-800/90 rounded-2xl border border-slate-700 shadow-xl p-4">
+                    <h2 className="text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-slate-700 pb-2">
+                        {lang === 'VN' ? 'Tiến Độ (3)' : 'Progress (3)'}
                     </h2>
-                    <div className="text-[10px] text-slate-400 space-y-2">
+                    <div className="text-[10px] text-slate-400 space-y-2.5">
                         <div className={`flex items-center gap-2 ${completedQuests.includes(0) ? '' : 'opacity-50'}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${completedQuests.includes(0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]' : 'bg-slate-600'}`}></span>
                             <span className={`text-slate-300 ${completedQuests.includes(0) ? 'font-bold text-yellow-100' : ''}`}>{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
@@ -1674,28 +1673,26 @@ const LabUI: React.FC<{
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* BOTTOM-LEFT: INVENTORY */}
-            <div className="absolute bottom-6 left-6 w-72 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl h-96 flex flex-col">
-                    <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                {/* 5. Inventory */}
+                <div className="pointer-events-auto flex-1 min-h-0 bg-slate-800/90 rounded-2xl border border-slate-700 shadow-xl flex flex-col">
+                    <div className="p-4 bg-slate-800 border-b border-slate-700 rounded-t-2xl text-[10px] font-bold text-slate-300 uppercase tracking-widest">
                         {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
                     </div>
-                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
+                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3 flex-1">
                          <div className="flex gap-2">
                              <button
                                 onClick={() => onSpawn('BEAKER')}
-                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                                className="flex-1 text-left p-3 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-sm"
                              >
                                 <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc' : 'Beaker'}</div>
                                 <div className="text-[10px] text-slate-500 mt-1">1000ml</div>
                              </button>
                              <button
                                 onClick={() => onSpawn('FLASK')}
-                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                                className="flex-1 text-left p-3 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-sm"
                              >
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
+                                <div className="text-xs font-bold text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
                                 <div className="text-[10px] text-slate-500 mt-1">Erlenmeyer</div>
                              </button>
                          </div>
@@ -1704,15 +1701,15 @@ const LabUI: React.FC<{
                              <button
                                 key={chem.id}
                                 onClick={() => onSpawn(chem.id)}
-                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                                className="w-full text-left p-3.5 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-sm"
                              >
                                 <div>
                                     <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
                                     <div className="text-[10px] text-slate-500 mt-1">{chem.formula}</div>
                                 </div>
                                 <span
-                                    className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
-                                    style={{ backgroundColor: chem.color, boxShadow: `0 0 10px ${chem.color}` }}
+                                    className="w-2 h-2 rounded-full opacity-60 group-hover:opacity-100 transition-opacity"
+                                    style={{ backgroundColor: chem.color }}
                                 ></span>
                              </button>
                          ))}
