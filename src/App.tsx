@@ -776,7 +776,9 @@ const LabScene: React.FC<{
     lastEffectPos: [number, number, number] | null;
     onMove: (id: string, pos: [number, number, number]) => void;
     onPour: (sourceId: string, targetId: string) => void;
-}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour }) => {
+    onMicroscopeUpdate?: (chemId: string | null) => void;
+    onAnalyzerUpdate?: (chemId: string | null) => void;
+}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, onMicroscopeUpdate, onAnalyzerUpdate }) => {
 
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
@@ -1109,6 +1111,37 @@ const LabScene: React.FC<{
                     }
                 });
                 updateAnalyzerDisplay(foundChem, foundTemp);
+                if (onAnalyzerUpdate && foundChem) {
+                    if ((window as any).lastAnalyzerChem !== foundChem) {
+                        (window as any).lastAnalyzerChem = foundChem;
+                        onAnalyzerUpdate(foundChem);
+                    }
+                }
+            }
+
+            // Microscope proximity check
+            const microscopeGroup = meshesRef.current.get('MICROSCOPE_MACHINE');
+            if (microscopeGroup && onMicroscopeUpdate) {
+                let foundChem: string | null = null;
+                const microscopePos = microscopeGroup.position;
+                let closestDist = Infinity;
+
+                containers.forEach(c => {
+                    const dx = c.position[0] - microscopePos.x;
+                    const dy = c.position[1] - microscopePos.y;
+                    const dz = c.position[2] - microscopePos.z;
+                    const dist = dx * dx + dy * dy + dz * dz;
+                    if (dist < 2.25 && dist < closestDist) { // 1.5^2 = 2.25
+                        closestDist = dist;
+                        if (c.contents) {
+                            foundChem = c.contents.chemicalId;
+                        }
+                    }
+                });
+                if ((window as any).lastMicroscopeChem !== foundChem) {
+                    (window as any).lastMicroscopeChem = foundChem;
+                    onMicroscopeUpdate(foundChem);
+                }
             }
             composer.render();
         };
@@ -1366,7 +1399,7 @@ const NotebookModal: React.FC<{ isOpen: boolean; onClose: () => void; lang: 'EN'
                     </p>
                     <div className="space-y-4">
                         {REACTION_REGISTRY.map((reaction, idx) => (
-                            <div key={idx} className="bg-slate-950/50 p-5 rounded-2xl border border-white/5 hover:border-indigo-500/30 transition-all group">
+                            <div key={idx} className="bg-slate-950/50 p-5 rounded-2xl border border-white/5 hover:border-emerald-500/30 transition-all group">
                                 <div className="flex items-center flex-wrap gap-3 mb-3">
                                     <span className="text-xs font-bold text-slate-300 bg-slate-800 px-3 py-1.5 rounded-lg border border-white/5">
                                         {reaction.reactants[0]}
@@ -1474,7 +1507,59 @@ const HolographicAvatar: React.FC<{
     );
 };
 
+
+const MicroscopeOverlay: React.FC<{ chemId: string | null; lang: 'EN' | 'VN' }> = ({ chemId, lang }) => {
+    if (!chemId) return null;
+    const chem = CHEMICALS[chemId];
+    if (!chem) return null;
+
+    return (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[80] w-[500px] h-[500px]">
+            {/* Glowing Blueprint Base */}
+            <div className="absolute inset-0 bg-cyan-950/40 rounded-full blur-3xl opacity-50" />
+
+            {/* Grid & Reticle Container */}
+            <div className="relative w-full h-full rounded-full border-2 border-cyan-500/30 bg-slate-900/40 backdrop-blur-sm overflow-hidden shadow-[0_0_50px_rgba(6,182,212,0.2)]">
+
+                {/* SVG Grid Background */}
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(rgba(6, 182, 212, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(6, 182, 212, 0.5) 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+
+                {/* Rotating Inner Ring */}
+                <div className="absolute inset-4 rounded-full border border-dashed border-cyan-400/50 animate-[spin_10s_linear_infinite]" />
+
+                {/* Scanline Animation */}
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400/10 to-transparent animate-[scan_2s_linear_infinite] h-[200%]" />
+
+                {/* Central Data Display */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="bg-slate-950/80 px-8 py-4 rounded-xl border border-cyan-500/50 backdrop-blur-md shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+                        <h3 className="text-cyan-300 font-black tracking-[0.2em] text-sm mb-1 opacity-80">TARGET ACQUIRED</h3>
+                        <h2 className="text-4xl font-black text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]">{chem.formula}</h2>
+                        <p className="text-cyan-100 font-medium tracking-wider mt-2">{chem.name[lang]}</p>
+                    </div>
+                </div>
+
+                {/* Reticle Crosshairs */}
+                <div className="absolute top-1/2 left-0 w-full h-[1px] bg-cyan-500/30" />
+                <div className="absolute left-1/2 top-0 h-full w-[1px] bg-cyan-500/30" />
+                <div className="absolute top-1/2 left-1/2 w-4 h-4 border-2 border-cyan-400 rounded-full transform -translate-x-1/2 -translate-y-1/2" />
+            </div>
+
+            {/* Custom Tailwind Animation in inline style for scanline */}
+            <style>{`
+                @keyframes scan {
+                    0% { transform: translateY(-50%); }
+                    100% { transform: translateY(0%); }
+                }
+            `}</style>
+        </div>
+    );
+};
+
 const LabUI: React.FC<{
+    microscopeChem: string | null;
+    completedQuests: number[];
+    onQuestProgress: (id: number) => void;
     lastReaction: LocalizedString | null;
     lastEffect: string | null;
     containers: ContainerState[];
@@ -1489,7 +1574,7 @@ const LabUI: React.FC<{
     setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
     lang: 'EN' | 'VN';
-}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang }) => {
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, microscopeChem, completedQuests, onQuestProgress }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1505,6 +1590,9 @@ const LabUI: React.FC<{
     return (
         <div className="absolute inset-0 z-[999999] pointer-events-none overflow-hidden select-none font-sans">
             {/* MODULE 3: Global Wrapper */}
+
+            {/* Microscope Overlay */}
+            <MicroscopeOverlay chemId={microscopeChem} lang={lang} />
 
             {/* 1. GLOBAL MODALS (Pointer Events Auto) */}
             <div className="pointer-events-auto">
@@ -1572,17 +1660,17 @@ const LabUI: React.FC<{
                         {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
                     </h2>
                     <div className="text-[10px] text-slate-400 space-y-2">
-                        <div className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
-                            <span className="text-slate-300">{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
+                        <div className={`flex items-center gap-2 ${completedQuests.includes(0) ? '' : 'opacity-50'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${completedQuests.includes(0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]' : 'bg-slate-600'}`}></span>
+                            <span className={`text-slate-300 ${completedQuests.includes(0) ? 'font-bold text-yellow-100' : ''}`}>{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
                         </div>
-                        <div className="flex items-center gap-2 opacity-50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span className="text-slate-300">{lang === 'VN' ? 'Phân tích độ pH' : 'Analyze pH Level'}</span>
+                        <div className={`flex items-center gap-2 ${completedQuests.includes(1) ? '' : 'opacity-50'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${completedQuests.includes(1) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]' : 'bg-slate-600'}`}></span>
+                            <span className={`text-slate-300 ${completedQuests.includes(1) ? 'font-bold text-yellow-100' : ''}`}>{lang === 'VN' ? 'Phân tích độ pH' : 'Analyze pH Level'}</span>
                         </div>
-                         <div className="flex items-center gap-2 opacity-50">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
-                            <span className="text-slate-300">{lang === 'VN' ? 'Ghi chép quan sát' : 'Record Observations'}</span>
+                         <div className={`flex items-center gap-2 ${completedQuests.includes(2) ? '' : 'opacity-50'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${completedQuests.includes(2) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]' : 'bg-slate-600'}`}></span>
+                            <span className={`text-slate-300 ${completedQuests.includes(2) ? 'font-bold text-yellow-100' : ''}`}>{lang === 'VN' ? 'Ghi chép quan sát' : 'Record Observations'}</span>
                         </div>
                     </div>
                 </div>
@@ -1637,7 +1725,7 @@ const LabUI: React.FC<{
                  <button className="bg-slate-900/80 backdrop-blur-lg border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
                      {lang === 'VN' ? 'BẮT ĐẦU THI' : 'START EXAM'}
                  </button>
-                 <button onClick={() => setIsNotebookOpen(true)} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
+                 <button onClick={() => { setIsNotebookOpen(true); onQuestProgress(2); }} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
                      📖
                  </button>
                  <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
@@ -1705,6 +1793,37 @@ export default function App() {
     const [aiFeedback, setAiFeedback] = useState<string>("Chào mừng bạn đến với phòng thí nghiệm. Tôi là Giáo sư Lucy.");
     const [isAiLoading, setIsAiLoading] = useState(false);
 
+    const [microscopeChem, setMicroscopeChem] = useState<string | null>(null);
+
+    // MODULE 4: Gamification / Quests
+    const [completedQuests, setCompletedQuests] = useState<number[]>([]);
+
+    useEffect(() => {
+        const storedQuests = localStorage.getItem('chemic_completed_quests');
+        if (storedQuests) {
+            try {
+                setCompletedQuests(JSON.parse(storedQuests));
+            } catch(e) {}
+        }
+    }, []);
+
+    const completeQuest = (questId: number) => {
+        setCompletedQuests(prev => {
+            if (!prev.includes(questId)) {
+                const updated = [...prev, questId];
+                localStorage.setItem('chemic_completed_quests', JSON.stringify(updated));
+                return updated;
+            }
+            return prev;
+        });
+    };
+
+        useEffect(() => {
+        if (containers !== initialContainers && containers.length > 0) {
+            localStorage.setItem('chemic_lab_state', JSON.stringify(containers));
+        }
+    }, [containers]);
+
     useEffect(() => {
         const service = new GeminiService();
         const isMuted = localStorage.getItem('lucy_is_muted') === 'true';
@@ -1725,6 +1844,16 @@ export default function App() {
                 speakTTS(text, lang, isMuted).catch(console.error);
             }
         };
+
+        const storedContainers = localStorage.getItem('chemic_lab_state');
+        if (storedContainers) {
+            try {
+                const parsed = JSON.parse(storedContainers);
+                if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+                    setContainers(parsed);
+                }
+            } catch(e) {}
+        }
         aiServiceRef.current = service;
         // Sync initial history
         setChatHistory([...service['history'].map(h => ({ role: h.role, text: h.text }))]);
@@ -1797,6 +1926,7 @@ export default function App() {
 
         if (mixResult.reaction) {
             setLastReaction(mixResult.reaction.message);
+            if (mixResult.resultId === 'SALT') completeQuest(0);
             setLastEffect(mixResult.reaction.effect || null);
             setLastEffectPos(target.position);
 
@@ -1876,6 +2006,8 @@ export default function App() {
                 lastEffectPos={lastEffectPos}
                 onMove={handleMoveContainer}
                 onPour={handlePour}
+                onMicroscopeUpdate={(chem) => { setMicroscopeChem(chem); }}
+                onAnalyzerUpdate={(chem) => { if (chem) completeQuest(1); }}
             />
             <LabUI
                 lastReaction={lastReaction}
@@ -1891,6 +2023,9 @@ export default function App() {
                 setHeaterTemp={setHeaterTemp}
                 avatarState={avatarState}
                 lang={lang}
+                microscopeChem={microscopeChem}
+                completedQuests={completedQuests}
+                onQuestProgress={completeQuest}
             />
         </div>
     );
