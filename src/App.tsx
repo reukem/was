@@ -1676,8 +1676,18 @@ const LabUI: React.FC<{
                 </div>
             </div>
 
-            {/* BOTTOM-LEFT: INVENTORY */}
-            <div className="absolute bottom-6 left-6 w-72 pointer-events-auto flex flex-col gap-4">
+            {/* BOTTOM-LEFT: VERSION LABEL */}
+            <div className="absolute bottom-6 left-6 pointer-events-auto z-10">
+                <div
+                    className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-4 py-1.5 text-xs font-bold tracking-widest text-slate-500 shadow-xl flex items-center justify-center"
+                    style={{ fontFamily: "Inter, sans-serif" }}
+                >
+                    Version 15.8.2
+                </div>
+            </div>
+
+            {/* MID-LEFT: INVENTORY (Moved up to prevent overlap with version label) */}
+            <div className="absolute bottom-20 left-6 w-72 pointer-events-auto flex flex-col gap-4">
                 <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl h-96 flex flex-col">
                     <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                         {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
