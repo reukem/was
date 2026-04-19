@@ -352,23 +352,52 @@ const createTable = () => {
     // 1. Table Top (Matte Slate-Grey)
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
-        color: 0x718096, // Professional slate grey
-        roughness: 0.7,  // Smooth enough to ground shadows
-        metalness: 0.1   // Subtle response to environment
+        color: 0x1e293b, // Darker, sleeker slate-blue/grey
+        roughness: 0.85,
+        metalness: 0.15
     });
     const tableTop = new THREE.Mesh(geometry, material);
     tableTop.receiveShadow = true;
     group.add(tableTop);
 
-    // 2. Quantum Grid (Glowing Cyan)
-    // We use a GridHelper but boost its color for the bloom effect
-    const grid = new THREE.GridHelper(12, 24, 0x06b6d4, 0x1e293b);
-    grid.position.y = 0.11;
-    // Enhance grid material for bloom
-    (grid.material as THREE.LineBasicMaterial).color.setHex(0x22d3ee); // Brighter cyan
-    (grid.material as THREE.LineBasicMaterial).opacity = 0.6;
-    (grid.material as THREE.LineBasicMaterial).transparent = true;
-    group.add(grid);
+    // 2. Quantum Grid (Subtle Dark Grid + Bright Center Lines)
+    const gridGroup = new THREE.Group();
+    gridGroup.position.y = 0.101; // Just above table
+
+    // Central crosshairs (Cyan, visible)
+    const crossMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+    const crossX = new THREE.Mesh(new THREE.PlaneGeometry(14, 0.04), crossMat);
+    crossX.rotation.x = -Math.PI / 2;
+    const crossZ = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 8), crossMat);
+    crossZ.rotation.x = -Math.PI / 2;
+    gridGroup.add(crossX, crossZ);
+
+    // Subtle dark grid
+    const gridGeometry = new THREE.BufferGeometry();
+    const gridVertices: number[] = [];
+    const step = 0.5;
+
+    // Lines parallel to Z (along X axis)
+    for (let x = step; x <= 7; x += step) {
+        gridVertices.push(x, 0, -4, x, 0, 4);
+        gridVertices.push(-x, 0, -4, -x, 0, 4);
+    }
+    // Lines parallel to X (along Z axis)
+    for (let z = step; z <= 4; z += step) {
+        gridVertices.push(-7, 0, z, 7, 0, z);
+        gridVertices.push(-7, 0, -z, 7, 0, -z);
+    }
+
+    gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridVertices, 3));
+    const gridLineMat = new THREE.LineBasicMaterial({
+        color: 0x1e293b,
+        transparent: true,
+        opacity: 0.8
+    });
+    const lines = new THREE.LineSegments(gridGeometry, gridLineMat);
+    gridGroup.add(lines);
+
+    group.add(gridGroup);
 
     // 3. Emissive Rim (The "Holographic" Edge)
     const rimGeo = new THREE.BoxGeometry(14.05, 0.22, 8.05);
@@ -380,6 +409,12 @@ const createTable = () => {
     });
     const rim = new THREE.Mesh(rimGeo, rimMat);
     group.add(rim);
+
+    // 4. Sharp Green Outline for the Table
+    const edges = new THREE.EdgesGeometry(geometry); // geometry is BoxGeometry(14, 0.2, 8)
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x22c55e, linewidth: 2 });
+    const outline = new THREE.LineSegments(edges, lineMat);
+    group.add(outline);
 
     return group;
 };
@@ -1440,7 +1475,7 @@ const HolographicAvatar: React.FC<{
     const chatEndRef = useRef<HTMLDivElement>(null);
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
 
-    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy_avatar.png';
+    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.jpg' : '/lucy_avatar.png';
 
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
@@ -1605,7 +1640,7 @@ const LabUI: React.FC<{
 
                 {/* 1. Command Header */}
                 <div className="pointer-events-auto bg-[#1a1f30] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex flex-col items-start border border-slate-700/50">
-                    <h1 className="text-4xl font-extrabold tracking-wide bg-gradient-to-b from-white via-slate-200 to-slate-400 text-transparent bg-clip-text drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)] pb-1">
+                    <h1 className="text-[2.5rem] font-extrabold tracking-wide bg-gradient-to-b from-[#ffffff] via-[#e2e8f0] to-[#94a3b8] text-transparent bg-clip-text drop-shadow-[0_3px_2px_rgba(0,0,0,0.8)] leading-none pb-1">
                         CHEMIC-AI
                     </h1>
                     <div className="flex items-center gap-2 mt-2">
@@ -1742,10 +1777,10 @@ const LabUI: React.FC<{
 
             {/* Bottom Status Bar */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto flex items-center justify-center">
-                <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-4 py-1.5 flex items-center justify-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]">
-                    <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>[SYSTEM: ONLINE]</span>
-                    <span className="opacity-30 shrink-0">|</span>
-                    <span className="shrink-0">[NODE: NEURAL_CORE_V2.5]</span>
+                <div className="bg-slate-800/90 backdrop-blur-lg border border-slate-600/50 rounded-full px-6 py-2.5 flex items-center justify-center gap-6 text-xs font-bold tracking-[0.2em] text-slate-400 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]" style={{ fontFamily: "Inter, sans-serif" }}>
+                    <span className="flex items-center gap-2 shrink-0"><span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>[SYSTEM: ONLINE]</span>
+                    <span className="opacity-20 shrink-0">|</span>
+                    <span className="shrink-0 text-slate-400">[NODE: GEMINI_2.5]</span>
                 </div>
             </div>
 
