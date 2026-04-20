@@ -349,26 +349,57 @@ const createBeakerLiquidGeometry = (radius: number = 0.39, height: number = 0.95
 const createTable = () => {
     const group = new THREE.Group();
 
-    // 1. Table Top (Matte Slate-Grey)
+    // 1. Table Top (Matte surface)
     const geometry = new THREE.BoxGeometry(14, 0.2, 8);
     const material = new THREE.MeshStandardMaterial({
-        color: 0x718096, // Professional slate grey
-        roughness: 0.7,  // Smooth enough to ground shadows
-        metalness: 0.1   // Subtle response to environment
+        color: 0x1e293b, // Sleek slate-blue/grey
+        roughness: 0.9,  // Matte surface to prevent glare
+        metalness: 0.05, // Barely metallic
     });
     const tableTop = new THREE.Mesh(geometry, material);
     tableTop.receiveShadow = true;
     group.add(tableTop);
 
-    // 2. Quantum Grid (Glowing Cyan)
-    // We use a GridHelper but boost its color for the bloom effect
-    const grid = new THREE.GridHelper(12, 24, 0x06b6d4, 0x1e293b);
-    grid.position.y = 0.11;
-    // Enhance grid material for bloom
-    (grid.material as THREE.LineBasicMaterial).color.setHex(0x22d3ee); // Brighter cyan
-    (grid.material as THREE.LineBasicMaterial).opacity = 0.6;
-    (grid.material as THREE.LineBasicMaterial).transparent = true;
-    group.add(grid);
+    // 2. Quantum Grid (Subtle Dark Grid + Bright Center Lines)
+    const gridGroup = new THREE.Group();
+    gridGroup.position.y = 0.101; // Just above table
+
+    // Central crosshairs (Cyan, visible)
+    const crossMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee });
+    const crossX = new THREE.Mesh(new THREE.PlaneGeometry(14, 0.04), crossMat);
+    crossX.rotation.x = -Math.PI / 2;
+    const crossZ = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 8), crossMat);
+    crossZ.rotation.x = -Math.PI / 2;
+    gridGroup.add(crossX, crossZ);
+
+    // Subtle dark grid - Calculated exactly from center out
+    const gridGeometry = new THREE.BufferGeometry();
+    const gridVertices: number[] = [];
+    const step = 0.5;
+    const centerLineHalfWidth = 0.02; // crossX and crossZ are 0.04 wide
+
+    // Lines parallel to Z (along X axis)
+    // Start exactly 'step' distance away from the *edge* of the central crosshair
+    for (let x = centerLineHalfWidth + step; x <= 7; x += step) {
+        gridVertices.push(x, 0, -4, x, 0, 4);
+        gridVertices.push(-x, 0, -4, -x, 0, 4);
+    }
+    // Lines parallel to X (along Z axis)
+    for (let z = centerLineHalfWidth + step; z <= 4; z += step) {
+        gridVertices.push(-7, 0, z, 7, 0, z);
+        gridVertices.push(-7, 0, -z, 7, 0, -z);
+    }
+
+    gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridVertices, 3));
+    const gridLineMat = new THREE.LineBasicMaterial({
+        color: 0x1e293b,
+        transparent: true,
+        opacity: 0.8
+    });
+    const lines = new THREE.LineSegments(gridGeometry, gridLineMat);
+    gridGroup.add(lines);
+
+    group.add(gridGroup);
 
     // 3. Emissive Rim (The "Holographic" Edge)
     const rimGeo = new THREE.BoxGeometry(14.05, 0.22, 8.05);
@@ -380,6 +411,12 @@ const createTable = () => {
     });
     const rim = new THREE.Mesh(rimGeo, rimMat);
     group.add(rim);
+
+    // 4. Sharp Green Outline for the Table
+    const edges = new THREE.EdgesGeometry(geometry); // geometry is BoxGeometry(14, 0.2, 8)
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x22c55e, linewidth: 2 });
+    const outline = new THREE.LineSegments(edges, lineMat);
+    group.add(outline);
 
     return group;
 };
@@ -951,7 +988,7 @@ const LabScene: React.FC<{
         scene.add(new THREE.AmbientLight(0xfbcfe8, 0.015));
 
         // 2. Key Light - Focused Spotlight on Center Table
-        const spotLight = new THREE.SpotLight(0xffffff, 60); // Halved intensity to stop glass blinding
+        const spotLight = new THREE.SpotLight(0xffffff, 25); // Lowered intensity to 25 to fix blinding glare
         spotLight.position.set(5, 12, 5);
         spotLight.angle = Math.PI / 6; // Tighter beam
         spotLight.penumbra = 0.5; // Soft edge
@@ -962,7 +999,7 @@ const LabScene: React.FC<{
         scene.add(spotLight);
 
         // 3. Rim Light - Warm sunset orange edge
-        const rimLight = new THREE.DirectionalLight(0xfdba74, 1.0); // Halved intensity
+        const rimLight = new THREE.DirectionalLight(0xfdba74, 0.5); // Halved intensity again
         rimLight.position.set(0, 5, -8); // Behind and above
         scene.add(rimLight);
 
@@ -1440,7 +1477,7 @@ const HolographicAvatar: React.FC<{
     const chatEndRef = useRef<HTMLDivElement>(null);
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
 
-    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.png' : '/lucy_avatar.png';
+    const avatarSrc = avatarState === 'shocked' ? '/lucy_shocked.jpg' : '/lucy_avatar.png';
 
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
@@ -1600,31 +1637,33 @@ const LabUI: React.FC<{
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
             </div>
 
-            {/* MODULE 3: Top-Left (Command Header) */}
-            <div className="absolute top-6 left-6 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-[2rem] p-5 shadow-2xl flex flex-col items-center text-center">
-                    <h1 className="text-4xl font-extrabold text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] tracking-[0.1em]">
+            {/* --- UNIFIED LEFT SIDEBAR --- */}
+            <div className="absolute top-6 left-6 bottom-6 w-80 flex flex-col gap-4 pointer-events-none z-50">
+
+                {/* 1. Command Header */}
+                <div className="pointer-events-auto bg-[#1a1f30] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex flex-col items-start border border-slate-700/50">
+                    <h1 className="text-[2.5rem] font-extrabold tracking-wide bg-gradient-to-b from-[#ffffff] via-[#e2e8f0] to-[#94a3b8] text-transparent bg-clip-text drop-shadow-[0_3px_2px_rgba(0,0,0,0.8)] leading-none pb-1">
                         CHEMIC-AI
                     </h1>
-                    <div className="flex items-center justify-center gap-2 mt-1">
-                        <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        <span className="text-[10px] tracking-[0.3em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
+                    <div className="flex items-center gap-2 mt-2">
+                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
+                        <span className="text-[10px] tracking-[0.2em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
                     </div>
-                    <div className="flex gap-2 mt-4 w-full justify-center">
-                         <button className="border border-blue-500/50 text-blue-400 rounded-xl px-4 py-1.5 text-xs font-bold hover:bg-blue-500/10 transition-colors w-full">
+                    <div className="flex gap-2 mt-4 w-full">
+                         <button className="flex-1 border border-blue-500/30 text-blue-400 bg-blue-950/20 rounded-lg px-4 py-2 text-xs font-bold hover:bg-blue-500/20 transition-colors shadow-inner flex items-center justify-center gap-2">
                              💎 AAA
                          </button>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl px-4 py-1.5 transition-colors border border-white/5 shadow-sm">
+                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 h-10 flex items-center justify-center transition-colors border border-slate-600 shadow-sm shrink-0">
                              ⚙️
                          </button>
                     </div>
                 </div>
 
-                {/* Thermal Slider */}
-                <div className="bg-slate-900/80 backdrop-blur-md border border-orange-500/30 rounded-xl p-3 w-64 shadow-xl">
+                {/* 2. Thermal Slider */}
+                <div className="pointer-events-auto bg-slate-800/90 rounded-xl p-3 shadow-xl border border-slate-700">
                      <div className="flex justify-between items-center mb-2">
-                         <span className="text-[10px] font-bold text-orange-500 tracking-wider">{lang === 'VN' ? 'BẾP NHIỆT' : 'HEATER'}</span>
-                         <span className="text-xs text-white">{heaterTemp}°C</span>
+                         <span className="text-[10px] font-bold text-orange-500 tracking-wider uppercase">{lang === 'VN' ? 'Bếp Nhiệt' : 'Heater'}</span>
+                         <span className="text-xs text-white font-mono">{heaterTemp}°C</span>
                      </div>
                      <input
                         type="range"
@@ -1633,33 +1672,30 @@ const LabUI: React.FC<{
                         step="25"
                         value={heaterTemp}
                         onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                        className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
                      />
                 </div>
-            </div>
 
-            {/* MID-LEFT: QUESTS */}
-            <div className="absolute top-1/2 left-6 transform -translate-y-1/2 w-64 pointer-events-auto">
-                 {/* Safety Indicator */}
-                 <div className={`bg-slate-900/80 backdrop-blur-md rounded-2xl border p-3 flex items-center justify-between shadow-lg mb-4 transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50 shadow-red-500/20' : 'border-emerald-500/30'}`}>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase">{lang === 'VN' ? 'TRẠNG THÁI' : 'STATUS'}</span>
+                 {/* 3. Safety Indicator */}
+                 <div className={`pointer-events-auto bg-slate-800/90 rounded-xl border p-3 flex items-center justify-between shadow-lg transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50' : 'border-slate-700'}`}>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{lang === 'VN' ? 'Trạng Thái' : 'Status'}</span>
                       {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
-                          <span className="text-xs font-bold text-red-500 flex items-center gap-1 animate-pulse">
-                              {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-ping"></span>
+                          <span className="text-xs font-bold text-red-500 flex items-center gap-2">
+                              {lang === 'VN' ? 'NGUY HIỂM' : 'DANGER'} <span className="w-2 h-2 bg-red-500 rounded-full animate-ping"></span>
                           </span>
                       ) : (
-                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
-                              {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          <span className="text-xs font-bold text-emerald-400 flex items-center gap-2 tracking-wider">
+                              {lang === 'VN' ? 'AN TOÀN' : 'SAFE'} <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
                           </span>
                       )}
                  </div>
 
-                 {/* Quest Board */}
-                 <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl p-4">
-                    <h2 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-white/5 pb-2">
-                        {lang === 'VN' ? 'TIẾN ĐỘ (3)' : 'PROGRESS (3)'}
+                 {/* 4. Quest Board */}
+                 <div className="pointer-events-auto bg-slate-800/90 rounded-2xl border border-slate-700 shadow-xl p-4">
+                    <h2 className="text-[11px] font-bold text-slate-300 uppercase tracking-widest mb-3 border-b border-slate-700 pb-2">
+                        {lang === 'VN' ? 'Tiến Độ (3)' : 'Progress (3)'}
                     </h2>
-                    <div className="text-[10px] text-slate-400 space-y-2">
+                    <div className="text-[10px] text-slate-400 space-y-2.5">
                         <div className={`flex items-center gap-2 ${completedQuests.includes(0) ? '' : 'opacity-50'}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${completedQuests.includes(0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]' : 'bg-slate-600'}`}></span>
                             <span className={`text-slate-300 ${completedQuests.includes(0) ? 'font-bold text-yellow-100' : ''}`}>{lang === 'VN' ? 'Tổng hợp Natri Clorua (Muối)' : 'Synthesize Sodium Chloride'}</span>
@@ -1674,28 +1710,26 @@ const LabUI: React.FC<{
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {/* BOTTOM-LEFT: INVENTORY */}
-            <div className="absolute bottom-6 left-6 w-72 pointer-events-auto flex flex-col gap-4">
-                <div className="bg-slate-900/80 backdrop-blur-lg rounded-2xl border border-white/10 shadow-2xl h-96 flex flex-col">
-                    <div className="p-3 bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                {/* 5. Inventory */}
+                <div className="pointer-events-auto flex-1 min-h-0 bg-slate-800/90 rounded-2xl border border-slate-700 shadow-xl flex flex-col">
+                    <div className="p-4 bg-slate-800 border-b border-slate-700 rounded-t-2xl text-[10px] font-bold text-slate-300 uppercase tracking-widest">
                         {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
                     </div>
-                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3">
+                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3 flex-1">
                          <div className="flex gap-2">
                              <button
                                 onClick={() => onSpawn('BEAKER')}
-                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                                className="flex-1 text-left p-3 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-sm"
                              >
                                 <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc' : 'Beaker'}</div>
                                 <div className="text-[10px] text-slate-500 mt-1">1000ml</div>
                              </button>
                              <button
                                 onClick={() => onSpawn('FLASK')}
-                                className="flex-1 text-left p-3 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-white/10 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-lg"
+                                className="flex-1 text-left p-3 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-sm"
                              >
-                                <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
+                                <div className="text-xs font-bold text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
                                 <div className="text-[10px] text-slate-500 mt-1">Erlenmeyer</div>
                              </button>
                          </div>
@@ -1704,15 +1738,15 @@ const LabUI: React.FC<{
                              <button
                                 key={chem.id}
                                 onClick={() => onSpawn(chem.id)}
-                                className="w-full text-left p-4 rounded-xl bg-slate-900/80 backdrop-blur-sm border border-cyan-900/30 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-lg"
+                                className="w-full text-left p-3.5 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-sm"
                              >
                                 <div>
                                     <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
                                     <div className="text-[10px] text-slate-500 mt-1">{chem.formula}</div>
                                 </div>
                                 <span
-                                    className="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] opacity-60 group-hover:opacity-100 transition-opacity"
-                                    style={{ backgroundColor: chem.color, boxShadow: `0 0 10px ${chem.color}` }}
+                                    className="w-2 h-2 rounded-full opacity-60 group-hover:opacity-100 transition-opacity"
+                                    style={{ backgroundColor: chem.color }}
                                 ></span>
                              </button>
                          ))}
@@ -1745,10 +1779,10 @@ const LabUI: React.FC<{
 
             {/* Bottom Status Bar */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto flex items-center justify-center">
-                <div className="bg-[#0f172a]/80 backdrop-blur-lg border border-white/10 rounded-full px-4 py-1.5 flex items-center justify-center gap-4 text-[10px] font-mono text-slate-500 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]">
-                    <span className="flex items-center gap-1.5 shrink-0"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>[SYSTEM: ONLINE]</span>
-                    <span className="opacity-30 shrink-0">|</span>
-                    <span className="shrink-0">[NODE: NEURAL_CORE_V2.5]</span>
+                <div className="bg-slate-800/90 backdrop-blur-lg border border-slate-600/50 rounded-full px-6 py-2.5 flex items-center justify-center gap-6 text-xs font-bold tracking-[0.2em] text-slate-400 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]" style={{ fontFamily: "Inter, sans-serif" }}>
+                    <span className="flex items-center gap-2 shrink-0"><span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>[SYSTEM: ONLINE]</span>
+                    <span className="opacity-20 shrink-0">|</span>
+                    <span className="shrink-0 text-slate-400">[NODE: GEMINI_2.5]</span>
                 </div>
             </div>
 
