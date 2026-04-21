@@ -1,10 +1,5 @@
 export class AudioService {
     static async generateSpeech(text: string, lang: 'EN' | 'VN'): Promise<string | null> {
-        if (localStorage.getItem('lucy_is_muted') === 'true') {
-            console.log("AudioService: Muted. Speech synthesis aborted.");
-            return null;
-        }
-
         const apiKey = localStorage.getItem('elevenlabs_api_key');
 
         if (!apiKey) {
