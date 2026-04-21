@@ -1,0 +1,4 @@
+## 2024-04-21 - [Input Length Limits & Concurrent Form Submissions]
+**Vulnerability:** Input fields (API keys, chat) lacked maxLength constraints, allowing arbitrary amounts of data to be pasted, creating a client-side Denial of Service risk. The chat submission handler also lacked checks for concurrent submissions.
+**Learning:** React state updates on massive text inputs can hang the browser. AI chat forms that don't block submission while loading can trigger redundant and costly API calls or race conditions in state.
+**Prevention:** Always add sensible `maxLength` attributes to `<input>` and `<textarea>` elements (e.g., 200 for keys, 50000 for large code inputs). Always disable submit buttons AND add guard clauses (e.g., `if (isLoading) return;`) in submit handlers to block concurrent dispatches.
