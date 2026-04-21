@@ -8,6 +8,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import SettingsModal from './components/SettingsModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
+import { SFXService } from './services/SFXService';
 
 // -----------------------------------------------------------------------------
 // 1. TYPES & INTERFACES
@@ -1653,7 +1654,7 @@ const LabUI: React.FC<{
                          <button className="flex-1 border border-blue-500/30 text-blue-400 bg-blue-950/20 rounded-lg px-4 py-2 text-xs font-bold hover:bg-blue-500/20 transition-colors shadow-inner flex items-center justify-center gap-2">
                              💎 AAA
                          </button>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 h-10 flex items-center justify-center transition-colors border border-slate-600 shadow-sm shrink-0">
+                         <button onClick={() => { SFXService.playClick(); setIsSettingsOpen(true); }} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 h-10 flex items-center justify-center transition-colors border border-slate-600 shadow-sm shrink-0">
                              ⚙️
                          </button>
                     </div>
@@ -1671,7 +1672,10 @@ const LabUI: React.FC<{
                         max="1000"
                         step="25"
                         value={heaterTemp}
-                        onChange={(e) => setHeaterTemp(Number(e.target.value))}
+                        onChange={(e) => {
+                            SFXService.playClick();
+                            setHeaterTemp(Number(e.target.value));
+                        }}
                         className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
                      />
                 </div>
@@ -1759,10 +1763,10 @@ const LabUI: React.FC<{
                  <button className="bg-slate-900/80 backdrop-blur-lg border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
                      {lang === 'VN' ? 'BẮT ĐẦU THI' : 'START EXAM'}
                  </button>
-                 <button onClick={() => { setIsNotebookOpen(true); onQuestProgress(2); }} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
+                 <button onClick={() => { SFXService.playClick(); setIsNotebookOpen(true); onQuestProgress(2); }} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
                      📖
                  </button>
-                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
+                 <button onClick={() => { SFXService.playClick(); onReset(); }} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
                      ⟳
                  </button>
             </div>
@@ -1921,6 +1925,8 @@ export default function App() {
     const handlePour = useCallback(async (sourceId: string, targetId: string) => {
         const source = containers.find(c => c.id === sourceId);
         const target = containers.find(c => c.id === targetId);
+
+        SFXService.playClink();
         if (!source || !target || !source.contents) return;
 
         const isSourceItem = sourceId.startsWith('source_');
@@ -1960,6 +1966,16 @@ export default function App() {
 
         if (mixResult.reaction) {
             setLastReaction(mixResult.reaction.message);
+
+            if (mixResult.reaction.effect === 'explosion') {
+                SFXService.playExplosion();
+            } else if (mixResult.reaction.effect === 'toxic_gas' || mixResult.resultId === 'H2O') {
+                // H2O is produced in the single displacement reaction (bubbling), gas produced in toxic_gas
+                SFXService.playSizzle();
+            } else if (mixResult.resultId !== source.contents.chemicalId) {
+                 SFXService.playSizzle();
+            }
+
             if (mixResult.resultId === 'SALT') completeQuest(0);
             setLastEffect(mixResult.reaction.effect || null);
             setLastEffectPos(target.position);
@@ -1988,6 +2004,7 @@ export default function App() {
     }, [containers, heaterTemp]); // Add heaterTemp to dependencies
 
     const handleSpawn = (chemId: string) => {
+        SFXService.playSpawn();
         const isBeaker = chemId === 'BEAKER';
         const isFlask = chemId === 'FLASK';
         const isContainer = isBeaker || isFlask;
@@ -2019,6 +2036,7 @@ export default function App() {
     };
 
     const handleReset = () => {
+        SFXService.playSpawn();
         setContainers(initialContainers);
         setLastReaction(null);
         setLastEffect(null);
