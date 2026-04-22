@@ -6,6 +6,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import SettingsModal from './components/SettingsModal';
+import PeriodicTableModal from './components/PeriodicTableModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
 
@@ -26,7 +27,7 @@ interface ReactionResult {
 
 type LocalizedString = { EN: string; VN: string };
 
-interface Chemical {
+export interface Chemical {
     id: string;
     name: LocalizedString;
     formula: string;
@@ -36,6 +37,8 @@ interface Chemical {
     ph: number;
     boilingPoint?: number;
     description: LocalizedString;
+    category: 'basic' | 'advanced';
+    atomicNumber?: number;
 }
 
 interface ContainerContents {
@@ -71,39 +74,42 @@ interface ChatMessage {
 // 2. CONSTANTS & DATA REGISTRIES
 // -----------------------------------------------------------------------------
 
-const CHEMICALS: Record<string, Chemical> = {
-    'H2O': { id: 'H2O', name: { VN: 'Nước Cất', EN: 'Distilled Water' }, formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, boilingPoint: 100, description: { VN: 'Dung môi phổ quát.', EN: 'Universal solvent.' } },
-    'SODIUM': { id: 'SODIUM', name: { VN: 'Natri', EN: 'Sodium' }, formula: 'Na', color: '#9ca3af', type: 'solid', meshStyle: 'rock', ph: 12.0, description: { VN: 'Kim loại kiềm mềm, phản ứng mạnh.', EN: 'Soft, highly reactive alkali metal.' } },
-    'POTASSIUM': { id: 'POTASSIUM', name: { VN: 'Kali', EN: 'Potassium' }, formula: 'K', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 13.0, description: { VN: 'Kim loại rất hoạt động.', EN: 'Highly reactive metal.' } },
-    'MAGNESIUM': { id: 'MAGNESIUM', name: { VN: 'Magiê', EN: 'Magnesium' }, formula: 'Mg', color: '#e2e8f0', type: 'solid', meshStyle: 'rock', ph: 7.0, description: { VN: 'Kim loại kiềm thổ nhẹ.', EN: 'Light alkaline earth metal.' } },
+export const CHEMICALS: Record<string, Chemical> = {
+    // GASES (NEW)
+    'H2': { id: 'H2', name: { VN: 'Hiđrô', EN: 'Hydrogen' }, formula: 'H₂', color: '#e2e8f0', type: 'gas', meshStyle: 'canister', ph: 7.0, description: { VN: 'Khí nhẹ nhất, dễ cháy.', EN: 'Lightest gas, highly flammable.' }, category: 'basic', atomicNumber: 1 },
+    'O2': { id: 'O2', name: { VN: 'Ôxy', EN: 'Oxygen' }, formula: 'O₂', color: '#e0f2fe', type: 'gas', meshStyle: 'canister', ph: 7.0, description: { VN: 'Khí duy trì sự sống và sự cháy.', EN: 'Gas that supports life and combustion.' }, category: 'basic', atomicNumber: 8 },
+    'N2': { id: 'N2', name: { VN: 'Nitơ', EN: 'Nitrogen' }, formula: 'N₂', color: '#f8fafc', type: 'gas', meshStyle: 'canister', ph: 7.0, description: { VN: 'Khí trơ, chiếm phần lớn khí quyển.', EN: 'Inert gas, majority of the atmosphere.' }, category: 'basic', atomicNumber: 7 },
+    'CHLORINE': { id: 'CHLORINE', name: { VN: 'Khí Clo', EN: 'Chlorine Gas' }, formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: { VN: 'Khí nhị nguyên tử độc hại.', EN: 'Toxic diatomic gas.' }, category: 'basic', atomicNumber: 17 },
 
-    // NEW METALS
-    'COPPER': { id: 'COPPER', name: { VN: 'Đồng', EN: 'Copper' }, formula: 'Cu', color: '#b87333', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại dẻo màu đỏ cam.', EN: 'Ductile orange-red metal.' } },
-    'GOLD': { id: 'GOLD', name: { VN: 'Vàng', EN: 'Gold' }, formula: 'Au', color: '#ffd700', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại quý giá.', EN: 'Precious yellow metal.' } },
-    'SILVER': { id: 'SILVER', name: { VN: 'Bạc', EN: 'Silver' }, formula: 'Ag', color: '#c0c0c0', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại trắng sáng.', EN: 'Lustrous white metal.' } },
+    // SOLIDS - METALS & NON-METALS (BASIC)
+    'C': { id: 'C', name: { VN: 'Cacbon', EN: 'Carbon' }, formula: 'C', color: '#334155', type: 'solid', meshStyle: 'rock', ph: 7.0, description: { VN: 'Nguyên tố cơ bản của sự sống.', EN: 'Fundamental element of life.' }, category: 'basic', atomicNumber: 6 },
+    'SODIUM': { id: 'SODIUM', name: { VN: 'Natri', EN: 'Sodium' }, formula: 'Na', color: '#9ca3af', type: 'solid', meshStyle: 'rock', ph: 12.0, description: { VN: 'Kim loại kiềm mềm, phản ứng mạnh.', EN: 'Soft, highly reactive alkali metal.' }, category: 'basic', atomicNumber: 11 },
+    'POTASSIUM': { id: 'POTASSIUM', name: { VN: 'Kali', EN: 'Potassium' }, formula: 'K', color: '#94a3b8', type: 'solid', meshStyle: 'rock', ph: 13.0, description: { VN: 'Kim loại rất hoạt động.', EN: 'Highly reactive metal.' }, category: 'basic', atomicNumber: 19 },
+    'MAGNESIUM': { id: 'MAGNESIUM', name: { VN: 'Magiê', EN: 'Magnesium' }, formula: 'Mg', color: '#e2e8f0', type: 'solid', meshStyle: 'rock', ph: 7.0, description: { VN: 'Kim loại kiềm thổ nhẹ.', EN: 'Light alkaline earth metal.' }, category: 'basic', atomicNumber: 12 },
+    'COPPER': { id: 'COPPER', name: { VN: 'Đồng', EN: 'Copper' }, formula: 'Cu', color: '#b87333', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại dẻo màu đỏ cam.', EN: 'Ductile orange-red metal.' }, category: 'basic', atomicNumber: 29 },
+    'GOLD': { id: 'GOLD', name: { VN: 'Vàng', EN: 'Gold' }, formula: 'Au', color: '#ffd700', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại quý giá.', EN: 'Precious yellow metal.' }, category: 'basic', atomicNumber: 79 },
+    'SILVER': { id: 'SILVER', name: { VN: 'Bạc', EN: 'Silver' }, formula: 'Ag', color: '#c0c0c0', type: 'solid', meshStyle: 'ingot', ph: 7.0, description: { VN: 'Kim loại trắng sáng.', EN: 'Lustrous white metal.' }, category: 'basic', atomicNumber: 47 },
+    'IODINE': { id: 'IODINE', name: { VN: 'Iốt', EN: 'Iodine' }, formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: { VN: 'Phi kim màu tím đen lấp lánh.', EN: 'Lustrous purple-black nonmetal.' }, category: 'basic', atomicNumber: 53 },
 
-    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: { VN: 'Canxi Cacbonat', EN: 'Calcium Carbonate' }, formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: { VN: 'Chất phổ biến trong đá/vỏ sò.', EN: 'Common substance in rocks/shells.' } },
-
-    'CHLORINE': { id: 'CHLORINE', name: { VN: 'Khí Clo', EN: 'Chlorine Gas' }, formula: 'Cl₂', color: '#bef264', type: 'gas', meshStyle: 'canister', ph: 4.0, description: { VN: 'Khí nhị nguyên tử độc hại.', EN: 'Toxic diatomic gas.' } },
-    'SALT': { id: 'SALT', name: { VN: 'Muối Ăn', EN: 'Table Salt' }, formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Natri Clorua tinh thể.', EN: 'Crystalline Sodium Chloride.' } },
-
-    'HCl': { id: 'HCl', name: { VN: 'Axit Clohydric', EN: 'Hydrochloric Acid' }, formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 110, description: { VN: 'Axit vô cơ mạnh.', EN: 'Strong mineral acid.' } },
-    'HNO3': { id: 'HNO3', name: { VN: 'Axit Nitric', EN: 'Nitric Acid' }, formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 83, description: { VN: 'Axit vô cơ ăn mòn cao.', EN: 'Highly corrosive mineral acid.' } },
-    'NaOH': { id: 'NaOH', name: { VN: 'Natri Hydroxit', EN: 'Sodium Hydroxide' }, formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, boilingPoint: 1388, description: { VN: 'Bazơ kiềm ăn da.', EN: 'Caustic alkaline base.' } },
-    'VINEGAR': { id: 'VINEGAR', name: { VN: 'Giấm Ăn', EN: 'Vinegar' }, formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, boilingPoint: 118, description: { VN: 'Axit hữu cơ yếu.', EN: 'Weak organic acid.' } },
-    'BAKING_SODA': { id: 'BAKING_SODA', name: { VN: 'Bột Nở', EN: 'Baking Soda' }, formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: { VN: 'Muối kiềm nhẹ.', EN: 'Mild alkaline salt.' } },
-    'BLEACH': { id: 'BLEACH', name: { VN: 'Thuốc Tẩy', EN: 'Bleach' }, formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, boilingPoint: 100, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizing agent.' } },
-
-    'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: { VN: 'Đồng(II) Sunfat', EN: 'Copper(II) Sulfate' }, formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: { VN: 'Hợp chất vô cơ màu xanh lam.', EN: 'Blue inorganic compound.' } },
-    'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: { VN: 'Đồng(II) Nitrat', EN: 'Copper(II) Nitrate' }, formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, boilingPoint: 125, description: { VN: 'Dung dịch màu xanh lam đậm.', EN: 'Deep blue solution.' } },
-    'H2O2': { id: 'H2O2', name: { VN: 'Oxy Già', EN: 'Hydrogen Peroxide' }, formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, boilingPoint: 150, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizer.' } },
-    'KI': { id: 'KI', name: { VN: 'Kali Iodua', EN: 'Potassium Iodide' }, formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Muối xúc tác tinh thể.', EN: 'Crystalline catalyst salt.' } },
-    'IODINE': { id: 'IODINE', name: { VN: 'Iốt', EN: 'Iodine' }, formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: { VN: 'Phi kim màu tím đen lấp lánh.', EN: 'Lustrous purple-black nonmetal.' } },
-    'INDICATOR': { id: 'INDICATOR', name: { VN: 'Chỉ Thị Vạn Năng', EN: 'Universal Indicator' }, formula: 'pH', color: '#22c55e', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Chất chỉ thị đổi màu theo pH.', EN: 'Changes color based on pH.' } },
-    'PHENOLPHTHALEIN': { id: 'PHENOLPHTHALEIN', name: { VN: 'Phenolphthalein', EN: 'Phenolphthalein' }, formula: 'C₂₀H₁₄O₄', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Chất chỉ thị màu.', EN: 'Color indicator.' } }
+    // COMPOUNDS (ADVANCED)
+    'H2O': { id: 'H2O', name: { VN: 'Nước Cất', EN: 'Distilled Water' }, formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, boilingPoint: 100, description: { VN: 'Dung môi phổ quát.', EN: 'Universal solvent.' }, category: 'advanced' },
+    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: { VN: 'Canxi Cacbonat', EN: 'Calcium Carbonate' }, formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: { VN: 'Chất phổ biến trong đá/vỏ sò.', EN: 'Common substance in rocks/shells.' }, category: 'advanced' },
+    'SALT': { id: 'SALT', name: { VN: 'Muối Ăn', EN: 'Table Salt' }, formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Natri Clorua tinh thể.', EN: 'Crystalline Sodium Chloride.' }, category: 'advanced' },
+    'HCl': { id: 'HCl', name: { VN: 'Axit Clohydric', EN: 'Hydrochloric Acid' }, formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 110, description: { VN: 'Axit vô cơ mạnh.', EN: 'Strong mineral acid.' }, category: 'advanced' },
+    'HNO3': { id: 'HNO3', name: { VN: 'Axit Nitric', EN: 'Nitric Acid' }, formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 83, description: { VN: 'Axit vô cơ ăn mòn cao.', EN: 'Highly corrosive mineral acid.' }, category: 'advanced' },
+    'NaOH': { id: 'NaOH', name: { VN: 'Natri Hydroxit', EN: 'Sodium Hydroxide' }, formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, boilingPoint: 1388, description: { VN: 'Bazơ kiềm ăn da.', EN: 'Caustic alkaline base.' }, category: 'advanced' },
+    'VINEGAR': { id: 'VINEGAR', name: { VN: 'Giấm Ăn', EN: 'Vinegar' }, formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, boilingPoint: 118, description: { VN: 'Axit hữu cơ yếu.', EN: 'Weak organic acid.' }, category: 'advanced' },
+    'BAKING_SODA': { id: 'BAKING_SODA', name: { VN: 'Bột Nở', EN: 'Baking Soda' }, formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: { VN: 'Muối kiềm nhẹ.', EN: 'Mild alkaline salt.' }, category: 'advanced' },
+    'BLEACH': { id: 'BLEACH', name: { VN: 'Thuốc Tẩy', EN: 'Bleach' }, formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, boilingPoint: 100, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizing agent.' }, category: 'advanced' },
+    'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: { VN: 'Đồng(II) Sunfat', EN: 'Copper(II) Sulfate' }, formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: { VN: 'Hợp chất vô cơ màu xanh lam.', EN: 'Blue inorganic compound.' }, category: 'advanced' },
+    'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: { VN: 'Đồng(II) Nitrat', EN: 'Copper(II) Nitrate' }, formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, boilingPoint: 125, description: { VN: 'Dung dịch màu xanh lam đậm.', EN: 'Deep blue solution.' }, category: 'advanced' },
+    'H2O2': { id: 'H2O2', name: { VN: 'Oxy Già', EN: 'Hydrogen Peroxide' }, formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, boilingPoint: 150, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizer.' }, category: 'advanced' },
+    'KI': { id: 'KI', name: { VN: 'Kali Iodua', EN: 'Potassium Iodide' }, formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Muối xúc tác tinh thể.', EN: 'Crystalline catalyst salt.' }, category: 'advanced' },
+    'PHENOLPHTHALEIN': { id: 'PHENOLPHTHALEIN', name: { VN: 'Phenolphthalein', EN: 'Phenolphthalein' }, formula: 'C₂₀H₁₄O₄', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Chất chỉ thị màu.', EN: 'Color indicator.' }, category: 'advanced' }
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
+    { reactants: ['H2', 'O2'], product: 'H2O', resultColor: '#06b6d4', temperature: 25, message: { VN: 'Phản ứng tổng hợp: 2H₂ + O₂ → 2H₂O. Tạo ra nước cất dạng lỏng.', EN: 'Synthesis reaction: 2H₂ + O₂ → 2H₂O. Produces liquid distilled water.' } },
     { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', temperature: 550, effect: 'explosion', message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
     { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', temperature: 700, effect: 'explosion', message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
     { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 60, message: { VN: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.', EN: 'Single displacement reaction. Mg + 2HCl → MgCl₂ + H₂. Rapid hydrogen gas bubbling.' } },
@@ -1482,12 +1488,12 @@ const HolographicAvatar: React.FC<{
     return (
         <div className="absolute bottom-6 right-6 z-50 pointer-events-auto flex flex-col items-end gap-3">
              {/* MODULE 3: Bottom-Right (Professor Lucy Interface) */}
-             <div className="w-80 bg-slate-900/80 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-                 <div className="p-4 border-b border-white/5 flex items-center gap-3">
+             <div className="w-96 bg-slate-900/80 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+                 <div className="p-4 border-b border-white/5 flex items-center gap-4">
                      {/* PERFECT SQUARE AVATAR */}
-                     <img src={avatarSrc} className="w-12 h-12 aspect-square object-cover rounded-md border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
+                     <img src={avatarSrc} className="w-16 h-16 aspect-square object-cover rounded-lg border border-cyan-500 shrink-0 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-300" alt="Prof Lucy" />
                      <div>
-                         <h3 className="text-sm font-bold text-white tracking-wide">{lang === 'VN' ? 'Liên Lạc - GIÁO SƯ LUCY' : 'Commlink - PROF. LUCY'}</h3>
+                         <h3 className="text-base font-bold text-white tracking-wide">{lang === 'VN' ? 'Liên Lạc - GIÁO SƯ LUCY' : 'Commlink - PROF. LUCY'}</h3>
                          <div className="flex items-center gap-1.5 mt-0.5">
                              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
                              <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
@@ -1495,7 +1501,7 @@ const HolographicAvatar: React.FC<{
                      </div>
                  </div>
 
-                 <div className="h-64 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
+                 <div className="h-80 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-950/30">
                      {chatHistory.map((msg, i) => (
                          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                              <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed shadow-sm ${
@@ -1615,6 +1621,7 @@ const LabUI: React.FC<{
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isPeriodicTableOpen, setIsPeriodicTableOpen] = useState(false);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -1635,13 +1642,14 @@ const LabUI: React.FC<{
             <div className="pointer-events-auto">
                 <NotebookModal isOpen={isNotebookOpen} onClose={() => setIsNotebookOpen(false)} lang={lang} />
                 <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+                <PeriodicTableModal isOpen={isPeriodicTableOpen} onClose={() => setIsPeriodicTableOpen(false)} onSpawn={onSpawn} lang={lang} />
             </div>
 
             {/* --- UNIFIED LEFT SIDEBAR --- */}
             <div className="absolute top-6 left-6 bottom-6 w-80 flex flex-col gap-4 pointer-events-none z-50">
 
                 {/* 1. Command Header */}
-                <div className="pointer-events-auto bg-[#1a1f30] rounded-2xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.5)] flex flex-col items-start border border-slate-700/50">
+                <div className="pointer-events-auto bg-[#1a1f30] rounded-2xl p-5 shadow-[0_0_15px_rgba(6,182,212,0.2)] flex flex-col items-start border border-slate-700/50">
                     <h1 className="text-[2.5rem] font-extrabold tracking-wide bg-gradient-to-b from-[#ffffff] via-[#e2e8f0] to-[#94a3b8] text-transparent bg-clip-text drop-shadow-[0_3px_2px_rgba(0,0,0,0.8)] leading-none pb-1">
                         CHEMIC-AI
                     </h1>
@@ -1659,25 +1667,8 @@ const LabUI: React.FC<{
                     </div>
                 </div>
 
-                {/* 2. Thermal Slider */}
-                <div className="pointer-events-auto bg-slate-800/90 rounded-xl p-3 shadow-xl border border-slate-700">
-                     <div className="flex justify-between items-center mb-2">
-                         <span className="text-[10px] font-bold text-orange-500 tracking-wider uppercase">{lang === 'VN' ? 'Bếp Nhiệt' : 'Heater'}</span>
-                         <span className="text-xs text-white font-mono">{heaterTemp}°C</span>
-                     </div>
-                     <input
-                        type="range"
-                        min="25"
-                        max="1000"
-                        step="25"
-                        value={heaterTemp}
-                        onChange={(e) => setHeaterTemp(Number(e.target.value))}
-                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                     />
-                </div>
-
-                 {/* 3. Safety Indicator */}
-                 <div className={`pointer-events-auto bg-slate-800/90 rounded-xl border p-3 flex items-center justify-between shadow-lg transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50' : 'border-slate-700'}`}>
+                 {/* 2. Safety Indicator */}
+                 <div className={`pointer-events-auto bg-slate-800/90 rounded-xl border p-3 flex items-center justify-between transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50 shadow-amber-500/50' : 'border-slate-700 shadow-lg'}`}>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{lang === 'VN' ? 'Trạng Thái' : 'Status'}</span>
                       {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
                           <span className="text-xs font-bold text-red-500 flex items-center gap-2">
@@ -1713,10 +1704,18 @@ const LabUI: React.FC<{
 
                 {/* 5. Inventory */}
                 <div className="pointer-events-auto flex-1 min-h-0 bg-slate-800/90 rounded-2xl border border-slate-700 shadow-xl flex flex-col">
-                    <div className="p-4 bg-slate-800 border-b border-slate-700 rounded-t-2xl text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                        {lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}
+                    <div className="p-4 bg-slate-800 border-b border-slate-700 rounded-t-2xl text-[10px] font-bold text-slate-300 uppercase tracking-widest flex justify-between items-center">
+                        <span>{lang === 'VN' ? 'Kho Hóa Chất' : 'Inventory'}</span>
                     </div>
-                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3 flex-1">
+
+                    <button
+                        onClick={() => setIsPeriodicTableOpen(true)}
+                        className="mx-4 mt-4 bg-gradient-to-r from-cyan-600/40 to-blue-600/40 border border-cyan-500/50 hover:from-cyan-500/50 hover:to-blue-500/50 text-cyan-50 font-bold py-2.5 px-4 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all flex items-center justify-center gap-2"
+                    >
+                        ⚛️ {lang === 'VN' ? 'Mở Bảng Tuần Hoàn' : 'Open Periodic Table'}
+                    </button>
+
+                    <div className="overflow-y-auto custom-scrollbar p-3 space-y-3 flex-1 mt-1">
                          <div className="flex gap-2">
                              <button
                                 onClick={() => onSpawn('BEAKER')}
@@ -1738,14 +1737,15 @@ const LabUI: React.FC<{
                              <button
                                 key={chem.id}
                                 onClick={() => onSpawn(chem.id)}
-                                className="w-full text-left p-3.5 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group flex items-center justify-between shadow-sm"
+                                className="w-full text-left p-3.5 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 hover:shadow-[0_0_10px_rgba(6,182,212,0.4)] transition-all group flex items-center justify-between shadow-sm"
                              >
                                 <div>
                                     <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{chem.name[lang]}</div>
                                     <div className="text-[10px] text-slate-500 mt-1">{chem.formula}</div>
+                                    <div className="text-sm text-gray-400 mt-1">{chem.description[lang]}</div>
                                 </div>
                                 <span
-                                    className="w-2 h-2 rounded-full opacity-60 group-hover:opacity-100 transition-opacity"
+                                    className="w-2 h-2 rounded-full opacity-60 group-hover:opacity-100 transition-opacity shrink-0 ml-2"
                                     style={{ backgroundColor: chem.color }}
                                 ></span>
                              </button>
@@ -1945,6 +1945,10 @@ export default function App() {
                     return { ...c, contents: newVol < 0.05 ? null : { ...c.contents!, volume: newVol } };
                 }
                 if (c.id === targetId) {
+                     if (mixResult.resultId === 'H2O' && targetChemId !== 'H2O' && sourceChem.type === 'gas' && CHEMICALS[targetChemId].type === 'gas') {
+                         // Container Morphing for H2 + O2 -> H2O
+                         return { id: `beaker-${Date.now()}`, position: c.position, contents: { chemicalId: 'H2O', volume: 0.5, color: '#06b6d4', temperature: newTemp } };
+                     }
                      return { ...c, contents: { chemicalId: mixResult.resultId, volume: Math.min(1.0, targetVol + amountToPour), color: mixResult.resultColor, temperature: isReactionProduct ? newTemp : targetTemp } };
                 }
                 return c;
@@ -1952,6 +1956,7 @@ export default function App() {
             return nextContainers.filter(c => {
                  if (c.id === sourceId) {
                      if (isReactionProduct) return false;
+                     if (mixResult.resultId === 'H2O' && sourceChem.type === 'gas' && CHEMICALS[targetChemId]?.type === 'gas') return false;
                      if (!isSourceItem && c.contents === null) return false;
                  }
                  return true;
