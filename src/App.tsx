@@ -9,6 +9,7 @@ import SettingsModal from './components/SettingsModal';
 import PeriodicTableModal from './components/PeriodicTableModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
+import { SFXService } from './services/SFXService';
 import { OFFLINE_DATABANK } from './data/offlineKnowledge';
 import { updateItemState, onItemsUpdate, removeItem } from './services/firebaseSync';
 
@@ -22,7 +23,7 @@ type MeshStyle = 'flask' | 'rock' | 'crystal' | 'mound' | 'canister' | 'ingot';
 interface ReactionResult {
     productName: LocalizedString;
     color: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas' | 'precipitate_copper';
     temperature?: number; // In Celsius
     message: LocalizedString;
 }
@@ -61,7 +62,7 @@ interface ReactionEntry {
     reactants: [string, string];
     product: string;
     resultColor?: string;
-    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas';
+    effect?: 'bubbles' | 'smoke' | 'fire' | 'explosion' | 'foam' | 'toxic_gas' | 'precipitate_copper';
     temperature?: number;
     minTemp?: number; // Activation Energy (Celsius)
     message: LocalizedString;
@@ -122,7 +123,7 @@ const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['H2', 'O2'], product: 'H2O', resultColor: '#06b6d4', temperature: 25, message: { VN: 'Phản ứng tổng hợp: 2H₂ + O₂ → 2H₂O. Tạo ra nước cất dạng lỏng.', EN: 'Synthesis reaction: 2H₂ + O₂ → 2H₂O. Produces liquid distilled water.' } },
     { reactants: ['SODIUM', 'H2O'], product: 'NaOH', resultColor: '#f8fafc', temperature: 550, effect: 'explosion', message: { VN: 'Phản ứng tỏa nhiệt mạnh! Na + H₂O → NaOH + H₂. Sự giãn nở hydro gây nổ nhiệt.', EN: 'Strong exothermic reaction! Na + H₂O → NaOH + H₂. Hydrogen expansion causes thermal explosion.' } },
     { reactants: ['POTASSIUM', 'H2O'], product: 'NaOH', resultColor: '#d8b4fe', temperature: 700, effect: 'explosion', message: { VN: 'Phản ứng dữ dội! 2K + 2H₂O → 2KOH + H₂. Kali cháy với ngọn lửa tím hoa cà trước khi nổ.', EN: 'Violent reaction! 2K + 2H₂O → 2KOH + H₂. Potassium burns with a lilac flame before exploding.' } },
-    { reactants: ['MAGNESIUM', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 60, message: { VN: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.', EN: 'Single displacement reaction. Mg + 2HCl → MgCl₂ + H₂. Rapid hydrogen gas bubbling.' } },
+    { reactants: ['MAGNESIUM', 'HCl'], product: 'MAGNESIUM_CHLORIDE', resultColor: '#e2e8f0', temperature: 60, effect: 'bubbles', message: { VN: 'Phản ứng thế đơn. Mg + 2HCl → MgCl₂ + H₂. Sủi bọt khí Hydro nhanh chóng.', EN: 'Single displacement reaction. Mg + 2HCl → MgCl₂ + H₂. Rapid hydrogen gas bubbling.' } },
     { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', temperature: 80, effect: 'toxic_gas', message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
     { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', temperature: 20, message: { VN: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.', EN: 'Acid-carbonate reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. CO2 bubbling.' } },
     { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 30, message: { VN: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.', EN: 'Strong decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Vigorous bubbling.' } },
@@ -132,7 +133,9 @@ const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#f8fafc', temperature: 800, minTemp: 100, message: { VN: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.', EN: 'Synthesis reaction. 2Na + Cl₂ → 2NaCl. Redox reaction forming table salt.' } },
     { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', temperature: 30, message: { VN: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.', EN: 'Precipitation reaction. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Blue Copper(II) Hydroxide precipitate forms.' } },
     { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', temperature: 80, effect: 'foam', message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } },
-    { reactants: ['NaOH', 'PHENOLPHTHALEIN'], product: 'NaOH', resultColor: '#f472b6', temperature: 25, message: { VN: 'Chất chỉ thị đổi màu hồng trong môi trường kiềm.', EN: 'Indicator turns pink in alkaline environment.' } }
+    { reactants: ['NaOH', 'PHENOLPHTHALEIN'], product: 'NaOH', resultColor: '#f472b6', temperature: 25, message: { VN: 'Chất chỉ thị đổi màu hồng trong môi trường kiềm.', EN: 'Indicator turns pink in alkaline environment.' } },
+    { reactants: ['SILVER_NITRATE', 'SALT'], product: 'SILVER_CHLORIDE', resultColor: '#e2e8f0', temperature: 25, message: { VN: 'Phản ứng kết tủa. AgNO₃ + NaCl → AgCl + NaNO₃. Tạo kết tủa trắng Bạc Clorua.', EN: 'Precipitation reaction. AgNO₃ + NaCl → AgCl + NaNO₃. Forms white Silver Chloride precipitate.' } },
+    { reactants: ['MAGNESIUM', 'COPPER_SULFATE'], product: 'MAGNESIUM_SULFATE', resultColor: '#f1f5f9', temperature: 35, effect: 'precipitate_copper', message: { VN: 'Phản ứng oxi hóa khử. Mg + CuSO₄ → MgSO₄ + Cu. Đồng kết tủa đỏ dưới đáy bình.', EN: 'Redox reaction. Mg + CuSO₄ → MgSO₄ + Cu. Red copper precipitates at the bottom.' } }
 ];
 
 // -----------------------------------------------------------------------------
@@ -146,7 +149,7 @@ interface Particle {
     life: number;
     maxLife: number;
     scaleStep: number;
-    type: 'spark' | 'smoke' | 'foam' | 'toxic_gas';
+    type: 'spark' | 'smoke' | 'foam' | 'toxic_gas' | 'bubbles' | 'precipitate_copper';
 }
 
 class ParticleSystem {
@@ -208,6 +211,38 @@ class ParticleSystem {
             this.scene.add(mesh);
             const v = new THREE.Vector3((Math.random() - 0.5) * 1.0, Math.random() * 1.5 + 0.5, (Math.random() - 0.5) * 1.0);
             this.particles.push({ mesh, velocity: v, life: 4.0, maxLife: 4.0, scaleStep: 0.015, type: 'toxic_gas' });
+        }
+    }
+
+    createBubbles(position: THREE.Vector3) {
+        const bubbleGeo = new THREE.SphereGeometry(0.05, 8, 8);
+        const bubbleMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, transmission: 0.9, roughness: 0.1 });
+        for (let i = 0; i < 20; i++) {
+            const mesh = new THREE.Mesh(bubbleGeo, bubbleMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.1 + Math.random() * 0.2;
+            mesh.position.x += (Math.random() - 0.5) * 0.3;
+            mesh.position.z += (Math.random() - 0.5) * 0.3;
+            this.scene.add(mesh);
+            // Bubbles float upwards
+            const v = new THREE.Vector3((Math.random() - 0.5) * 0.2, Math.random() * 2.0 + 1.0, (Math.random() - 0.5) * 0.2);
+            this.particles.push({ mesh, velocity: v, life: 2.0, maxLife: 2.0, scaleStep: 0.01, type: 'bubbles' });
+        }
+    }
+
+    createPrecipitateCopper(position: THREE.Vector3) {
+        const sparkGeo = new THREE.BoxGeometry(0.04, 0.04, 0.04);
+        const sparkMat = new THREE.MeshBasicMaterial({ color: 0x8b4513 }); // Dark reddish-brown
+        for (let i = 0; i < 30; i++) {
+            const mesh = new THREE.Mesh(sparkGeo, sparkMat);
+            mesh.position.copy(position);
+            mesh.position.y += 0.5; // Start in the liquid
+            mesh.position.x += (Math.random() - 0.5) * 0.3;
+            mesh.position.z += (Math.random() - 0.5) * 0.3;
+            this.scene.add(mesh);
+            // Sparks sink downwards (negative Y)
+            const v = new THREE.Vector3((Math.random() - 0.5) * 0.5, -Math.random() * 1.5 - 0.5, (Math.random() - 0.5) * 0.5);
+            this.particles.push({ mesh, velocity: v, life: 3.0, maxLife: 3.0, scaleStep: -0.01, type: 'precipitate_copper' });
         }
     }
 
@@ -903,7 +938,8 @@ const LabScene: React.FC<{
     onMicroscopeUpdate?: (chemId: string | null) => void;
     onAnalyzerUpdate?: (chemId: string | null) => void;
     role: 'Lead Chemist' | 'Observer';
-}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, onMicroscopeUpdate, onAnalyzerUpdate, role }) => {
+    isAAA: boolean;
+}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, onMicroscopeUpdate, onAnalyzerUpdate, role, isAAA }) => {
 
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
@@ -934,6 +970,14 @@ const LabScene: React.FC<{
 
         if (lastEffect === 'toxic_gas') {
             particleSystemRef.current?.createToxicGas(position);
+        }
+
+        if (lastEffect === 'bubbles') {
+            particleSystemRef.current?.createBubbles(position);
+        }
+
+        if (lastEffect === 'precipitate_copper') {
+            particleSystemRef.current?.createPrecipitateCopper(position);
         }
 
         if (lastEffect === 'foam') {
@@ -1268,7 +1312,11 @@ const LabScene: React.FC<{
                     onMicroscopeUpdate(foundChem);
                 }
             }
-            composer.render();
+            if (isAAA) {
+                composer.render();
+            } else {
+                renderer.render(scene, camera);
+            }
         };
         animate();
 
@@ -1457,6 +1505,11 @@ const LabScene: React.FC<{
 
                     // Smooth color tweening instead of sudden snapping
                     mat.color.lerp(liquidMesh.userData.targetColor, 0.1);
+
+                    // Bug Fix: Update opacity reactively for precipitates (AgCl) or state changes
+                    const isClear = container.contents.chemicalId === 'H2O' || container.contents.chemicalId === 'H2SO4' || container.contents.chemicalId === 'HCl' || container.contents.chemicalId === 'HNO3';
+                    const targetOpacity = container.contents.chemicalId === 'SILVER_CHLORIDE' ? 1.0 : (isClear ? 0.3 : 0.4);
+                    mat.opacity = THREE.MathUtils.lerp(mat.opacity, targetOpacity, 0.05);
 
                     if (temp > 100) {
                         const heatFactor = Math.min((temp - 100) / 500, 1);
@@ -1698,7 +1751,9 @@ const LabUI: React.FC<{
     isOnline: boolean;
     role: 'Lead Chemist' | 'Observer';
     setRole: (role: 'Lead Chemist' | 'Observer') => void;
-}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, microscopeChem, completedQuests, onQuestProgress, isOnline, role, setRole }) => {
+    isAAA: boolean;
+    setIsAAA: (val: boolean) => void;
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, microscopeChem, completedQuests, onQuestProgress, isOnline, role, setRole, isAAA, setIsAAA }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1743,13 +1798,23 @@ const LabUI: React.FC<{
                     <div className="flex gap-2 mt-4 w-full">
                         <select
                             value={role}
-                            onChange={(e) => setRole(e.target.value as 'Lead Chemist' | 'Observer')}
+                            onChange={(e) => { SFXService.playClick(); setRole(e.target.value as 'Lead Chemist' | 'Observer'); }}
                             className="flex-1 bg-slate-800 border border-slate-700 text-slate-200 text-[10px] font-bold rounded-lg px-2 py-2 outline-none focus:border-cyan-500/50"
                         >
                             <option value="Lead Chemist">{lang === 'VN' ? 'TRƯỞNG NHÓM' : 'LEAD CHEMIST'}</option>
                             <option value="Observer">{lang === 'VN' ? 'QUAN SÁT VIÊN' : 'OBSERVER'}</option>
                         </select>
-                         <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 h-10 flex items-center justify-center transition-colors border border-slate-600 shadow-sm shrink-0">
+                        <button
+                             onClick={() => { SFXService.playClick(); setIsAAA(!isAAA); }}
+                             className={`flex-1 border rounded-lg px-4 py-2 text-[10px] font-bold transition-colors shadow-inner flex items-center justify-center gap-2 ${
+                                 isAAA
+                                     ? 'border-cyan-500/30 text-cyan-400 bg-cyan-950/20 hover:bg-cyan-500/20'
+                                     : 'border-orange-500/50 text-orange-400 bg-orange-950/30 hover:bg-orange-500/20'
+                             }`}
+                         >
+                             {isAAA ? '💎 AAA' : '⚡ FAST'}
+                         </button>
+                         <button onClick={() => { SFXService.playClick(); setIsSettingsOpen(true); }} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 h-10 flex items-center justify-center transition-colors border border-slate-600 shadow-sm shrink-0">
                              ⚙️
                          </button>
                     </div>
@@ -1797,7 +1862,7 @@ const LabUI: React.FC<{
                     </div>
 
                     <button
-                        onClick={() => setIsPeriodicTableOpen(true)}
+                        onClick={() => { SFXService.playClick(); setIsPeriodicTableOpen(true); }}
                         className="mx-4 mt-4 bg-gradient-to-r from-cyan-600/40 to-blue-600/40 border border-cyan-500/50 hover:from-cyan-500/50 hover:to-blue-500/50 text-cyan-50 font-bold py-2.5 px-4 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.2)] hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all flex items-center justify-center gap-2"
                     >
                         ⚛️ {lang === 'VN' ? 'Mở Bảng Tuần Hoàn' : 'Open Periodic Table'}
@@ -1806,14 +1871,14 @@ const LabUI: React.FC<{
                     <div className="overflow-y-auto custom-scrollbar p-3 space-y-3 flex-1 mt-1">
                          <div className="flex gap-2">
                              <button
-                                onClick={() => onSpawn('BEAKER')}
+                                onClick={() => { SFXService.playSpawn(); onSpawn('BEAKER'); }}
                                 className="flex-1 text-left p-3 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-sm"
                              >
                                 <div className="text-xs font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{lang === 'VN' ? 'Cốc' : 'Beaker'}</div>
                                 <div className="text-[10px] text-slate-500 mt-1">1000ml</div>
                              </button>
                              <button
-                                onClick={() => onSpawn('FLASK')}
+                                onClick={() => { SFXService.playSpawn(); onSpawn('FLASK'); }}
                                 className="flex-1 text-left p-3 rounded-xl bg-[#0f172a] border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800 transition-all group shadow-sm"
                              >
                                 <div className="text-xs font-bold text-cyan-400 transition-colors">{lang === 'VN' ? 'Bình' : 'Flask'}</div>
@@ -1847,10 +1912,10 @@ const LabUI: React.FC<{
                  <button className="bg-slate-900/80 backdrop-blur-lg border border-orange-500/50 text-orange-400 text-xs font-bold px-5 py-2.5 rounded-full shadow-lg hover:bg-orange-500/10 transition-all hover:scale-105 active:scale-95">
                      {lang === 'VN' ? 'BẮT ĐẦU THI' : 'START EXAM'}
                  </button>
-                 <button onClick={() => { setIsNotebookOpen(true); onQuestProgress(2); }} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
+                 <button onClick={() => { SFXService.playClick(); setIsNotebookOpen(true); onQuestProgress(2); }} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-all shadow-lg">
                      📖
                  </button>
-                 <button onClick={onReset} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
+                 <button onClick={() => { SFXService.playSpawn(); onReset(); }} className="w-10 h-10 bg-[#0f172a]/80 backdrop-blur-lg rounded-full border border-white/10 flex items-center justify-center text-red-400 hover:text-red-300 hover:border-red-500/30 transition-all shadow-lg">
                      ⟳
                  </button>
             </div>
@@ -1911,6 +1976,7 @@ export default function App() {
     // MODULE 2: Lifted Heater State
     const [heaterTemp, setHeaterTemp] = useState(300);
     const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
+    const [isAAA, setIsAAA] = useState(true);
     const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
 
     const initialContainers: ContainerState[] = [
@@ -2102,6 +2168,8 @@ export default function App() {
     const handlePour = useCallback(async (sourceId: string, targetId: string) => {
         const source = containers.find(c => c.id === sourceId);
         const target = containers.find(c => c.id === targetId);
+
+        SFXService.playClink();
         if (!source || !target || !source.contents) return;
 
         const isSourceItem = sourceId.startsWith('source_');
@@ -2173,6 +2241,15 @@ export default function App() {
 
         if (mixResult.reaction) {
             setLastReaction(mixResult.reaction.message);
+
+            if (mixResult.reaction.effect === 'explosion') {
+                SFXService.playExplosion();
+            } else if (mixResult.reaction.effect === 'toxic_gas' || mixResult.reaction.effect === 'bubbles' || mixResult.reaction.effect === 'precipitate_copper') {
+                SFXService.playSizzle();
+            } else if (mixResult.resultId !== source.contents.chemicalId) {
+                 SFXService.playSizzle();
+            }
+
             if (mixResult.resultId === 'SALT') completeQuest(0);
             setLastEffect(mixResult.reaction.effect || null);
             setLastEffectPos(target.position);
@@ -2266,6 +2343,7 @@ export default function App() {
                 onMicroscopeUpdate={(chem) => { setMicroscopeChem(chem); }}
                 onAnalyzerUpdate={(chem) => { if (chem) completeQuest(1); }}
                 role={role}
+                isAAA={isAAA}
             />
             <LabUI
                 lastReaction={lastReaction}
@@ -2287,6 +2365,8 @@ export default function App() {
                 isOnline={isOnline}
                 role={role}
                 setRole={setRole}
+                isAAA={isAAA}
+                setIsAAA={setIsAAA}
             />
         </div>
     );
