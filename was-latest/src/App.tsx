@@ -776,7 +776,6 @@ class GeminiService {
 // -----------------------------------------------------------------------------
 
 const LabScene: React.FC<{
-    heaterTemp: number;
     containers: ContainerState[];
     lastEffect: string | null;
     lastEffectPos: [number, number, number] | null;
@@ -785,7 +784,7 @@ const LabScene: React.FC<{
     onMicroscopeUpdate?: (chemId: string | null) => void;
     onAnalyzerUpdate?: (chemId: string | null) => void;
     isAAA: boolean;
-}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, onMicroscopeUpdate, onAnalyzerUpdate, isAAA }) => {
+}> = ({ containers, lastEffect, lastEffectPos, onMove, onPour, onMicroscopeUpdate, onAnalyzerUpdate, isAAA }) => {
 
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
@@ -1064,15 +1063,7 @@ const LabScene: React.FC<{
         };
 
         const animateDrop = (group: THREE.Group, id: string) => {
-            // Check if dropping on heater
-            const heaterPos = new THREE.Vector3(-1.5, 0.19, 0);
-            const dist = new THREE.Vector2(group.position.x, group.position.z).distanceTo(new THREE.Vector2(heaterPos.x, heaterPos.z));
-            let targetY = 0.11;
-            if (dist < 0.6) {
-                targetY = 0.42; // Height of heater plate + beaker base offset
-                group.position.x = heaterPos.x; // Snap to heater center X
-                group.position.z = heaterPos.z; // Snap to heater center Z
-            }
+            let targetY = 0.11; // Base table height
 
             const animate = () => {
                 if (group.position.y > targetY + 0.01) {
@@ -1581,13 +1572,11 @@ const LabUI: React.FC<{
     onReset: () => void;
     onChat: (message: string) => void;
     // MODULE 2: Lifted State
-    heaterTemp: number;
-    setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
     lang: 'EN' | 'VN';
     isAAA: boolean;
     setIsAAA: (val: boolean) => void;
-}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, microscopeChem, completedQuests, onQuestProgress, isAAA, setIsAAA }) => {
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, avatarState, lang, microscopeChem, completedQuests, onQuestProgress, isAAA, setIsAAA }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1642,27 +1631,7 @@ const LabUI: React.FC<{
                     </div>
                 </div>
 
-                {/* 2. Thermal Slider */}
-                <div className="pointer-events-auto bg-slate-800/90 rounded-xl p-3 shadow-xl border border-slate-700">
-                     <div className="flex justify-between items-center mb-2">
-                         <span className="text-[10px] font-bold text-orange-500 tracking-wider uppercase">{lang === 'VN' ? 'Bếp Nhiệt' : 'Heater'}</span>
-                         <span className="text-xs text-white font-mono">{heaterTemp}°C</span>
-                     </div>
-                     <input
-                        type="range"
-                        min="25"
-                        max="1000"
-                        step="25"
-                        value={heaterTemp}
-                        onChange={(e) => {
-                            SFXService.playClick();
-                            setHeaterTemp(Number(e.target.value));
-                        }}
-                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
-                     />
-                </div>
-
-                 {/* 3. Safety Indicator */}
+                 {/* 2. Safety Indicator */}
                  <div className={`pointer-events-auto bg-slate-800/90 rounded-xl border p-3 flex items-center justify-between shadow-lg transition-colors duration-300 ${lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? 'border-red-500/50' : 'border-slate-700'}`}>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{lang === 'VN' ? 'Trạng Thái' : 'Status'}</span>
                       {lastEffect === 'explosion' || lastEffect === 'toxic_gas' ? (
@@ -1798,8 +1767,7 @@ export default function App() {
     const [lastEffectPos, setLastEffectPos] = useState<[number, number, number] | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
-    // MODULE 2: Lifted Heater State
-    const [heaterTemp, setHeaterTemp] = useState(300);
+    // MODULE 2: Lifted Heater State (Removed)
     const [avatarState, setAvatarState] = useState<'normal' | 'shocked'>('normal');
     const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
     const [isAAA, setIsAAA] = useState(true);
@@ -1919,11 +1887,11 @@ export default function App() {
 
         const targetChemId = target.contents ? target.contents.chemicalId : 'H2O';
         const targetVol = target.contents ? target.contents.volume : 0;
-        // MODULE 2: Pass Heater Temp to Reaction Logic (Ambient Temp)
-        const targetTemp = target.contents?.temperature || heaterTemp;
+        // MODULE 2: Default ambient room temperature (Heater Removed)
+        const targetTemp = target.contents?.temperature || 25;
 
-        // Pass ambient temp (heaterTemp) to mix function for activation energy check
-        const mixResult = ChemistryEngine.mix(targetChemId, targetVol, source.contents.chemicalId, amountToPour, heaterTemp);
+        // Pass ambient temp (25) to mix function for activation energy check
+        const mixResult = ChemistryEngine.mix(targetChemId, targetVol, source.contents.chemicalId, amountToPour, 25);
 
         setContainers(prev => {
             const isReactionProduct = !!mixResult.reaction;
@@ -1984,7 +1952,7 @@ export default function App() {
                 setIsAiLoading(false);
             }
         }
-    }, [containers, heaterTemp]); // Add heaterTemp to dependencies
+    }, [containers]); // Dependencies updated
 
     const handleSpawn = (chemId: string) => {
         SFXService.playSpawn();
@@ -2035,7 +2003,6 @@ export default function App() {
             <div className="absolute inset-0 bg-tech-grid opacity-20 pointer-events-none" />
 
             <LabScene
-                heaterTemp={heaterTemp}
                 containers={containers}
                 lastEffect={lastEffect}
                 lastEffectPos={lastEffectPos}
@@ -2055,8 +2022,6 @@ export default function App() {
                 onSpawn={handleSpawn}
                 onReset={handleReset}
                 onChat={handleChat}
-                heaterTemp={heaterTemp}
-                setHeaterTemp={setHeaterTemp}
                 avatarState={avatarState}
                 lang={lang}
                 microscopeChem={microscopeChem}
