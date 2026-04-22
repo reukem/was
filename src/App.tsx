@@ -2006,14 +2006,14 @@ export default function App() {
             const unsubscribe = onItemsUpdate((items) => {
                 if (items) {
                     setContainers(prev => {
-                        const next = [...prev];
-                        let changed = false;
+                        // 1. Filter out containers that no longer exist on remote
+                        let next = prev.filter(localItem => items[localItem.id] !== undefined);
+                        let changed = next.length !== prev.length;
 
-                        // Sync existing and add new ones
+                        // 2. Update existing and add new ones
                         Object.keys(items).forEach(id => {
                             const remoteItem = items[id];
                             const index = next.findIndex(c => c.id === id);
-
                             const remotePos: [number, number, number] = [remoteItem.position.x, remoteItem.position.y, remoteItem.position.z];
 
                             if (index !== -1) {
@@ -2026,17 +2026,17 @@ export default function App() {
                                 const hasContentsChanged =
                                     localItem.contents?.chemicalId !== remoteItem.chemicalId ||
                                     localItem.contents?.volume !== remoteItem.volume ||
+                                    localItem.contents?.color !== remoteItem.color || // Color sync is critical
                                     localItem.contents?.temperature !== remoteItem.temperature;
 
                                 if (hasPositionChanged || hasContentsChanged) {
-                                    const chem = CHEMICALS[remoteItem.chemicalId || 'H2O'];
                                     next[index] = {
                                         ...localItem,
                                         position: remotePos,
                                         contents: remoteItem.volume > 0 ? {
                                             chemicalId: remoteItem.chemicalId || 'H2O',
                                             volume: remoteItem.volume || 0,
-                                            color: chem?.color || '#ffffff',
+                                            color: remoteItem.color || '#ffffff', // Use blended color from remote
                                             temperature: remoteItem.temperature || 25
                                         } : null
                                     };
@@ -2044,16 +2044,13 @@ export default function App() {
                                 }
                             } else {
                                 // Add new container from remote
-                                const chemId = remoteItem.chemicalId || 'H2O';
-                                const chem = CHEMICALS[chemId];
-
                                 next.push({
                                     id,
                                     position: remotePos,
                                     contents: remoteItem.volume > 0 ? {
-                                        chemicalId: chemId,
+                                        chemicalId: remoteItem.chemicalId || 'H2O',
                                         volume: remoteItem.volume || 0,
-                                        color: chem?.color || '#ffffff',
+                                        color: remoteItem.color || '#ffffff',
                                         temperature: remoteItem.temperature || 25
                                     } : null
                                 });
@@ -2087,7 +2084,8 @@ export default function App() {
                     container.contents?.chemicalId || 'H2O',
                     position,
                     container.contents?.volume || 0,
-                    container.contents?.temperature || 25
+                    container.contents?.temperature || 25,
+                    container.contents?.color
                 );
             }
             return prev.map(c => c.id === id ? { ...c, position } : c);
@@ -2129,9 +2127,9 @@ export default function App() {
                     const newVol = Math.max(0, c.contents!.volume - amountToPour);
                     const contents = newVol < 0.05 ? null : { ...c.contents!, volume: newVol };
                     if (role === 'Lead Chemist') {
-                        if (contents) updateItemState(c.id, contents.chemicalId, c.position, contents.volume, contents.temperature || 25);
+                        if (contents) updateItemState(c.id, contents.chemicalId, c.position, contents.volume, contents.temperature || 25, contents.color);
                         else if (!c.id.startsWith('beaker-') && !c.id.startsWith('flask-')) removeItem(c.id);
-                        else updateItemState(c.id, 'H2O', c.position, 0, 25);
+                        else updateItemState(c.id, 'H2O', c.position, 0, 25, '#f8fafc');
                     }
                     return { ...c, contents };
                 }
@@ -2142,13 +2140,13 @@ export default function App() {
                          morphTargetId = newId;
                          if (role === 'Lead Chemist') {
                             removeItem(targetId);
-                            updateItemState(newId, 'H2O', c.position, 0.5, newTemp);
+                            updateItemState(newId, 'H2O', c.position, 0.5, newTemp, '#06b6d4');
                          }
                          return { id: newId, position: c.position, contents: { chemicalId: 'H2O', volume: 0.5, color: '#06b6d4', temperature: newTemp } };
                      }
                      const contents = { chemicalId: mixResult.resultId, volume: Math.min(1.0, targetVol + amountToPour), color: mixResult.resultColor, temperature: isReactionProduct ? newTemp : targetTemp };
                      if (role === 'Lead Chemist') {
-                         updateItemState(c.id, contents.chemicalId, c.position, contents.volume, contents.temperature || 25);
+                         updateItemState(c.id, contents.chemicalId, c.position, contents.volume, contents.temperature || 25, contents.color);
                      }
                      return { ...c, contents };
                 }
@@ -2231,7 +2229,7 @@ export default function App() {
         }
 
         if (role === 'Lead Chemist') {
-            updateItemState(newId, isContainer ? 'H2O' : chemId, [x, y, z], isContainer ? 0 : 1.0, 25);
+            updateItemState(newId, isContainer ? 'H2O' : chemId, [x, y, z], isContainer ? 0 : 1.0, 25, isContainer ? '#f8fafc' : chem!.color);
         }
 
         setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isContainer ? undefined : [x, y, z], contents: isContainer ? null : { chemicalId: chemId, volume: 1.0, color: chem!.color, temperature: 25 } }]);
@@ -2241,7 +2239,7 @@ export default function App() {
         if (role === 'Lead Chemist') {
             containers.forEach(c => removeItem(c.id));
             initialContainers.forEach(c => {
-                updateItemState(c.id, c.contents?.chemicalId || 'H2O', c.position, c.contents?.volume || 0, c.contents?.temperature || 25);
+                updateItemState(c.id, c.contents?.chemicalId || 'H2O', c.position, c.contents?.volume || 0, c.contents?.temperature || 25, c.contents?.color || '#f8fafc');
             });
         }
         setContainers(initialContainers);

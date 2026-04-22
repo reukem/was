@@ -21,7 +21,7 @@ try {
   console.error("Firebase initialization failed:", e);
 }
 
-export const updateItemState = (id: string, chemicalId: string, position: [number, number, number], volume: number, temperature: number) => {
+export const updateItemState = (id: string, chemicalId: string, position: [number, number, number], volume: number, temperature: number, color?: string) => {
   if (!db) return;
   const itemRef = ref(db, 'labSession/items/' + id);
   update(itemRef, {
@@ -32,7 +32,8 @@ export const updateItemState = (id: string, chemicalId: string, position: [numbe
       z: position[2]
     },
     volume,
-    temperature
+    temperature,
+    color
   });
 };
 
