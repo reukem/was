@@ -11,10 +11,18 @@ const firebaseConfig = {
   appId: (import.meta as any).env.VITE_FIREBASE_APP_ID || "PLACEHOLDER_APP_ID"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+let app;
+let db: any;
+
+try {
+  app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+} catch (e) {
+  console.error("Firebase initialization failed:", e);
+}
 
 export const updateItemPosition = (id: string, chemicalId: string, position: [number, number, number]) => {
+  if (!db) return;
   const itemRef = ref(db, 'labSession/items/' + id);
   update(itemRef, {
     chemicalId,
@@ -27,6 +35,7 @@ export const updateItemPosition = (id: string, chemicalId: string, position: [nu
 };
 
 export const onItemsUpdate = (callback: (items: any) => void) => {
+  if (!db) return () => {};
   const itemsRef = ref(db, 'labSession/items');
   return onValue(itemsRef, (snapshot) => {
     const data = snapshot.val();
