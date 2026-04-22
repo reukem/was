@@ -1,5 +1,6 @@
 import React from 'react';
 import { Chemical, CHEMICALS } from '../App';
+import { SFXService } from '../services/SFXService';
 
 interface PeriodicTableModalProps {
     isOpen: boolean;
@@ -30,6 +31,7 @@ const PeriodicTableModal: React.FC<PeriodicTableModalProps> = ({ isOpen, onClose
     };
 
     const handleSpawn = (id: string) => {
+        SFXService.playSpawn();
         onSpawn(id);
         onClose();
     };

@@ -15,13 +15,22 @@ let app;
 let db: any;
 
 try {
-  app = initializeApp(firebaseConfig);
-  db = getDatabase(app);
+  // CRITICAL: Validate Firebase Database URL before initialization to prevent "Blackhole" crash
+  const isValidUrl = firebaseConfig.databaseURL &&
+                     firebaseConfig.databaseURL.startsWith("https://") &&
+                     !firebaseConfig.databaseURL.includes("PLACEHOLDER");
+
+  if (isValidUrl) {
+    app = initializeApp(firebaseConfig);
+    db = getDatabase(app);
+  } else {
+    console.warn("Firebase Database URL is invalid or missing. Collaborative sync disabled.");
+  }
 } catch (e) {
   console.error("Firebase initialization failed:", e);
 }
 
-export const updateItemPosition = (id: string, chemicalId: string, position: [number, number, number]) => {
+export const updateItemState = (id: string, chemicalId: string, position: [number, number, number], volume: number, temperature: number, color?: string) => {
   if (!db) return;
   const itemRef = ref(db, 'labSession/items/' + id);
   update(itemRef, {
@@ -30,8 +39,17 @@ export const updateItemPosition = (id: string, chemicalId: string, position: [nu
       x: position[0],
       y: position[1],
       z: position[2]
-    }
+    },
+    volume,
+    temperature,
+    color
   });
+};
+
+export const removeItem = (id: string) => {
+  if (!db) return;
+  const itemRef = ref(db, 'labSession/items/' + id);
+  set(itemRef, null);
 };
 
 export const onItemsUpdate = (callback: (items: any) => void) => {
