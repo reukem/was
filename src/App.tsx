@@ -10,7 +10,7 @@ import PeriodicTableModal from './components/PeriodicTableModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
 import { OFFLINE_DATABANK } from './data/offlineKnowledge';
-import { updateItemPosition, onItemsUpdate } from './services/firebaseSync';
+import { updateItemState, onItemsUpdate, removeItem } from './services/firebaseSync';
 
 // -----------------------------------------------------------------------------
 // 1. TYPES & INTERFACES
@@ -95,27 +95,27 @@ export const CHEMICALS: Record<string, Chemical> = {
     'IODINE': { id: 'IODINE', name: { VN: 'Iốt', EN: 'Iodine' }, formula: 'I₂', color: '#4c1d95', type: 'solid', meshStyle: 'crystal', ph: 5.5, description: { VN: 'Phi kim màu tím đen lấp lánh.', EN: 'Lustrous purple-black nonmetal.' }, category: 'basic', atomicNumber: 53 },
 
     // COMPOUNDS (ADVANCED)
-    'H2O': { id: 'H2O', name: { VN: 'Nước Cất', EN: 'Distilled Water' }, formula: 'H₂O', color: '#06b6d4', type: 'liquid', meshStyle: 'flask', ph: 7.0, boilingPoint: 100, description: { VN: 'Dung môi phổ quát.', EN: 'Universal solvent.' }, category: 'advanced' },
-    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: { VN: 'Canxi Cacbonat', EN: 'Calcium Carbonate' }, formula: 'CaCO₃', color: '#f5f5f4', type: 'solid', meshStyle: 'mound', ph: 9.0, description: { VN: 'Chất phổ biến trong đá/vỏ sò.', EN: 'Common substance in rocks/shells.' }, category: 'advanced' },
-    'SALT': { id: 'SALT', name: { VN: 'Muối Ăn', EN: 'Table Salt' }, formula: 'NaCl', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Natri Clorua tinh thể.', EN: 'Crystalline Sodium Chloride.' }, category: 'advanced' },
+    'H2O': { id: 'H2O', name: { VN: 'Nước Cất', EN: 'Distilled Water' }, formula: 'H₂O', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, boilingPoint: 100, description: { VN: 'Dung môi phổ quát.', EN: 'Universal solvent.' }, category: 'advanced' },
+    'CALCIUM_CARBONATE': { id: 'CALCIUM_CARBONATE', name: { VN: 'Canxi Cacbonat', EN: 'Calcium Carbonate' }, formula: 'CaCO₃', color: '#f8fafc', type: 'solid', meshStyle: 'mound', ph: 9.0, description: { VN: 'Chất phổ biến trong đá/vỏ sò.', EN: 'Common substance in rocks/shells.' }, category: 'advanced' },
+    'SALT': { id: 'SALT', name: { VN: 'Muối Ăn', EN: 'Table Salt' }, formula: 'NaCl', color: '#f8fafc', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Natri Clorua tinh thể.', EN: 'Crystalline Sodium Chloride.' }, category: 'advanced' },
     'HCl': { id: 'HCl', name: { VN: 'Axit Clohydric', EN: 'Hydrochloric Acid' }, formula: 'HCl', color: '#fef08a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 110, description: { VN: 'Axit vô cơ mạnh.', EN: 'Strong mineral acid.' }, category: 'advanced' },
     'HNO3': { id: 'HNO3', name: { VN: 'Axit Nitric', EN: 'Nitric Acid' }, formula: 'HNO₃', color: '#fde68a', type: 'liquid', meshStyle: 'flask', ph: 1.0, boilingPoint: 83, description: { VN: 'Axit vô cơ ăn mòn cao.', EN: 'Highly corrosive mineral acid.' }, category: 'advanced' },
     'NaOH': { id: 'NaOH', name: { VN: 'Natri Hydroxit', EN: 'Sodium Hydroxide' }, formula: 'NaOH', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 14.0, boilingPoint: 1388, description: { VN: 'Bazơ kiềm ăn da.', EN: 'Caustic alkaline base.' }, category: 'advanced' },
     'VINEGAR': { id: 'VINEGAR', name: { VN: 'Giấm Ăn', EN: 'Vinegar' }, formula: 'CH₃COOH', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 2.5, boilingPoint: 118, description: { VN: 'Axit hữu cơ yếu.', EN: 'Weak organic acid.' }, category: 'advanced' },
-    'BAKING_SODA': { id: 'BAKING_SODA', name: { VN: 'Bột Nở', EN: 'Baking Soda' }, formula: 'NaHCO₃', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 8.3, description: { VN: 'Muối kiềm nhẹ.', EN: 'Mild alkaline salt.' }, category: 'advanced' },
+    'BAKING_SODA': { id: 'BAKING_SODA', name: { VN: 'Bột Nở', EN: 'Baking Soda' }, formula: 'NaHCO₃', color: '#f8fafc', type: 'solid', meshStyle: 'mound', ph: 8.3, description: { VN: 'Muối kiềm nhẹ.', EN: 'Mild alkaline salt.' }, category: 'advanced' },
     'BLEACH': { id: 'BLEACH', name: { VN: 'Thuốc Tẩy', EN: 'Bleach' }, formula: 'NaClO', color: '#fde047', type: 'liquid', meshStyle: 'flask', ph: 12.5, boilingPoint: 100, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizing agent.' }, category: 'advanced' },
     'COPPER_SULFATE': { id: 'COPPER_SULFATE', name: { VN: 'Đồng(II) Sunfat', EN: 'Copper(II) Sulfate' }, formula: 'CuSO₄', color: '#3b82f6', type: 'solid', meshStyle: 'crystal', ph: 4.0, description: { VN: 'Hợp chất vô cơ màu xanh lam.', EN: 'Blue inorganic compound.' }, category: 'advanced' },
     'COPPER_NITRATE': { id: 'COPPER_NITRATE', name: { VN: 'Đồng(II) Nitrat', EN: 'Copper(II) Nitrate' }, formula: 'Cu(NO₃)₂', color: '#2563eb', type: 'liquid', meshStyle: 'flask', ph: 4.0, boilingPoint: 125, description: { VN: 'Dung dịch màu xanh lam đậm.', EN: 'Deep blue solution.' }, category: 'advanced' },
     'H2O2': { id: 'H2O2', name: { VN: 'Oxy Già', EN: 'Hydrogen Peroxide' }, formula: 'H₂O₂', color: '#e0f2fe', type: 'liquid', meshStyle: 'flask', ph: 4.5, boilingPoint: 150, description: { VN: 'Chất oxy hóa mạnh.', EN: 'Strong oxidizer.' }, category: 'advanced' },
-    'KI': { id: 'KI', name: { VN: 'Kali Iodua', EN: 'Potassium Iodide' }, formula: 'KI', color: '#ffffff', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Muối xúc tác tinh thể.', EN: 'Crystalline catalyst salt.' }, category: 'advanced' },
-    'PHENOLPHTHALEIN': { id: 'PHENOLPHTHALEIN', name: { VN: 'Phenolphthalein', EN: 'Phenolphthalein' }, formula: 'C₂₀H₁₄O₄', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Chất chỉ thị màu.', EN: 'Color indicator.' }, category: 'advanced' },
-    'SILVER_NITRATE': { id: 'SILVER_NITRATE', name: { VN: 'Bạc Nitrat', EN: 'Silver Nitrate' }, formula: 'AgNO₃', color: '#ffffff', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Muối bạc hòa tan.', EN: 'Soluble silver salt.' }, category: 'advanced' },
-    'SILVER_CHLORIDE': { id: 'SILVER_CHLORIDE', name: { VN: 'Bạc Clorua', EN: 'Silver Chloride' }, formula: 'AgCl', color: '#f1f5f9', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Kết tủa trắng.', EN: 'White precipitate.' }, category: 'advanced' },
-    'SODIUM_NITRATE': { id: 'SODIUM_NITRATE', name: { VN: 'Natri Nitrat', EN: 'Sodium Nitrate' }, formula: 'NaNO₃', color: '#ffffff', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Diêm tiêu Chile.', EN: 'Chile saltpeter.' }, category: 'advanced' },
-    'MAGNESIUM_CHLORIDE': { id: 'MAGNESIUM_CHLORIDE', name: { VN: 'Magiê Clorua', EN: 'Magnesium Chloride' }, formula: 'MgCl₂', color: '#ffffff', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Muối tan trong nước.', EN: 'Water-soluble salt.' }, category: 'advanced' },
-    'MAGNESIUM_SULFATE': { id: 'MAGNESIUM_SULFATE', name: { VN: 'Magiê Sunfat', EN: 'Magnesium Sulfate' }, formula: 'MgSO₄', color: '#ffffff', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Muối Epsom.', EN: 'Epsom salt.' }, category: 'advanced' },
-    'H2SO4': { id: 'H2SO4', name: { VN: 'Axit Sunfuric', EN: 'Sulfuric Acid' }, formula: 'H₂SO₄', color: '#ffffff', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: { VN: 'Axit vô cơ cực mạnh.', EN: 'Extremely strong mineral acid.' }, category: 'advanced' },
-    'LEAD_NITRATE': { id: 'LEAD_NITRATE', name: { VN: 'Chì(II) Nitrat', EN: 'Lead(II) Nitrate' }, formula: 'Pb(NO₃)₂', color: '#ffffff', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Muối chì độc hại.', EN: 'Toxic lead salt.' }, category: 'advanced' }
+    'KI': { id: 'KI', name: { VN: 'Kali Iodua', EN: 'Potassium Iodide' }, formula: 'KI', color: '#f8fafc', type: 'solid', meshStyle: 'mound', ph: 7.0, description: { VN: 'Muối xúc tác tinh thể.', EN: 'Crystalline catalyst salt.' }, category: 'advanced' },
+    'PHENOLPHTHALEIN': { id: 'PHENOLPHTHALEIN', name: { VN: 'Phenolphthalein', EN: 'Phenolphthalein' }, formula: 'C₂₀H₁₄O₄', color: '#fdf2f8', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Chất chỉ thị màu.', EN: 'Color indicator.' }, category: 'advanced' },
+    'SILVER_NITRATE': { id: 'SILVER_NITRATE', name: { VN: 'Bạc Nitrat', EN: 'Silver Nitrate' }, formula: 'AgNO₃', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Muối bạc hòa tan.', EN: 'Soluble silver salt.' }, category: 'advanced' },
+    'SILVER_CHLORIDE': { id: 'SILVER_CHLORIDE', name: { VN: 'Bạc Clorua', EN: 'Silver Chloride' }, formula: 'AgCl', color: '#e2e8f0', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Kết tủa trắng.', EN: 'White precipitate.' }, category: 'advanced' },
+    'SODIUM_NITRATE': { id: 'SODIUM_NITRATE', name: { VN: 'Natri Nitrat', EN: 'Sodium Nitrate' }, formula: 'NaNO₃', color: '#f1f5f9', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Diêm tiêu Chile.', EN: 'Chile saltpeter.' }, category: 'advanced' },
+    'MAGNESIUM_CHLORIDE': { id: 'MAGNESIUM_CHLORIDE', name: { VN: 'Magiê Clorua', EN: 'Magnesium Chloride' }, formula: 'MgCl₂', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Muối tan trong nước.', EN: 'Water-soluble salt.' }, category: 'advanced' },
+    'MAGNESIUM_SULFATE': { id: 'MAGNESIUM_SULFATE', name: { VN: 'Magiê Sunfat', EN: 'Magnesium Sulfate' }, formula: 'MgSO₄', color: '#f1f5f9', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Muối Epsom.', EN: 'Epsom salt.' }, category: 'advanced' },
+    'H2SO4': { id: 'H2SO4', name: { VN: 'Axit Sunfuric', EN: 'Sulfuric Acid' }, formula: 'H₂SO₄', color: '#f8fafc', type: 'liquid', meshStyle: 'flask', ph: 1.0, description: { VN: 'Axit vô cơ cực mạnh.', EN: 'Extremely strong mineral acid.' }, category: 'advanced' },
+    'LEAD_NITRATE': { id: 'LEAD_NITRATE', name: { VN: 'Chì(II) Nitrat', EN: 'Lead(II) Nitrate' }, formula: 'Pb(NO₃)₂', color: '#f1f5f9', type: 'liquid', meshStyle: 'flask', ph: 7.0, description: { VN: 'Muối chì độc hại.', EN: 'Toxic lead salt.' }, category: 'advanced' }
 };
 
 const REACTION_REGISTRY: ReactionEntry[] = [
@@ -126,10 +126,10 @@ const REACTION_REGISTRY: ReactionEntry[] = [
     { reactants: ['COPPER', 'HNO3'], product: 'COPPER_NITRATE', resultColor: '#2563eb', temperature: 80, effect: 'toxic_gas', message: { VN: 'Phản ứng oxi hóa khử. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Sinh ra khí Nitơ đioxit nâu độc hại và Đồng Nitrat xanh lam.', EN: 'Redox reaction. Cu + 4HNO₃ → Cu(NO₃)₂ + 2NO₂ + 2H₂O. Produces toxic brown Nitrogen Dioxide gas and blue Copper Nitrate.' } },
     { reactants: ['CALCIUM_CARBONATE', 'VINEGAR'], product: 'H2O', resultColor: '#f1f5f9', temperature: 20, message: { VN: 'Phản ứng axit-cacbonat. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. Sủi bọt khí CO2.', EN: 'Acid-carbonate reaction. CaCO₃ + 2CH₃COOH → Ca(CH₃COO)₂ + H₂O + CO₂. CO2 bubbling.' } },
     { reactants: ['CALCIUM_CARBONATE', 'HCl'], product: 'H2O', resultColor: '#e2e8f0', temperature: 30, message: { VN: 'Phân hủy mạnh. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Sủi bọt dữ dội.', EN: 'Strong decomposition. CaCO₃ + 2HCl → CaCl₂ + H₂O + CO₂. Vigorous bubbling.' } },
-    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#ffffff', temperature: 15, message: { VN: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.', EN: 'Acid-base neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Releases bubbling CO2.' } },
+    { reactants: ['BAKING_SODA', 'VINEGAR'], product: 'H2O', resultColor: '#f8fafc', temperature: 15, message: { VN: 'Phản ứng trung hòa axit-bazơ. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Giải phóng CO2 sủi bọt.', EN: 'Acid-base neutralization. NaHCO₃ + CH₃COOH → CO₂ + H₂O + NaCH₃COO. Releases bubbling CO2.' } },
     { reactants: ['BLEACH', 'VINEGAR'], product: 'CHLORINE', resultColor: '#bef264', temperature: 45, message: { VN: 'CẢNH BÁO NGUY HIỂM: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Phát hiện khí Clo độc hại.', EN: 'DANGER WARNING: 2H⁺ + OCl⁻ + Cl⁻ → Cl₂ + H₂O. Toxic Chlorine gas detected.' } },
-    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#ffffff', temperature: 95, message: { VN: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.', EN: 'Neutralization reaction. HCl + NaOH → NaCl + H₂O. Forms salt solution and releases strong heat.' } },
-    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#ffffff', temperature: 800, minTemp: 100, message: { VN: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.', EN: 'Synthesis reaction. 2Na + Cl₂ → 2NaCl. Redox reaction forming table salt.' } },
+    { reactants: ['HCl', 'NaOH'], product: 'SALT', resultColor: '#f8fafc', temperature: 95, message: { VN: 'Phản ứng trung hòa. HCl + NaOH → NaCl + H₂O. Tạo dung dịch muối và tỏa nhiệt mạnh.', EN: 'Neutralization reaction. HCl + NaOH → NaCl + H₂O. Forms salt solution and releases strong heat.' } },
+    { reactants: ['SODIUM', 'CHLORINE'], product: 'SALT', resultColor: '#f8fafc', temperature: 800, minTemp: 100, message: { VN: 'Phản ứng tổng hợp. 2Na + Cl₂ → 2NaCl. Phản ứng oxi hóa khử tạo muối ăn.', EN: 'Synthesis reaction. 2Na + Cl₂ → 2NaCl. Redox reaction forming table salt.' } },
     { reactants: ['COPPER_SULFATE', 'NaOH'], product: 'H2O', resultColor: '#1e3a8a', temperature: 30, message: { VN: 'Phản ứng kết tủa. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Kết tủa xanh lam Đồng(II) Hydroxit hình thành.', EN: 'Precipitation reaction. CuSO₄ + 2NaOH → Cu(OH)₂ + Na₂SO₄. Blue Copper(II) Hydroxide precipitate forms.' } },
     { reactants: ['H2O2', 'KI'], product: 'H2O', resultColor: '#fef3c7', temperature: 80, effect: 'foam', message: { VN: 'Phân hủy xúc tác. 2H₂O₂ → 2H₂O + O₂. Phản ứng "Kem đánh răng voi" tạo bọt oxy cực nhanh.', EN: 'Catalytic decomposition. 2H₂O₂ → 2H₂O + O₂. "Elephant Toothpaste" reaction creates rapid oxygen foam.' } },
     { reactants: ['NaOH', 'PHENOLPHTHALEIN'], product: 'NaOH', resultColor: '#f472b6', temperature: 25, message: { VN: 'Chất chỉ thị đổi màu hồng trong môi trường kiềm.', EN: 'Indicator turns pink in alkaline environment.' } }
@@ -319,15 +319,15 @@ const createGlassMaterial = () => {
     });
 };
 
-const createLiquidMaterial = (color: THREE.ColorRepresentation, clipPlane?: THREE.Plane) => {
+const createLiquidMaterial = (color: THREE.ColorRepresentation, clipPlane?: THREE.Plane, isClear: boolean = false) => {
     return new THREE.MeshStandardMaterial({
         color: color,
         transparent: true,
-        opacity: 0.85,
+        opacity: isClear ? 0.3 : 0.4,
         depthWrite: false, // Prevents Z-fighting and occluding glass front faces
         side: THREE.DoubleSide,
-        roughness: 0.2,
-        metalness: 0.0,
+        roughness: 0.1,
+        metalness: 0.1,
         emissive: 0x000000,
         emissiveIntensity: 0,
         clippingPlanes: clipPlane ? [clipPlane] : [],
@@ -1046,10 +1046,10 @@ const LabScene: React.FC<{
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        // BLOOM ADJUSTMENT: Strength 0.6, Radius 0.2, Threshold 0.9
+        // BLOOM ADJUSTMENT: Strength 0.6, Radius 0.2, Threshold 0.95
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.6, 0.2, 0.9
+            0.6, 0.2, 0.95
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
@@ -1318,7 +1318,7 @@ const LabScene: React.FC<{
 
                     const liquidGeo = isFlask ? createFlaskLiquidGeometry() : createBeakerLiquidGeometry();
                     const fillPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
-                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff, fillPlane));
+                    liquidMesh = new THREE.Mesh(liquidGeo, createLiquidMaterial(0xffffff, fillPlane, true));
                     liquidMesh.userData.fillPlane = fillPlane;
                     liquidMesh.userData.maxFillHeight = isFlask ? 0.8 : 0.95;
 
@@ -1369,7 +1369,8 @@ const LabScene: React.FC<{
                          const beaker = new THREE.Mesh(createBeakerGeometry(), createGlassMaterial());
                          beaker.renderOrder = 2;
                          const fillPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
-                         const innerLiquid = new THREE.Mesh(createBeakerLiquidGeometry(), createLiquidMaterial(color, fillPlane));
+                         const isClear = container.contents.chemicalId === 'H2O' || container.contents.chemicalId === 'H2SO4' || container.contents.chemicalId === 'HCl' || container.contents.chemicalId === 'HNO3';
+                         const innerLiquid = new THREE.Mesh(createBeakerLiquidGeometry(), createLiquidMaterial(color, fillPlane, isClear));
                          innerLiquid.userData.fillPlane = fillPlane;
                          innerLiquid.userData.maxFillHeight = 0.95; // Match LatheGeometry height
                          innerLiquid.scale.set(0.98, 1.0, 0.98); // Prevent Z-fighting, maintain Y=1.0
@@ -1379,14 +1380,14 @@ const LabScene: React.FC<{
 
                     } else if (chem.meshStyle === 'rock') {
                         // High-poly rock
-                        mesh = new THREE.Mesh(createRockGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true, emissive: 0x000000, emissiveIntensity: 0 }));
+                        mesh = new THREE.Mesh(createRockGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.0, flatShading: true, emissive: 0x000000, emissiveIntensity: 0 }));
                     } else if (chem.meshStyle === 'crystal') {
                         // Complex crystal
-                        mesh = new THREE.Mesh(createCrystalGeometry(), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true, emissive: 0x000000, emissiveIntensity: 0 }));
+                        mesh = new THREE.Mesh(createCrystalGeometry(), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.85, metalness: 0.0, flatShading: true, emissive: 0x000000, emissiveIntensity: 0 }));
                     } else if (chem.meshStyle === 'mound') {
-                        mesh = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 1.0, emissive: 0x000000, emissiveIntensity: 0 }));
+                        mesh = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.0, emissive: 0x000000, emissiveIntensity: 0 }));
                     } else if (chem.meshStyle === 'ingot') {
-                        mesh = new THREE.Mesh(createIngotGeometry(), new THREE.MeshStandardMaterial({ color, metalness: 0.9, roughness: 0.2, emissive: 0x000000, emissiveIntensity: 0 }));
+                        mesh = new THREE.Mesh(createIngotGeometry(), new THREE.MeshStandardMaterial({ color, metalness: 0.0, roughness: 0.85, emissive: 0x000000, emissiveIntensity: 0 }));
                     } else if (chem.meshStyle === 'canister') {
                         mesh = new THREE.Mesh(createCanisterGeometry(), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.4, emissive: 0x000000, emissiveIntensity: 0 }));
                         // Color Band
@@ -1449,19 +1450,11 @@ const LabScene: React.FC<{
                         const heatFactor = Math.min((temp - 100) / 500, 1);
                         const glowColor = new THREE.Color(liquidMesh.userData.targetColor).lerp(new THREE.Color(0xff4400), heatFactor);
                         mat.color.copy(glowColor);
-                        mat.emissive.lerp(liquidMesh.userData.glowTargetColor, 0.1);
-                        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, Math.min(heatFactor * 0.2, 0.15), 0.1);
-                    } else if (container.contents.chemicalId === 'COPPER_NITRATE') {
-                        // Deep blue glow for Copper Nitrate
-                        mat.emissive.lerp(liquidMesh.userData.copperNitrateColor, 0.1);
-                        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0.2, 0.1);
-                    } else {
-                        mat.emissive.lerp(liquidMesh.userData.blackColor, 0.1);
-                        mat.emissiveIntensity = THREE.MathUtils.lerp(mat.emissiveIntensity, 0, 0.1);
                     }
 
-                    // Clamp emissive intensity to prevent massive glare
-                    mat.emissiveIntensity = Math.min(mat.emissiveIntensity, 0.2);
+                    // Dynamic emissive logic purged to prevent "Supernova Bug"
+                    mat.emissive.set(0x000000);
+                    mat.emissiveIntensity = 0;
                 } else {
                     // EMPTY STATE: Slice it to nothing
                     if (liquidMesh.userData.fillPlane) {
@@ -2013,30 +2006,44 @@ export default function App() {
 
                             if (index !== -1) {
                                 const localItem = next[index];
-                                if (
+                                const hasPositionChanged =
                                     localItem.position[0] !== remotePos[0] ||
                                     localItem.position[1] !== remotePos[1] ||
-                                    localItem.position[2] !== remotePos[2]
-                                ) {
-                                    next[index] = { ...localItem, position: remotePos };
+                                    localItem.position[2] !== remotePos[2];
+
+                                const hasContentsChanged =
+                                    localItem.contents?.chemicalId !== remoteItem.chemicalId ||
+                                    localItem.contents?.volume !== remoteItem.volume ||
+                                    localItem.contents?.temperature !== remoteItem.temperature;
+
+                                if (hasPositionChanged || hasContentsChanged) {
+                                    const chem = CHEMICALS[remoteItem.chemicalId || 'H2O'];
+                                    next[index] = {
+                                        ...localItem,
+                                        position: remotePos,
+                                        contents: remoteItem.volume > 0 ? {
+                                            chemicalId: remoteItem.chemicalId || 'H2O',
+                                            volume: remoteItem.volume || 0,
+                                            color: chem?.color || '#ffffff',
+                                            temperature: remoteItem.temperature || 25
+                                        } : null
+                                    };
                                     changed = true;
                                 }
                             } else {
                                 // Add new container from remote
-                                const isBeaker = id.startsWith('beaker-');
-                                const isFlask = id.startsWith('flask-');
                                 const chemId = remoteItem.chemicalId || 'H2O';
                                 const chem = CHEMICALS[chemId];
 
                                 next.push({
                                     id,
                                     position: remotePos,
-                                    contents: (isBeaker || isFlask) ? null : {
+                                    contents: remoteItem.volume > 0 ? {
                                         chemicalId: chemId,
-                                        volume: 1.0,
+                                        volume: remoteItem.volume || 0,
                                         color: chem?.color || '#ffffff',
-                                        temperature: 25
-                                    }
+                                        temperature: remoteItem.temperature || 25
+                                    } : null
                                 });
                                 changed = true;
                             }
@@ -2063,7 +2070,13 @@ export default function App() {
         setContainers(prev => {
             const container = prev.find(c => c.id === id);
             if (container && role === 'Lead Chemist') {
-                updateItemPosition(id, container.contents?.chemicalId || 'H2O', position);
+                updateItemState(
+                    id,
+                    container.contents?.chemicalId || 'H2O',
+                    position,
+                    container.contents?.volume || 0,
+                    container.contents?.temperature || 25
+                );
             }
             return prev.map(c => c.id === id ? { ...c, position } : c);
         });
@@ -2097,25 +2110,52 @@ export default function App() {
         setContainers(prev => {
             const isReactionProduct = !!mixResult.reaction;
             const newTemp = mixResult.reaction?.temperature || targetTemp;
+            let morphTargetId = targetId;
+
             const nextContainers = prev.map(c => {
                 if (c.id === sourceId && !isSourceItem) {
                     const newVol = Math.max(0, c.contents!.volume - amountToPour);
-                    return { ...c, contents: newVol < 0.05 ? null : { ...c.contents!, volume: newVol } };
+                    const contents = newVol < 0.05 ? null : { ...c.contents!, volume: newVol };
+                    if (role === 'Lead Chemist') {
+                        if (contents) updateItemState(c.id, contents.chemicalId, c.position, contents.volume, contents.temperature || 25);
+                        else if (!c.id.startsWith('beaker-') && !c.id.startsWith('flask-')) removeItem(c.id);
+                        else updateItemState(c.id, 'H2O', c.position, 0, 25);
+                    }
+                    return { ...c, contents };
                 }
                 if (c.id === targetId) {
                      if (mixResult.resultId === 'H2O' && targetChemId !== 'H2O' && sourceChem.type === 'gas' && CHEMICALS[targetChemId].type === 'gas') {
                          // Container Morphing for H2 + O2 -> H2O
-                         return { id: `beaker-${Date.now()}`, position: c.position, contents: { chemicalId: 'H2O', volume: 0.5, color: '#06b6d4', temperature: newTemp } };
+                         const newId = `beaker-${Date.now()}`;
+                         morphTargetId = newId;
+                         if (role === 'Lead Chemist') {
+                            removeItem(targetId);
+                            updateItemState(newId, 'H2O', c.position, 0.5, newTemp);
+                         }
+                         return { id: newId, position: c.position, contents: { chemicalId: 'H2O', volume: 0.5, color: '#06b6d4', temperature: newTemp } };
                      }
-                     return { ...c, contents: { chemicalId: mixResult.resultId, volume: Math.min(1.0, targetVol + amountToPour), color: mixResult.resultColor, temperature: isReactionProduct ? newTemp : targetTemp } };
+                     const contents = { chemicalId: mixResult.resultId, volume: Math.min(1.0, targetVol + amountToPour), color: mixResult.resultColor, temperature: isReactionProduct ? newTemp : targetTemp };
+                     if (role === 'Lead Chemist') {
+                         updateItemState(c.id, contents.chemicalId, c.position, contents.volume, contents.temperature || 25);
+                     }
+                     return { ...c, contents };
                 }
                 return c;
             });
             return nextContainers.filter(c => {
                  if (c.id === sourceId) {
-                     if (isReactionProduct) return false;
-                     if (mixResult.resultId === 'H2O' && sourceChem.type === 'gas' && CHEMICALS[targetChemId]?.type === 'gas') return false;
-                     if (!isSourceItem && c.contents === null) return false;
+                     if (isReactionProduct) {
+                         if (role === 'Lead Chemist') removeItem(sourceId);
+                         return false;
+                     }
+                     if (mixResult.resultId === 'H2O' && sourceChem.type === 'gas' && CHEMICALS[targetChemId]?.type === 'gas') {
+                         if (role === 'Lead Chemist') removeItem(sourceId);
+                         return false;
+                     }
+                     if (!isSourceItem && c.contents === null && !c.id.startsWith('beaker-') && !c.id.startsWith('flask-')) {
+                         if (role === 'Lead Chemist') removeItem(sourceId);
+                         return false;
+                     }
                  }
                  return true;
             });
@@ -2178,10 +2218,20 @@ export default function App() {
             attempts++;
         }
 
+        if (role === 'Lead Chemist') {
+            updateItemState(newId, isContainer ? 'H2O' : chemId, [x, y, z], isContainer ? 0 : 1.0, 25);
+        }
+
         setContainers(prev => [...prev, { id: newId, position: [x, y, z], initialPosition: isContainer ? undefined : [x, y, z], contents: isContainer ? null : { chemicalId: chemId, volume: 1.0, color: chem!.color, temperature: 25 } }]);
     };
 
     const handleReset = () => {
+        if (role === 'Lead Chemist') {
+            containers.forEach(c => removeItem(c.id));
+            initialContainers.forEach(c => {
+                updateItemState(c.id, c.contents?.chemicalId || 'H2O', c.position, c.contents?.volume || 0, c.contents?.temperature || 25);
+            });
+        }
         setContainers(initialContainers);
         setLastReaction(null);
         setLastEffect(null);
