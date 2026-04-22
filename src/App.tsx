@@ -10,6 +10,7 @@ import PeriodicTableModal from './components/PeriodicTableModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
 import { OFFLINE_DATABANK } from './data/offlineKnowledge';
+import { updateItemPosition, onItemsUpdate } from './services/firebaseSync';
 
 // -----------------------------------------------------------------------------
 // 1. TYPES & INTERFACES
@@ -327,6 +328,8 @@ const createLiquidMaterial = (color: THREE.ColorRepresentation, clipPlane?: THRE
         side: THREE.DoubleSide,
         roughness: 0.2,
         metalness: 0.0,
+        emissive: 0x000000,
+        emissiveIntensity: 0,
         clippingPlanes: clipPlane ? [clipPlane] : [],
     });
 };
@@ -887,7 +890,8 @@ const LabScene: React.FC<{
     onPour: (sourceId: string, targetId: string) => void;
     onMicroscopeUpdate?: (chemId: string | null) => void;
     onAnalyzerUpdate?: (chemId: string | null) => void;
-}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, onMicroscopeUpdate, onAnalyzerUpdate }) => {
+    role: 'Lead Chemist' | 'Observer';
+}> = ({ heaterTemp, containers, lastEffect, lastEffectPos, onMove, onPour, onMicroscopeUpdate, onAnalyzerUpdate, role }) => {
 
     const mountRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<THREE.Scene | null>(null);
@@ -1042,10 +1046,10 @@ const LabScene: React.FC<{
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
-        // BLOOM ADJUSTMENT: Strength 0.6, Radius 0.2, Threshold 0.85
+        // BLOOM ADJUSTMENT: Strength 0.6, Radius 0.2, Threshold 0.9
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
-            0.6, 0.2, 0.85
+            0.6, 0.2, 0.9
         );
         composer.addPass(bloomPass);
         composerRef.current = composer;
@@ -1109,7 +1113,7 @@ const LabScene: React.FC<{
         };
 
         const onPointerDown = () => {
-            if (!cameraRef.current) return;
+            if (!cameraRef.current || role === 'Observer') return;
             raycaster.current.setFromCamera(pointer.current, cameraRef.current);
             const intersects = raycaster.current.intersectObjects(Array.from(meshesRef.current.values()), true);
             if (intersects.length > 0) {
@@ -1375,16 +1379,16 @@ const LabScene: React.FC<{
 
                     } else if (chem.meshStyle === 'rock') {
                         // High-poly rock
-                        mesh = new THREE.Mesh(createRockGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true }));
+                        mesh = new THREE.Mesh(createRockGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0.4, flatShading: true, emissive: 0x000000, emissiveIntensity: 0 }));
                     } else if (chem.meshStyle === 'crystal') {
                         // Complex crystal
-                        mesh = new THREE.Mesh(createCrystalGeometry(), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true }));
+                        mesh = new THREE.Mesh(createCrystalGeometry(), new THREE.MeshPhysicalMaterial({ color, transmission: 0.4, roughness: 0.1, metalness: 0.1, flatShading: true, emissive: 0x000000, emissiveIntensity: 0 }));
                     } else if (chem.meshStyle === 'mound') {
-                        mesh = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 1.0 }));
+                        mesh = new THREE.Mesh(createMoundGeometry(), new THREE.MeshStandardMaterial({ color, roughness: 1.0, emissive: 0x000000, emissiveIntensity: 0 }));
                     } else if (chem.meshStyle === 'ingot') {
-                        mesh = new THREE.Mesh(createIngotGeometry(), new THREE.MeshStandardMaterial({ color, metalness: 0.9, roughness: 0.2 }));
+                        mesh = new THREE.Mesh(createIngotGeometry(), new THREE.MeshStandardMaterial({ color, metalness: 0.9, roughness: 0.2, emissive: 0x000000, emissiveIntensity: 0 }));
                     } else if (chem.meshStyle === 'canister') {
-                        mesh = new THREE.Mesh(createCanisterGeometry(), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.4 }));
+                        mesh = new THREE.Mesh(createCanisterGeometry(), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.6, roughness: 0.4, emissive: 0x000000, emissiveIntensity: 0 }));
                         // Color Band
                         const band = new THREE.Mesh(new THREE.CylinderGeometry(0.305, 0.305, 0.1, 64), new THREE.MeshBasicMaterial({ color }));
                         band.position.y = 0.5;
@@ -1687,7 +1691,9 @@ const LabUI: React.FC<{
     avatarState: 'normal' | 'shocked';
     lang: 'EN' | 'VN';
     isOnline: boolean;
-}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, microscopeChem, completedQuests, onQuestProgress, isOnline }) => {
+    role: 'Lead Chemist' | 'Observer';
+    setRole: (role: 'Lead Chemist' | 'Observer') => void;
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, microscopeChem, completedQuests, onQuestProgress, isOnline, role, setRole }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1730,9 +1736,14 @@ const LabUI: React.FC<{
                         </span>
                     </div>
                     <div className="flex gap-2 mt-4 w-full">
-                         <button className="flex-1 border border-blue-500/30 text-blue-400 bg-blue-950/20 rounded-lg px-4 py-2 text-xs font-bold hover:bg-blue-500/20 transition-colors shadow-inner flex items-center justify-center gap-2">
-                             💎 AAA
-                         </button>
+                        <select
+                            value={role}
+                            onChange={(e) => setRole(e.target.value as 'Lead Chemist' | 'Observer')}
+                            className="flex-1 bg-slate-800 border border-slate-700 text-slate-200 text-[10px] font-bold rounded-lg px-2 py-2 outline-none focus:border-cyan-500/50"
+                        >
+                            <option value="Lead Chemist">{lang === 'VN' ? 'TRƯỞNG NHÓM' : 'LEAD CHEMIST'}</option>
+                            <option value="Observer">{lang === 'VN' ? 'QUAN SÁT VIÊN' : 'OBSERVER'}</option>
+                        </select>
                          <button onClick={() => setIsSettingsOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg w-10 h-10 flex items-center justify-center transition-colors border border-slate-600 shadow-sm shrink-0">
                              ⚙️
                          </button>
@@ -1890,6 +1901,7 @@ export default function App() {
     const [lastEffectPos, setLastEffectPos] = useState<[number, number, number] | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [role, setRole] = useState<'Lead Chemist' | 'Observer'>('Lead Chemist');
 
     // MODULE 2: Lifted Heater State
     const [heaterTemp, setHeaterTemp] = useState(300);
@@ -1984,6 +1996,60 @@ export default function App() {
         };
     }, []);
 
+    useEffect(() => {
+        if (role === 'Observer') {
+            const unsubscribe = onItemsUpdate((items) => {
+                if (items) {
+                    setContainers(prev => {
+                        const next = [...prev];
+                        let changed = false;
+
+                        // Sync existing and add new ones
+                        Object.keys(items).forEach(id => {
+                            const remoteItem = items[id];
+                            const index = next.findIndex(c => c.id === id);
+
+                            const remotePos: [number, number, number] = [remoteItem.position.x, remoteItem.position.y, remoteItem.position.z];
+
+                            if (index !== -1) {
+                                const localItem = next[index];
+                                if (
+                                    localItem.position[0] !== remotePos[0] ||
+                                    localItem.position[1] !== remotePos[1] ||
+                                    localItem.position[2] !== remotePos[2]
+                                ) {
+                                    next[index] = { ...localItem, position: remotePos };
+                                    changed = true;
+                                }
+                            } else {
+                                // Add new container from remote
+                                const isBeaker = id.startsWith('beaker-');
+                                const isFlask = id.startsWith('flask-');
+                                const chemId = remoteItem.chemicalId || 'H2O';
+                                const chem = CHEMICALS[chemId];
+
+                                next.push({
+                                    id,
+                                    position: remotePos,
+                                    contents: (isBeaker || isFlask) ? null : {
+                                        chemicalId: chemId,
+                                        volume: 1.0,
+                                        color: chem?.color || '#ffffff',
+                                        temperature: 25
+                                    }
+                                });
+                                changed = true;
+                            }
+                        });
+
+                        return changed ? next : prev;
+                    });
+                }
+            });
+            return () => unsubscribe();
+        }
+    }, [role]);
+
     // MODULE 2: Reaction-based Avatar State
     useEffect(() => {
         if (lastEffect === 'explosion' || lastEffect === 'smoke') {
@@ -1994,8 +2060,14 @@ export default function App() {
     }, [lastEffect]);
 
     const handleMoveContainer = useCallback((id: string, position: [number, number, number]) => {
-        setContainers(prev => prev.map(c => c.id === id ? { ...c, position } : c));
-    }, []);
+        setContainers(prev => {
+            const container = prev.find(c => c.id === id);
+            if (container && role === 'Lead Chemist') {
+                updateItemPosition(id, container.contents?.chemicalId || 'H2O', position);
+            }
+            return prev.map(c => c.id === id ? { ...c, position } : c);
+        });
+    }, [role]);
 
     const handleChat = async (message: string) => {
         if (!aiServiceRef.current) return;
@@ -2133,6 +2205,7 @@ export default function App() {
                 onPour={handlePour}
                 onMicroscopeUpdate={(chem) => { setMicroscopeChem(chem); }}
                 onAnalyzerUpdate={(chem) => { if (chem) completeQuest(1); }}
+                role={role}
             />
             <LabUI
                 lastReaction={lastReaction}
@@ -2152,6 +2225,8 @@ export default function App() {
                 completedQuests={completedQuests}
                 onQuestProgress={completeQuest}
                 isOnline={isOnline}
+                role={role}
+                setRole={setRole}
             />
         </div>
     );
