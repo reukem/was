@@ -9,6 +9,7 @@ import SettingsModal from './components/SettingsModal';
 import PeriodicTableModal from './components/PeriodicTableModal';
 import ReactMarkdown from 'react-markdown';
 import { AudioService } from './services/AudioService';
+import { OFFLINE_DATABANK } from './data/offlineKnowledge';
 
 // -----------------------------------------------------------------------------
 // 1. TYPES & INTERFACES
@@ -715,6 +716,65 @@ class GeminiService {
         }
     }
 
+    private getOfflineResponse(input: string): string {
+        const lowerInput = input.toLowerCase();
+
+        // Find match based on keywords
+        const match = OFFLINE_DATABANK.find(entry =>
+            entry.keywords.length > 0 && entry.keywords.some(kw => lowerInput.includes(kw))
+        );
+
+        if (match) return match.response[this.lang];
+
+        // Fallback to catch-all entry (entry with empty keywords)
+        const catchAll = OFFLINE_DATABANK.find(entry => entry.keywords.length === 0);
+        if (catchAll) return catchAll.response[this.lang];
+
+        // Absolute hardcoded fallback if all else fails
+        return this.lang === 'VN'
+            ? "Hệ thống đang ngoại tuyến. Hãy tiếp tục thí nghiệm nhé! 🦊"
+            : "System is offline. Keep experimenting! 🦊";
+    }
+
+    private async callOllama(message: string): Promise<string> {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        try {
+            const response = await fetch('http://localhost:11434/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: 'llama3',
+                    prompt: `You are Professor Lucy, a chemistry assistant. Answer briefly in ${this.lang === 'VN' ? 'Vietnamese' : 'English'}: ${message}`,
+                    stream: false
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (!response.ok) throw new Error("Ollama error");
+            const data = await response.json();
+            return data.response;
+        } catch (e) {
+            clearTimeout(timeoutId);
+            throw e;
+        }
+    }
+
+    private async handleOfflineChat(message: string): Promise<string> {
+        try {
+            const ollamaReply = await this.callOllama(message);
+            this.history.push({ role: "model", text: ollamaReply });
+            this.notifyUpdate();
+            return ollamaReply;
+        } catch (e) {
+            const offlineReply = this.getOfflineResponse(message);
+            this.history.push({ role: "model", text: offlineReply });
+            this.notifyUpdate();
+            return offlineReply;
+        }
+    }
+
     updateApiKey(key: string) {
         this.apiKey = key;
         localStorage.setItem('gemini_api_key', key);
@@ -743,21 +803,19 @@ class GeminiService {
         this.history.push({ role: "user", text: message });
         this.notifyUpdate();
 
+        if (!navigator.onLine) {
+            return await this.handleOfflineChat(message);
+        }
+
         if (this.apiKey) {
             try {
                 return await this.callGeminiAPI(message);
             } catch (error: any) {
                 console.error("Gemini API Error:", error);
-                const errorMsg = `Oh no! 3: API Failed! Reason: ${error.message || "Unknown Error"}`;
-                this.history.push({ role: "model", text: errorMsg });
-                this.notifyUpdate();
-                return errorMsg;
+                return await this.handleOfflineChat(message);
             }
         } else {
-            const fallbackMsg = "Oh no! 3: My connection to the Neural Core is severed or my API key is invalid! Please check the Settings configuration! ^^";
-            this.history.push({ role: "model", text: fallbackMsg });
-            this.notifyUpdate();
-            return fallbackMsg;
+            return await this.handleOfflineChat(message);
         }
     }
 
@@ -1487,7 +1545,8 @@ const HolographicAvatar: React.FC<{
     onSubmit: (e: React.FormEvent) => void;
     avatarState: 'normal' | 'shocked';
     lang: 'EN' | 'VN';
-}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState, lang }) => {
+    isOnline: boolean;
+}> = ({ isExpanded, setIsExpanded, chatHistory, isAiLoading, chatInput, setChatInput, onSubmit, avatarState, lang, isOnline }) => {
     const chatEndRef = useRef<HTMLDivElement>(null);
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, isExpanded]);
 
@@ -1503,8 +1562,10 @@ const HolographicAvatar: React.FC<{
                      <div>
                          <h3 className="text-base font-bold text-white tracking-wide">{lang === 'VN' ? 'Liên Lạc - GIÁO SƯ LUCY' : 'Commlink - PROF. LUCY'}</h3>
                          <div className="flex items-center gap-1.5 mt-0.5">
-                             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-                             <span className="text-[10px] text-emerald-400 font-bold tracking-wider">ONLINE</span>
+                             <span className={`w-1.5 h-1.5 ${isOnline ? 'bg-emerald-400' : 'bg-orange-500'} rounded-full animate-pulse`}></span>
+                             <span className={`text-[10px] ${isOnline ? 'text-emerald-400' : 'text-orange-500'} font-bold tracking-wider uppercase`}>
+                                 {isOnline ? (lang === 'VN' ? 'TRỰC TUYẾN' : 'ONLINE') : (lang === 'VN' ? 'NGOẠI TUYẾN' : 'OFFLINE CORE')}
+                             </span>
                          </div>
                      </div>
                  </div>
@@ -1625,7 +1686,8 @@ const LabUI: React.FC<{
     setHeaterTemp: (val: number) => void;
     avatarState: 'normal' | 'shocked';
     lang: 'EN' | 'VN';
-}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, microscopeChem, completedQuests, onQuestProgress }) => {
+    isOnline: boolean;
+}> = ({ lastReaction, lastEffect, containers, chatHistory, isAiLoading, onSpawn, onReset, onChat, heaterTemp, setHeaterTemp, avatarState, lang, microscopeChem, completedQuests, onQuestProgress, isOnline }) => {
     const [chatInput, setChatInput] = useState("");
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -1662,8 +1724,10 @@ const LabUI: React.FC<{
                         CHEMIC-AI
                     </h1>
                     <div className="flex items-center gap-2 mt-2">
-                        <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full"></span>
-                        <span className="text-[10px] tracking-[0.2em] text-slate-300 font-bold">QUANTUM REALITY ENGINE</span>
+                        <span className={`w-2.5 h-2.5 ${isOnline ? 'bg-emerald-500' : 'bg-orange-500'} rounded-full shadow-[0_0_8px_rgba(249,115,22,0.4)]`}></span>
+                        <span className="text-[10px] tracking-[0.2em] text-slate-300 font-bold uppercase">
+                            {isOnline ? 'QUANTUM REALITY ENGINE' : 'LOCAL OFFLINE CORE'}
+                        </span>
                     </div>
                     <div className="flex gap-2 mt-4 w-full">
                          <button className="flex-1 border border-blue-500/30 text-blue-400 bg-blue-950/20 rounded-lg px-4 py-2 text-xs font-bold hover:bg-blue-500/20 transition-colors shadow-inner flex items-center justify-center gap-2">
@@ -1788,9 +1852,14 @@ const LabUI: React.FC<{
             {/* Bottom Status Bar */}
             <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 pointer-events-auto flex items-center justify-center">
                 <div className="bg-slate-800/90 backdrop-blur-lg border border-slate-600/50 rounded-full px-6 py-2.5 flex items-center justify-center gap-6 text-xs font-bold tracking-[0.2em] text-slate-400 shadow-xl whitespace-nowrap overflow-hidden max-w-[90vw]" style={{ fontFamily: "Inter, sans-serif" }}>
-                    <span className="flex items-center gap-2 shrink-0"><span className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>[SYSTEM: ONLINE]</span>
+                    <span className="flex items-center gap-2 shrink-0">
+                        <span className={`w-2 h-2 ${isOnline ? 'bg-emerald-500' : 'bg-orange-500'} rounded-full shadow-[0_0_8px_${isOnline ? 'rgba(16,185,129,0.8)' : 'rgba(249,115,22,0.8)'}]`}></span>
+                        [SYSTEM: {isOnline ? 'ONLINE' : 'OFFLINE'}]
+                    </span>
                     <span className="opacity-20 shrink-0">|</span>
-                    <span className="shrink-0 text-slate-400">[NODE: GEMINI_2.5]</span>
+                    <span className={`shrink-0 ${isOnline ? 'text-slate-400' : 'text-orange-400 font-black'}`}>
+                        [NODE: {isOnline ? 'GEMINI_2.5' : 'LOCAL_CORE'}]
+                    </span>
                 </div>
             </div>
 
@@ -1804,6 +1873,7 @@ const LabUI: React.FC<{
                 onSubmit={handleSubmit}
                 avatarState={avatarState}
                 lang={lang}
+                isOnline={isOnline}
             />
         </div>
     );
@@ -1819,6 +1889,7 @@ export default function App() {
     const reactionTimeoutRef = useRef<number | null>(null);
     const [lastEffectPos, setLastEffectPos] = useState<[number, number, number] | null>(null);
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     // MODULE 2: Lifted Heater State
     const [heaterTemp, setHeaterTemp] = useState(300);
@@ -1867,6 +1938,11 @@ export default function App() {
     }, [containers]);
 
     useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
         const service = new GeminiService();
         const isMuted = localStorage.getItem('lucy_is_muted') === 'true';
         const lang = (localStorage.getItem('lucy_lang') as 'EN' | 'VN') || 'VN';
@@ -1901,6 +1977,8 @@ export default function App() {
         setChatHistory([...service['history'].map(h => ({ role: h.role, text: h.text }))]);
 
         return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
             if (reactionTimeoutRef.current) window.clearTimeout(reactionTimeoutRef.current);
             // window.speechSynthesis?.cancel(); // cleanup speech (deprecated)
         };
@@ -2073,6 +2151,7 @@ export default function App() {
                 microscopeChem={microscopeChem}
                 completedQuests={completedQuests}
                 onQuestProgress={completeQuest}
+                isOnline={isOnline}
             />
         </div>
     );
