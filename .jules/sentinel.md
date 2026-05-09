@@ -1,0 +1,4 @@
+## 2026-05-09 - [CRITICAL] Prevented Secret Injection via Vite Define
+**Vulnerability:** The `vite.config.ts` was using the `define` property to globally replace `process.env.GEMINI_API_KEY` with the actual value from the `.env` file during the build process (`JSON.stringify(env.GEMINI_API_KEY)`).
+**Learning:** In a Bring Your Own Key (BYOK) architecture, API keys must remain strictly client-side via user input (e.g., `localStorage`). Injecting secrets via Vite's `define` bakes the developer's server-side environment variables directly into the static frontend bundle (e.g., `dist/assets/index.js`), exposing the host's raw API key to anyone who downloads the app bundle or views the source.
+**Prevention:** Never use Vite's `define` to pass sensitive API keys. Use `import.meta.env` for safe, public variables (like Firebase config or public URLs), but rely exclusively on secure runtime state management (e.g., React Context, LocalStorage) for BYOK sensitive keys.
