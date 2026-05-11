@@ -1598,6 +1598,7 @@ const HolographicAvatar: React.FC<{
                      <div className="relative flex items-center">
                          <textarea
                              value={chatInput}
+                             maxLength={500}
                              onChange={(e) => {
                                  setChatInput(e.target.value);
                                  e.target.style.height = 'auto';
