@@ -1597,6 +1597,7 @@ const HolographicAvatar: React.FC<{
                  <form onSubmit={onSubmit} className="p-3 bg-slate-900/50 border-t border-white/5">
                      <div className="relative flex items-center">
                          <textarea
+                             maxLength={500}
                              value={chatInput}
                              onChange={(e) => {
                                  setChatInput(e.target.value);
