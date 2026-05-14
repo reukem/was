@@ -1610,6 +1610,7 @@ const HolographicAvatar: React.FC<{
                                  }
                              }}
                              placeholder={lang === 'VN' ? 'Nhập dữ liệu...' : 'Enter query...'}
+                             maxLength={1000}
                              className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-2.5 pl-4 pr-10 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 placeholder-slate-600 shadow-inner resize-none min-h-[40px] max-h-[120px] custom-scrollbar"
                              rows={1}
                          />

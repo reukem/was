@@ -1,0 +1,4 @@
+## 2024-05-14 - Prevent Client-Side DoS via Missing Input Limits
+**Vulnerability:** User inputs (`textarea` for chat, `input` for API keys) lacked `maxLength` constraints. This could allow users to paste massively long strings, leading to client-side Denial of Service (DoS) through excessive rendering, huge payloads in API requests (like Gemini or TTS calls), and potentially filling local storage to its limit.
+**Learning:** React state (`value` binds) and local storage can be strained if inputs aren't bounded. External APIs often have size limits, but missing client limits can exhaust memory first.
+**Prevention:** Always apply `maxLength` attributes to `<input>` and `<textarea>` elements, particularly those handling freeform text or sensitive tokens, to enforce reasonable bounds at the UI level.
