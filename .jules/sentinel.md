@@ -1,0 +1,4 @@
+## 2024-05-15 - Missing Input Length Limits
+**Vulnerability:** User inputs (textarea for chat, input for API keys) lacked length limits, creating a client-side DoS risk and potential for excessive API payloads.
+**Learning:** React components often omit `maxLength` on inputs by default. Without backend validation enforcing limits, the client must enforce sane bounds to prevent performance degradation or abuse of external APIs (like Gemini or ElevenLabs).
+**Prevention:** Always add `maxLength` attributes to `<input>` and `<textarea>` elements, especially those interacting with external services or handling user-generated content.
