@@ -56,6 +56,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         <div className="relative">
                             <input
                                 type="password"
+                                maxLength={200} // Security: Enforce length limit
                                 value={apiKey}
                                 onChange={(e) => setApiKey(e.target.value)}
                                 placeholder="AIzaSy..."
@@ -83,6 +84,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                         <div className="relative">
                             <input
                                 type="password"
+                                maxLength={200} // Security: Enforce length limit
                                 value={elevenLabsKey}
                                 onChange={(e) => setElevenLabsKey(e.target.value)}
                                 placeholder="sk_..."

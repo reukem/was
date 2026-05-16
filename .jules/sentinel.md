@@ -1,0 +1,4 @@
+## 2024-03-24 - [Enforce input length limits]
+**Vulnerability:** User inputs (e.g., chat textarea, API key inputs) lacked length limits, which could lead to client-side Denial of Service (DoS) and excessive API payloads.
+**Learning:** React components using uncontrolled or controlled inputs without `maxLength` restrictions are vulnerable to malicious users pasting extremely large strings, potentially crashing the browser or sending massive payloads to backend services.
+**Prevention:** Always add a `maxLength` attribute to `<textarea>` and `<input>` elements that accept user text to enforce a reasonable upper bound and mitigate these risks.

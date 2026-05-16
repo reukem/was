@@ -1598,6 +1598,7 @@ const HolographicAvatar: React.FC<{
                      <div className="relative flex items-center">
                          <textarea
                              value={chatInput}
+                             maxLength={1000} // Security: Mitigate client-side DoS and huge payloads
                              onChange={(e) => {
                                  setChatInput(e.target.value);
                                  e.target.style.height = 'auto';
